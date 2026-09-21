@@ -1,0 +1,33 @@
+/* DRY ICE — design tokens
+   Figma 파일의 'DRY ICE' 변수 컬렉션과 1:1 대응한다. 값을 바꿀 땐 양쪽 다 바꿀 것. */
+
+:root {
+  /* color */
+  --bg: #0b0d0e;          /* 검정에 가까운 차콜 공간 */
+  --surface: #151819;     /* 선택 영역과 깊이 구분 */
+  --surface-2: #1c2022;
+  --text: #f1f2ef;        /* 완전한 흰색보다 부드러운 본문 */
+  --muted: #8c969a;       /* 메타데이터와 상태값 */
+  --frost: #afc2c8;       /* 아주 제한적인 회청색 포인트 */
+  --line: #2a2f31;        /* 보일 듯 말 듯한 좌표와 정렬 */
+
+  /* project color — Field 에서는 쓰지 않는다. Detail 에서만 등장. */
+  --pc-odit: #7c6cf0;
+  --pc-tchaikim: #c0442f;
+  --pc-nuri: #2f7d62;
+  --pc-walga: #b8823a;
+
+  /* type */
+  --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
+  --kr: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+  /* layout */
+  --gutter: clamp(20px, 5.5vw, 80px);
+  --nav-h: 88px;
+
+  /* motion — 프로토타입에서 찾은 값 */
+  --in: 400ms;
+  --out: 700ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}

@@ -1,0 +1,87 @@
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #07090a;
+  opacity: 1;
+  transition: opacity 680ms var(--ease), visibility 680ms;
+}
+
+.intro--leaving { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.intro__skip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.intro__crystal,
+.intro__crystal i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  width: 1px;
+  height: 1px;
+  background: var(--frost);
+  transform-origin: center top;
+}
+.intro__crystal { transition: transform 680ms var(--ease), opacity 520ms var(--ease); }
+.intro--leaving .intro__crystal {
+  transform: translate(21vw, 7vh) scale(0.12) rotate(18deg);
+  opacity: 0;
+}
+
+.intro__crystal::before,
+.intro__crystal::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  background: var(--frost);
+  transform-origin: top;
+  animation: nucleate-branch 760ms var(--ease) 300ms forwards;
+}
+.intro__crystal::before { transform: rotate(58deg); }
+.intro__crystal::after { transform: rotate(-54deg); animation-delay: 430ms; }
+
+.intro__crystal > i { animation: nucleate 920ms var(--ease) forwards; }
+.intro__crystal > i:nth-child(1) { transform: translate(-1px, -1px) rotate(0deg); }
+.intro__crystal > i:nth-child(2) { transform: translate(-1px, -1px) rotate(118deg); animation-delay: 120ms; }
+.intro__crystal > i:nth-child(3) { transform: translate(-1px, -1px) rotate(238deg); animation-delay: 220ms; }
+
+.intro__state {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 122px);
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: intro-copy 500ms var(--ease) 520ms forwards;
+  white-space: nowrap;
+}
+.intro--leaving .intro__state { opacity: 0; transition: opacity 280ms var(--ease); }
+
+@keyframes nucleate {
+  0% { height: 1px; opacity: 0; }
+  18% { opacity: 1; }
+  100% { height: min(26vh, 210px); opacity: 0.72; }
+}
+@keyframes nucleate-branch {
+  from { height: 1px; opacity: 0; }
+  to { height: min(10vh, 76px); opacity: 0.42; }
+}
+@keyframes intro-copy { to { opacity: 0.62; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro__crystal > i { height: 96px; animation: none; }
+  .intro__state { opacity: 0.62; animation: none; }
+}

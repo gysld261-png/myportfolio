@@ -1,0 +1,87 @@
+.contact {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+}
+.contact.is-open { pointer-events: auto; }
+
+.contact__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(11, 13, 14, 0.82);
+  opacity: 0;
+  cursor: default;
+  transition: opacity var(--in) var(--ease);
+}
+.contact.is-open .contact__scrim { opacity: 1; }
+
+.contact__panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(460px, 100%);
+  background: var(--bg);
+  border-left: 1px solid var(--line);
+  padding: calc(var(--nav-h) + 48px) clamp(24px, 4vw, 56px) 48px;
+  transform: translateX(100%);
+  transition: transform var(--out) var(--ease);
+  display: flex;
+  flex-direction: column;
+}
+.contact.is-open .contact__panel { transform: translateX(0); }
+
+.contact__state { margin: 0 0 28px; }
+
+.contact__title {
+  font-family: var(--kr);
+  font-weight: 500;
+  font-size: clamp(26px, 3.2vw, 38px);
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+}
+
+.contact__lead {
+  font-size: 13.5px;
+  line-height: 1.95;
+  color: var(--muted);
+  margin: 0 0 40px;
+  max-width: 30ch;
+}
+
+.contact__links { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.contact__links a {
+  display: grid;
+  grid-template-columns: 78px 1fr 20px;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 4px;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  color: var(--muted);
+  transition: color 200ms var(--ease), padding-left 200ms var(--ease);
+}
+.contact__links a:hover { color: var(--text); padding-left: 10px; }
+.contact__links em { font-style: normal; font-size: 14px; }
+.contact__go { text-align: right; opacity: 0.4; }
+.contact__links a:hover .contact__go { opacity: 1; color: var(--frost); }
+
+.contact__close {
+  margin-top: auto;
+  align-self: flex-start;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 10px 16px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color 200ms var(--ease), color 200ms var(--ease);
+}
+.contact__close:hover { border-color: var(--frost); color: var(--frost); }
+
+@media (max-width: 560px) {
+  .contact__panel { width: 100%; border-left: 0; }
+}
