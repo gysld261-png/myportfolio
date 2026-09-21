@@ -24,7 +24,7 @@
 
   /* layout */
   --gutter: clamp(20px, 5.5vw, 80px);
-  --nav-h: 88px;
+  --nav-h: 64px;
 
   /* motion — 프로토타입에서 찾은 값 */
   --in: 400ms;

@@ -91,7 +91,7 @@ export function createField(canvas, options) {
 
   const pointer = { x: -9999, y: -9999, inside: false, speed: 0, lx: 0, ly: 0, lt: 0 };
   const camera = { x: 0, y: 0 };
-  const spaceDust = Array.from({ length: 110 }, (_, i) => ({
+  const spaceDust = Array.from({ length: 84 }, (_, i) => ({
     x: ((i * 47 + 17) % 109) / 109,
     y: ((i * 71 + 29) % 113) / 113,
     z: 0.08 + (((i * 31) % 97) / 97) * 0.92,
@@ -270,8 +270,10 @@ export function createField(canvas, options) {
     const spread = 0.15 + (S.stagger / 100) * 1.25;
     const tt = now / 1000;
 
-    const cameraTargetX = spatial && pointer.inside ? pointer.x / W - 0.5 : 0;
-    const cameraTargetY = spatial && pointer.inside ? pointer.y / H - 0.5 : 0;
+    const idleCameraX = spatial ? Math.sin(tt * 0.075) * 0.035 : 0;
+    const idleCameraY = spatial ? Math.cos(tt * 0.06) * 0.024 : 0;
+    const cameraTargetX = spatial && pointer.inside ? pointer.x / W - 0.5 : idleCameraX;
+    const cameraTargetY = spatial && pointer.inside ? pointer.y / H - 0.5 : idleCameraY;
     camera.x += (cameraTargetX - camera.x) * 0.035;
     camera.y += (cameraTargetY - camera.y) * 0.035;
 
@@ -285,9 +287,9 @@ export function createField(canvas, options) {
 
       spaceDust.forEach((dust) => {
         const drift = 0.18 + dust.z * 0.82;
-        const x = dust.x * W - camera.x * 62 * drift + Math.sin(tt * 0.08 + dust.phase) * 3 * drift;
-        const y = dust.y * H - camera.y * 42 * drift + Math.cos(tt * 0.07 + dust.phase) * 2 * drift;
-        const radius = 0.28 + dust.z * 0.82;
+        const x = dust.x * W - camera.x * 92 * drift + Math.sin(tt * 0.08 + dust.phase) * 4 * drift;
+        const y = dust.y * H - camera.y * 68 * drift + Math.cos(tt * 0.07 + dust.phase) * 3 * drift;
+        const radius = 0.2 + dust.z * 1.05;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${FROST},${(0.045 + dust.z * 0.17).toFixed(3)})`;
@@ -303,12 +305,20 @@ export function createField(canvas, options) {
       const spec = item.spec;
       const depth = st.depth ?? 0.5;
       const materialAlpha = spatial ? 0.74 + depth * 0.26 : 1;
+      const detailBoost = item.detailFocus ? 1.34 : 1;
       const parallaxX = spatial ? -camera.x * (18 + depth * 54) : 0;
       const parallaxY = spatial ? -camera.y * (12 + depth * 34) + Math.sin(tt * 0.28 + idx * 1.7) * (2 + depth * 4) : 0;
+      const depthBreath = spatial
+        ? 1 + Math.sin(tt * (0.17 + depth * 0.07) + idx * 1.31) * (0.004 + depth * 0.009)
+        : 1;
+      const renderW = st.box.w * depthBreath;
+      const renderH = st.box.h * depthBreath;
       const renderBox = {
         ...st.box,
-        x: st.box.x + parallaxX,
-        y: st.box.y + parallaxY,
+        x: st.box.cx - renderW / 2 + parallaxX,
+        y: st.box.cy - renderH / 2 + parallaxY,
+        w: renderW,
+        h: renderH,
         cx: st.box.cx + parallaxX,
         cy: st.box.cy + parallaxY,
       };
@@ -361,7 +371,11 @@ export function createField(canvas, options) {
           s.p = p;
           const nv = reduced ? 0 : noise(i * 0.5 + s.poly * 7, tt) * amp * p;
           const push = p * 2;
-          pts.push([s.x + parallaxX + s.nx * (nv + push), s.y + parallaxY + s.ny * (nv + push), p]);
+          pts.push([
+            st.box.cx + (s.x - st.box.cx) * depthBreath + parallaxX + s.nx * (nv + push),
+            st.box.cy + (s.y - st.box.cy) * depthBreath + parallaxY + s.ny * (nv + push),
+            p,
+          ]);
         }
 
         // 면 — 승화할수록 옅어진다
@@ -399,8 +413,8 @@ export function createField(canvas, options) {
               renderBox.x + renderBox.w,
               renderBox.y + renderBox.h
             );
-            solid.addColorStop(0, `rgba(47,55,58,${fillA * 0.82})`);
-            solid.addColorStop(0.46, `rgba(${SURFACE},${fillA})`);
+            solid.addColorStop(0, `rgba(${item.detailFocus ? '74,86,90' : '47,55,58'},${fillA * 0.82})`);
+            solid.addColorStop(0.46, `rgba(${item.detailFocus ? '28,34,36' : SURFACE},${fillA})`);
             solid.addColorStop(1, `rgba(8,10,11,${fillA})`);
             ctx.fillStyle = solid;
             ctx.fill();
@@ -411,7 +425,7 @@ export function createField(canvas, options) {
             pts.forEach(([x, y]) => { cx += x; cy += y; });
             cx = cx / pts.length + renderBox.w * 0.035;
             cy = cy / pts.length - renderBox.h * 0.055;
-            ctx.strokeStyle = `rgba(${FROST},${(Math.max(0, 0.105 - st.t * 0.08) * materialAlpha).toFixed(3)})`;
+            ctx.strokeStyle = `rgba(${FROST},${Math.min(1, Math.max(0, 0.105 - st.t * 0.08) * materialAlpha * detailBoost).toFixed(3)})`;
             ctx.lineWidth = 0.65;
             const facetStops = [0.08, 0.31, 0.57, 0.82];
             for (let f = 0; f < facetStops.length; f += 1) {
@@ -433,7 +447,7 @@ export function createField(canvas, options) {
           const c1 = pts[(b + 1) % pts.length];
           const pp = (c0[2] + c1[2]) / 2;
           if (pp > 0.86) continue;
-          const alpha = (1 - pp * 0.95) * materialAlpha;
+          const alpha = Math.min(1, (1 - pp * 0.95) * materialAlpha * detailBoost);
           if (alpha <= 0.02) continue;
           ctx.strokeStyle = `rgba(${FROST},${alpha.toFixed(3)})`;
           ctx.beginPath();

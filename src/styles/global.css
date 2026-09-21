@@ -56,8 +56,9 @@ body {
   align-items: center;
   justify-content: space-between;
   z-index: 40;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(var(--bg) 60%, transparent);
+  border-bottom: 0;
+  background: transparent;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.78);
 }
 .nav__mark {
   font-family: var(--display);
@@ -155,9 +156,9 @@ body {
 }
 
 @media (max-width: 620px) {
-  :root { --nav-h: 72px; }
-  .nav { height: 72px; align-items: flex-start; padding-top: 18px; }
+  :root { --nav-h: 58px; }
+  .nav { height: 58px; align-items: flex-start; padding-top: 14px; }
   .nav__mark { font-size: 12px; }
-  .nav__tabs { top: 47px; gap: 20px; }
+  .nav__tabs { top: 38px; gap: 20px; }
   .nav__link, .nav__contact { font-size: 9px; }
 }

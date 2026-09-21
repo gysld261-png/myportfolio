@@ -138,8 +138,8 @@ export const HYOMIN = {
 
 /** FIELD 화면에서의 배치. 값은 캔버스 크기 대비 비율(0–1). */
 export const FIELD_LAYOUT = [
-  { id: 'odit', cx: 0.29, cy: 0.43, w: 0.265, z: 0.88 },
-  { id: 'tchaikim', cx: 0.67, cy: 0.39, w: 0.081, z: 0.46 },
-  { id: 'nuri', cx: 0.34, cy: 0.76, w: 0.092, z: 0.2 },
-  { id: 'walga', cx: 0.78, cy: 0.70, w: 0.175, z: 0.66 },
+  { id: 'odit', cx: 0.22, cy: 0.43, w: 0.235, z: 0.88 },
+  { id: 'tchaikim', cx: 0.72, cy: 0.38, w: 0.076, z: 0.46 },
+  { id: 'nuri', cx: 0.40, cy: 0.77, w: 0.086, z: 0.2 },
+  { id: 'walga', cx: 0.84, cy: 0.70, w: 0.155, z: 0.66 },
 ];

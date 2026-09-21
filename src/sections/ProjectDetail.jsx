@@ -62,7 +62,7 @@ function Block({ block }) {
 /**
  * PROJECT DETAIL — SELECTED → READ
  *
- * Field 는 왼쪽에 맥락 장치로 남고, 여기서만 프로젝트 고유 컬러가 등장한다.
+ * 탐색 Field와 분리된 전체 화면 읽기 모드다.
  * 상세 구간에서는 컨셉 효과보다 작품 읽기가 우선이다.
  */
 export default function ProjectDetail({ spec, onClose, onSwitch }) {
@@ -103,12 +103,13 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
   }, [spec]);
 
   const goSection = (id) => {
-    const el = scrollRef.current?.querySelector(`[data-section="${id}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const root = scrollRef.current;
+    const el = root?.querySelector(`[data-section="${id}"]`);
+    if (root && el) root.scrollTo({ top: el.offsetTop, behavior: 'smooth' });
   };
 
   return (
-    <aside
+    <article
       className={`detail ${spec ? 'is-open' : ''}`}
       aria-hidden={!spec}
       style={spec ? { '--pc': spec.color } : undefined}
@@ -117,6 +118,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
         <>
           <header className="detail__head">
             <div>
+              <p className="sys detail__eyebrow">SELECTED SPECIMEN / {spec.tag}</p>
               <h2 className="detail__title">{spec.no} / {spec.ko}</h2>
               <p className="sys detail__meta">{spec.role} · {spec.year}</p>
             </div>
@@ -140,32 +142,43 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
           <div className="detail__scroll" ref={scrollRef}>
             <div className="detail__pad">
-              {data.headline && <p className="detail__headline">{data.headline}</p>}
-              <p className="detail__lead">{data.summary}</p>
+              <section className="detail__intro" data-section="overview">
+                <div className="detail__plane detail__plane--intro">
+                  <p className="sys detail__observe">OBSERVATION POINT / 00</p>
+                  {data.headline && <p className="detail__headline">{data.headline}</p>}
+                  <p className="detail__lead">{data.summary}</p>
 
-              {data.meta?.length > 0 && (
-                <dl className="blk-kv detail__factsheet">
-                  {data.meta.map(([k, v], i) => (
-                    <div key={i}><dt>{k}</dt><dd>{v}</dd></div>
+                  {data.meta?.length > 0 && (
+                    <dl className="blk-kv detail__factsheet">
+                      {data.meta.map(([k, v], i) => (
+                        <div key={i}><dt>{k}</dt><dd>{v}</dd></div>
+                      ))}
+                    </dl>
+                  )}
+
+                  <p className="sys detail__swatch">
+                    <i aria-hidden="true" /> PROJECT COLOR
+                  </p>
+                  {(data.sections.overview || []).map((block, index) => (
+                    <Block key={index} block={block} />
                   ))}
-                </dl>
-              )}
+                </div>
+              </section>
 
-              <p className="sys detail__swatch">
-                <i aria-hidden="true" /> PROJECT COLOR
-              </p>
-
-              {SECTION_ORDER.map((s) => {
+              {SECTION_ORDER.filter((s) => s.id !== 'overview').map((s, sectionIndex) => {
                 const blocks = data.sections[s.id] || [];
                 return (
-                  <section key={s.id} data-section={s.id} className="detail__section">
-                    <h3 className="detail__h3">
-                      <span className="sys">{s.label}</span>
-                      <em>{s.ko}</em>
-                    </h3>
-                    {blocks.length === 0
-                      ? <p className="blk-note">작성 예정</p>
-                      : blocks.map((b, i) => <Block key={i} block={b} />)}
+                  <section key={s.id} data-section={s.id} className={`detail__section ${sectionIndex % 2 ? 'is-left' : 'is-right'}`}>
+                    <div className="detail__plane">
+                      <p className="sys detail__observe">OBSERVATION POINT / {String(sectionIndex + 1).padStart(2, '0')}</p>
+                      <h3 className="detail__h3">
+                        <span className="sys">{s.label}</span>
+                        <em>{s.ko}</em>
+                      </h3>
+                      {blocks.length === 0
+                        ? <p className="blk-note">작성 예정</p>
+                        : blocks.map((b, i) => <Block key={i} block={b} />)}
+                    </div>
                   </section>
                 );
               })}
@@ -185,6 +198,6 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
           </div>
         </>
       )}
-    </aside>
+    </article>
   );
 }
