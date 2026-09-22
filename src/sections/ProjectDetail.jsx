@@ -68,16 +68,36 @@ function Block({ block }) {
 export default function ProjectDetail({ spec, onClose, onSwitch }) {
   const scrollRef = useRef(null);
   const [current, setCurrent] = useState('overview');
-  const data = spec ? getCase(spec.id) : null;
+  const [renderSpec, setRenderSpec] = useState(spec);
+  const [revealed, setRevealed] = useState(false);
+  const data = renderSpec ? getCase(renderSpec.id) : null;
+
+  // 닫힐 때 내용을 즉시 제거하지 않는다. 정보층이 얼음 안으로 다시 흡수된 뒤 정리한다.
+  useEffect(() => {
+    let revealTimer;
+    let clearTimer;
+    if (spec) {
+      setRenderSpec(spec);
+      setRevealed(false);
+      revealTimer = window.setTimeout(() => setRevealed(true), 920);
+    } else {
+      setRevealed(false);
+      clearTimer = window.setTimeout(() => setRenderSpec(null), 760);
+    }
+    return () => {
+      window.clearTimeout(revealTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [spec]);
 
   const { prev, next } = useMemo(() => {
-    if (!spec) return { prev: null, next: null };
-    const i = SPECIMENS.findIndex((s) => s.id === spec.id);
+    if (!renderSpec) return { prev: null, next: null };
+    const i = SPECIMENS.findIndex((s) => s.id === renderSpec.id);
     return {
       prev: SPECIMENS[(i - 1 + SPECIMENS.length) % SPECIMENS.length],
       next: SPECIMENS[(i + 1) % SPECIMENS.length],
     };
-  }, [spec]);
+  }, [renderSpec]);
 
   useEffect(() => {
     if (!spec) return undefined;
@@ -110,20 +130,20 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
   return (
     <article
-      className={`detail ${spec ? 'is-open' : ''}`}
+      className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''}`}
       aria-hidden={!spec}
-      style={spec ? { '--pc': spec.color } : undefined}
+      style={renderSpec ? { '--pc': renderSpec.color } : undefined}
     >
-      {spec && data && (
+      {renderSpec && data && (
         <>
           <header className="detail__head">
             <div>
-              <p className="sys detail__eyebrow">SELECTED SPECIMEN / {spec.tag}</p>
-              <h2 className="detail__title">{spec.no} / {spec.ko}</h2>
-              <p className="sys detail__meta">{spec.role} · {spec.year}</p>
+              <p className="sys detail__eyebrow">MATERIAL REVEAL / {renderSpec.tag}</p>
+              <h2 className="detail__title">{renderSpec.no} / {renderSpec.ko}</h2>
+              <p className="sys detail__meta">{renderSpec.role} · {renderSpec.year}</p>
             </div>
-            <button type="button" className="detail__close sys" onClick={onClose} aria-label="닫기">
-              ESC ✕
+            <button type="button" className="detail__close sys" onClick={onClose} aria-label="필드로 돌아가기">
+              RE-SOLIDIFY / ESC
             </button>
           </header>
 

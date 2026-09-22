@@ -63,7 +63,7 @@ export function createField(canvas, options) {
   /**
    * spec.image 가 있으면 실루엣 폴리곤을 클립으로 써서 사진을 채운다.
    * 폴리곤은 그대로 승화하므로, 사진이 바깥 가장자리부터 깎여 들어간다.
-   * 원본은 흰색에 가까워 차콜 위에서 튀므로 로드 직후 한 번만 어둡게 굽는다.
+   * 각 표본은 imageOpacity 로 화면 안에서의 밝기를 독립적으로 맞춘다.
    */
   const imageCache = new Map();
   function getImage(src) {
@@ -78,10 +78,6 @@ export function createField(canvas, options) {
       c.height = img.naturalHeight;
       const cc = c.getContext('2d');
       cc.drawImage(img, 0, 0);
-      cc.globalCompositeOperation = 'source-atop';
-      cc.fillStyle = 'rgba(11,13,14,0.60)';
-      cc.fillRect(0, 0, c.width, c.height);
-      cc.globalCompositeOperation = 'source-over';
       entry.canvas = c;
       entry.ready = true;
     };
@@ -121,6 +117,24 @@ export function createField(canvas, options) {
     const scale = width / vw;
 
     st.box = { x: ox, y: oy, w: width, h: height, cx: cx * W, cy: cy * H };
+    if (Number.isFinite(item.fromCx) && Number.isFinite(item.fromCy) && Number.isFinite(item.fromW)) {
+      const fromDepth = item.fromZ ?? depth;
+      const fromPerspective = spatial ? 0.81 + fromDepth * 0.26 : 1;
+      const fromWidth = item.fromW * W * fromPerspective;
+      const fromHeight = (fromWidth / vw) * vh;
+      st.sourceBox = {
+        x: item.fromCx * W - fromWidth / 2,
+        y: item.fromCy * H - fromHeight / 2,
+        w: fromWidth,
+        h: fromHeight,
+        cx: item.fromCx * W,
+        cy: item.fromCy * H,
+      };
+      st.enterAt = performance.now();
+    } else {
+      st.sourceBox = null;
+      st.enterAt = 0;
+    }
     st.renderBox = st.box;
     st.depth = depth;
     st.samples = [];
@@ -304,28 +318,37 @@ export function createField(canvas, options) {
       if (!st.box) return;
       const spec = item.spec;
       const depth = st.depth ?? 0.5;
-      const materialAlpha = spatial ? 0.74 + depth * 0.26 : 1;
+      const fieldAlpha = item.dimmed ? 0.36 : 1;
+      const materialAlpha = (spatial ? 0.74 + depth * 0.26 : 1) * fieldAlpha;
       const detailBoost = item.detailFocus ? 1.34 : 1;
       const parallaxX = spatial ? -camera.x * (18 + depth * 54) : 0;
       const parallaxY = spatial ? -camera.y * (12 + depth * 34) + Math.sin(tt * 0.28 + idx * 1.7) * (2 + depth * 4) : 0;
       const depthBreath = spatial
         ? 1 + Math.sin(tt * (0.17 + depth * 0.07) + idx * 1.31) * (0.004 + depth * 0.009)
         : 1;
-      const renderW = st.box.w * depthBreath;
-      const renderH = st.box.h * depthBreath;
+      const enterRaw = st.sourceBox ? clamp01((now - st.enterAt) / 1050) : 1;
+      const enter = enterRaw * enterRaw * (3 - 2 * enterRaw);
+      const sourceScale = st.sourceBox ? st.sourceBox.w / st.box.w : 1;
+      const focusScale = sourceScale + (1 - sourceScale) * enter;
+      const focusCx = st.sourceBox ? st.sourceBox.cx + (st.box.cx - st.sourceBox.cx) * enter : st.box.cx;
+      const focusCy = st.sourceBox ? st.sourceBox.cy + (st.box.cy - st.sourceBox.cy) * enter : st.box.cy;
+      const renderW = st.box.w * depthBreath * focusScale;
+      const renderH = st.box.h * depthBreath * focusScale;
       const renderBox = {
         ...st.box,
-        x: st.box.cx - renderW / 2 + parallaxX,
-        y: st.box.cy - renderH / 2 + parallaxY,
+        x: focusCx - renderW / 2 + parallaxX,
+        y: focusCy - renderH / 2 + parallaxY,
         w: renderW,
         h: renderH,
-        cx: st.box.cx + parallaxX,
-        cy: st.box.cy + parallaxY,
+        cx: focusCx + parallaxX,
+        cy: focusCy + parallaxY,
       };
       st.renderBox = renderBox;
 
       let target = 0;
-      if (idx === focusedIndex) {
+      if (item.reveal) {
+        target = clamp01((now - st.enterAt - 180) / 920) * 0.64;
+      } else if (idx === focusedIndex) {
         target = 1;
       } else if (interactive && pointer.inside) {
         const d = Math.max(
@@ -372,8 +395,8 @@ export function createField(canvas, options) {
           const nv = reduced ? 0 : noise(i * 0.5 + s.poly * 7, tt) * amp * p;
           const push = p * 2;
           pts.push([
-            st.box.cx + (s.x - st.box.cx) * depthBreath + parallaxX + s.nx * (nv + push),
-            st.box.cy + (s.y - st.box.cy) * depthBreath + parallaxY + s.ny * (nv + push),
+            focusCx + (s.x - st.box.cx) * depthBreath * focusScale + parallaxX + s.nx * (nv + push),
+            focusCy + (s.y - st.box.cy) * depthBreath * focusScale + parallaxY + s.ny * (nv + push),
             p,
           ]);
         }
@@ -388,7 +411,8 @@ export function createField(canvas, options) {
           for (let a = 1; a < pts.length; a += 1) ctx.lineTo(pts[a][0], pts[a][1]);
           ctx.closePath();
           ctx.clip();
-          ctx.globalAlpha = Math.max(0, (0.95 - st.t * 0.4) * materialAlpha);
+          const imageOpacity = spec.imageOpacity ?? 0.84;
+          ctx.globalAlpha = Math.max(0, (imageOpacity - st.t * 0.36) * materialAlpha);
           // imageRect 는 원본에서 오브젝트가 차지하는 영역(0–1). 여백을 잘라내 실루엣과 맞춘다.
           const r = spec.imageRect || [0, 0, 1, 1];
           const iw = tex.canvas.width;
@@ -615,15 +639,15 @@ export function createField(canvas, options) {
 
     labelQueue.forEach(({ spec, box, t, depth = 0.5 }) => {
       const ly = box.y + box.h + 30;
-      ctx.font = '500 10px "IBM Plex Mono", monospace';
+      ctx.font = '500 10px "Manrope", sans-serif';
       const depthAlpha = spatial ? 0.64 + depth * 0.36 : 1;
       ctx.fillStyle = `rgba(${FROST},${(0.48 + 0.52 * t) * depthAlpha})`;
       ctx.fillText(spec.no, box.x, ly);
-      ctx.font = '500 14px "Noto Sans KR", sans-serif';
+      ctx.font = '500 14px "Pretendard Variable", "Manrope", sans-serif';
       ctx.fillStyle = `rgba(241,242,239,${(0.34 + 0.66 * t) * depthAlpha})`;
       ctx.fillText(spec.ko, box.x + 26, ly + 1);
       if (t > 0.18) {
-        ctx.font = '400 10px "IBM Plex Mono", monospace';
+        ctx.font = '400 10px "Manrope", sans-serif';
         ctx.fillStyle = `rgba(140,150,154,${((t - 0.18) / 0.82) * 0.95})`;
         ctx.fillText(`${spec.tag}  /  ${spec.role}  /  ${spec.year}`, box.x + 26, ly + 20);
       }

@@ -1,7 +1,63 @@
+/* ──────────────────────────────────────────────
+   MAIN — SUBLIMATION CHAMBER
+
+   레이어 순서 (아래 → 위)
+     1  ticks       좌표 격자
+     2  chamber     WebGL 표면 + 균열
+     5  frost       가장자리 성에
+     7  type        이름·직무·문장  ← 절대 가려지지 않는다
+     8  instrument  관찰 계기
+   ────────────────────────────────────────────── */
+
+.chamber {
+  position: absolute;
+  inset: var(--nav-h) 0 0;
+  z-index: 2;
+  overflow: hidden;
+}
+.chamber canvas { display: block; width: 100%; height: 100%; }
+.chamber--loading {
+  background:
+    radial-gradient(70% 60% at 78% 46%, rgba(175, 194, 200, 0.05), transparent 70%);
+}
+
+/* ── 성에 — 가장자리에서만 자란다. 중앙 타이포 영역은 비워 둔다. ── */
+.frost {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: calc(var(--grow, 0) * 0.85);
+  transition: opacity 900ms linear;
+}
+.frost__bloom {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(115% 85% at 50% 52%, transparent 46%, rgba(175, 194, 200, 0.07) 80%, rgba(198, 217, 223, 0.15) 100%),
+    linear-gradient(to right, rgba(175, 194, 200, 0.1), transparent 18%),
+    linear-gradient(to left, rgba(175, 194, 200, 0.1), transparent 18%),
+    linear-gradient(to top, rgba(175, 194, 200, 0.08), transparent 14%);
+  mix-blend-mode: screen;
+}
+.frost__grain {
+  position: absolute;
+  inset: -10%;
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  filter: url(#frost-grain);
+  /* 필터 입력용 단색 — feTurbulence 가 이 영역을 덮어쓴다 */
+  background: #808080;
+  -webkit-mask-image: radial-gradient(105% 80% at 50% 50%, transparent 52%, #000 96%);
+  mask-image: radial-gradient(105% 80% at 50% 50%, transparent 52%, #000 96%);
+}
+.frost__defs { position: absolute; width: 0; height: 0; }
+
+/* ── 정보층 ── */
 .main__type {
   position: absolute;
   inset: var(--nav-h) var(--gutter) 0;
-  z-index: 3;
+  z-index: 7;
   pointer-events: none;
   opacity: var(--exit-opacity, 1);
   filter: blur(var(--exit-blur, 0));
@@ -13,9 +69,9 @@
 .main__eyebrow,
 .main__role,
 .main__lead,
-.main__object-note,
+.main__hint,
 .main__scroll,
-.main .readout {
+.instrument {
   transition:
     opacity 720ms var(--ease),
     transform 860ms var(--ease);
@@ -25,34 +81,34 @@
 .app-shell--intro-active .main__eyebrow,
 .app-shell--intro-active .main__role,
 .app-shell--intro-active .main__lead,
-.app-shell--intro-active .main__object-note,
+.app-shell--intro-active .main__hint,
 .app-shell--intro-active .main__scroll,
-.app-shell--intro-active .main .readout {
+.app-shell--intro-active .instrument {
   opacity: 0;
 }
-.app-shell--intro-active .main__name { transform: translateY(28px); }
+.app-shell--intro-active .main__name { transform: translateY(26px); }
 .app-shell--intro-active .main__eyebrow,
 .app-shell--intro-active .main__role,
-.app-shell--intro-active .main__scroll { transform: translateX(-18px); }
+.app-shell--intro-active .main__scroll { transform: translateX(-16px); }
 .app-shell--intro-active .main__lead,
-.app-shell--intro-active .main .readout { transform: translateX(18px); }
-.app-shell--intro-active .main__object-note { transform: translateY(12px); }
+.app-shell--intro-active .instrument { transform: translateX(16px); }
+.app-shell--intro-active .main__hint { transform: translateY(10px); }
 
-.app-shell--intro-leaving .main__name { transition-delay: 80ms; }
-.app-shell--intro-leaving .main__eyebrow { transition-delay: 170ms; }
+.app-shell--intro-leaving .main__name { transition-delay: 60ms; }
+.app-shell--intro-leaving .main__eyebrow { transition-delay: 150ms; }
 .app-shell--intro-leaving .main__role,
-.app-shell--intro-leaving .main__lead { transition-delay: 260ms; }
-.app-shell--intro-leaving .main__object-note,
+.app-shell--intro-leaving .main__lead { transition-delay: 240ms; }
+.app-shell--intro-leaving .main__hint,
 .app-shell--intro-leaving .main__scroll,
-.app-shell--intro-leaving .main .readout { transition-delay: 360ms; }
+.app-shell--intro-leaving .instrument { transition-delay: 340ms; }
 
 .main__eyebrow {
   position: absolute;
   left: 0;
-  top: 49%;
+  top: clamp(214px, 26vh, 262px);
   margin: 0;
   color: var(--frost);
-  opacity: 0.66;
+  opacity: 0.8;
 }
 
 .main__name {
@@ -60,48 +116,124 @@
   z-index: 1;
   left: 0;
   top: clamp(18px, 3.5vh, 42px);
-  width: max-content;
+  /* width:max-content 를 쓰면 모바일에서 줄바꿈이 무시되어 이름이 잘린다 */
+  max-width: 100%;
   font-family: var(--display);
   font-weight: 700;
-  font-size: clamp(76px, 12.25vw, 196px);
+  font-size: clamp(64px, 11.6vw, 190px);
   line-height: 0.82;
   letter-spacing: -0.065em;
   margin: 0;
   color: var(--text);
-  white-space: nowrap;
   word-spacing: 0.08em;
+  /* 거대한 물질 앞이라도 이름은 읽힌다 */
+  text-shadow: 0 2px 40px rgba(6, 9, 10, 0.85);
 }
 
-.dry-ice-scene {
+.main__role {
   position: absolute;
-  inset: var(--nav-h) 0 0;
-  z-index: 2;
-  overflow: hidden;
-}
-.dry-ice-scene canvas { display: block; width: 100%; height: 100%; }
-.dry-ice-scene--loading {
-  background: radial-gradient(circle at 70% 52%, rgba(175, 194, 200, 0.055), transparent 28%);
+  left: 0;
+  bottom: 96px;
+  margin: 0;
+  line-height: 1.9;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--frost);
+  opacity: 0.92;
+  text-shadow: 0 1px 16px rgba(6, 9, 10, 0.9);
 }
 
-.main__object-note {
+.main__lead {
   position: absolute;
-  z-index: 4;
-  left: 53%;
-  top: 43%;
-  display: grid;
-  grid-template-columns: auto 44px;
-  gap: 7px 12px;
-  align-items: center;
+  right: 0;
+  bottom: 86px;
+  margin: 0;
+  max-width: 30ch;
+  color: var(--text);
+  font-size: clamp(18px, 1.6vw, 24px);
+  line-height: 1.6;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  /* 한국어는 단어 중간에서 끊지 않는다 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  text-shadow: 0 2px 26px rgba(6, 9, 10, 0.92);
+}
+
+/* ── 관찰 계기 ── */
+.instrument {
+  position: absolute;
+  z-index: 8;
+  right: var(--gutter);
+  top: clamp(228px, 29vh, 288px);
+  width: min(248px, 38vw);
   pointer-events: none;
-  opacity: 0.58;
-  mix-blend-mode: difference;
+  opacity: var(--exit-opacity, 1);
 }
-.main.is-sublimating .main__object-note,
-.main.is-sublimating .main__scroll { opacity: var(--exit-opacity); }
+.instrument::before {
+  /* 계기판은 얼음 위에 겹칠 수 있다 — 수치는 항상 읽혀야 한다 */
+  content: '';
+  position: absolute;
+  inset: -44px -48px -48px -44px;
+  background: radial-gradient(64% 58% at 54% 46%, rgba(7, 10, 11, 0.88), rgba(7, 10, 11, 0.38) 58%, transparent 88%);
+  z-index: -1;
+}
+.instrument__head {
+  margin: 0 0 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line);
+  color: var(--frost);
+  opacity: 0.88;
+}
+.instrument__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px 14px;
+  margin: 0;
+}
+.instrument__grid dt {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.instrument__grid dd {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.instrument__grid dd i { font-style: normal; opacity: 0.5; margin-left: 1px; }
+.instrument__grid .is-live dd { color: var(--frost); }
+.instrument__track {
+  height: 2px;
+  margin-top: 14px;
+  background: var(--line);
+}
+.instrument__track span {
+  display: block;
+  height: 2px;
+  background: var(--frost);
+  transition: width 320ms var(--ease);
+}
+
+.main__hint {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 44px;
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+  opacity: 0.72;
+}
 
 .main__thermal {
   position: absolute;
-  z-index: 8;
+  z-index: 9;
   left: var(--gutter);
   right: var(--gutter);
   height: 1px;
@@ -123,46 +255,11 @@
 }
 
 .main.is-sublimating .ticks { opacity: var(--ticks-opacity); }
-.main__object-note i {
-  width: 44px;
-  height: 1px;
-  background: var(--frost);
-  opacity: 0.55;
-}
-.main__object-note small {
-  grid-column: 1 / -1;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 0.16em;
-  color: var(--muted);
-}
-
-.main__role {
-  position: absolute;
-  left: 0;
-  bottom: 92px;
-  margin: 0;
-  line-height: 1.9;
-  font-size: 11px;
-  letter-spacing: 0.18em;
-}
-
-.main__lead {
-  position: absolute;
-  right: 0;
-  bottom: 82px;
-  margin: 0;
-  max-width: 27ch;
-  color: var(--text);
-  font-size: clamp(18px, 1.65vw, 25px);
-  line-height: 1.55;
-  font-weight: 300;
-  letter-spacing: -0.025em;
-  mix-blend-mode: difference;
-}
+.main.is-sublimating .main__hint { opacity: 0; }
 
 .main__scroll {
   position: absolute;
+  z-index: 8;
   left: var(--gutter);
   bottom: 42px;
   display: inline-flex;
@@ -170,9 +267,9 @@
   gap: 12px;
   background: none;
   border: 0;
-  padding: 0;
+  padding: 6px 0;
   cursor: pointer;
-  color: var(--muted);
+  color: var(--frost);
   transition: color 200ms var(--ease);
 }
 .main__scroll:hover { color: var(--text); }
@@ -184,10 +281,41 @@
   opacity: 0.7;
 }
 
+/* ── 모바일 ── */
 @media (max-width: 760px) {
-  .main__name { top: 30px; font-size: clamp(58px, 18vw, 104px); white-space: normal; line-height: 0.9; }
-  .main__eyebrow { top: 36%; }
-  .main__role { bottom: 118px; }
-  .main__lead { right: auto; left: 0; bottom: 190px; max-width: 20ch; font-size: 17px; }
-  .main__object-note { display: none; }
+  .main__name {
+    top: 26px;
+    font-size: clamp(44px, 15.5vw, 92px);
+    line-height: 0.88;
+  }
+  .main__eyebrow { top: 168px; }
+  .main__lead {
+    right: auto;
+    left: 0;
+    bottom: 232px;
+    max-width: 18ch;
+    font-size: 17px;
+  }
+  .main__role { bottom: 92px; }
+
+  /* 하단은 수직 스택으로 명확히 나눈다 — 겹침이 생기지 않도록 각 블록의 bottom 을 고정 */
+  .instrument {
+    top: auto;
+    right: var(--gutter);
+    bottom: 148px;
+    width: min(172px, 50vw);
+  }
+  .instrument::before { inset: -18px -20px -20px -20px; }
+  .instrument__head { margin-bottom: 9px; padding-bottom: 7px; font-size: 8px; letter-spacing: 0.1em; white-space: nowrap; }
+  .instrument__grid { gap: 8px 10px; }
+  .instrument__grid dd { font-size: 11px; }
+  .instrument__track { margin-top: 10px; }
+
+  .main__hint { display: none; }
+  .main__scroll { bottom: 40px; }
+}
+
+@media (max-width: 400px) {
+  .main__lead { bottom: 238px; font-size: 16px; max-width: 17ch; }
+  .instrument { bottom: 142px; }
 }

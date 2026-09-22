@@ -18,9 +18,9 @@
   --pc-walga: #b8823a;
 
   /* type */
-  --display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
-  --mono: 'IBM Plex Mono', 'SF Mono', Menlo, monospace;
-  --kr: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --display: 'Manrope', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Manrope', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
+  --kr: 'Pretendard Variable', 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 
   /* layout */
   --gutter: clamp(20px, 5.5vw, 80px);

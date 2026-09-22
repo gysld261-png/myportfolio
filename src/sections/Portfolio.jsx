@@ -25,25 +25,38 @@ export default function Portfolio() {
   const [hud, setHud] = useState({ state: 'SOLID', temp: 'LOW', tempValue: 0 });
 
   const sectionRef = useRef(null);
+  const listSceneRef = useRef(null);
   const wheelLock = useRef(0);
 
   const visibleSpecimens = SPECIMENS;
   const visibleLayout = FIELD_LAYOUT;
 
-  // 프로젝트 진입 순간에는 선택된 표본만 남긴 뒤, 전체 화면 상세로 전환한다.
+  // 선택 뒤에도 Field의 좌표는 유지한다. 선택 표본은 관찰 지점으로 접근하고
+  // 나머지 표본은 제거되지 않은 채 후경으로 물러난다.
   const fieldLayout = useMemo(() => {
     if (!selected) return visibleLayout;
-    return visibleLayout
-      .filter((layout) => layout.id === selected)
-      .map((layout) => ({
+    return visibleLayout.map((layout) => {
+      const isFocus = layout.id === selected;
+      const side = layout.cx < 0.5 ? -1 : 1;
+      return {
         ...layout,
-        cx: 0.36,
-        cy: 0.53,
-        z: 1,
-        w: Math.max(layout.w * 1.3, layout.id === 'tchaikim' ? 0.175 : 0.18),
-        ambient: true,
-        detailFocus: true,
-      }));
+        fromCx: layout.cx,
+        fromCy: layout.cy,
+        fromW: layout.w,
+        fromZ: layout.z,
+        cx: isFocus ? 0.31 : Math.max(0.06, Math.min(0.94, layout.cx + side * 0.055)),
+        cy: isFocus ? 0.53 : layout.cy + (layout.cy < 0.5 ? -0.025 : 0.025),
+        z: isFocus ? 1 : Math.max(0.08, layout.z * 0.42),
+        w: isFocus
+          ? (layout.id === 'tchaikim' ? 0.145 : Math.max(layout.w * 1.42, 0.205))
+          : layout.w * 0.72,
+        ambient: isFocus,
+        detailFocus: isFocus,
+        dimmed: !isFocus,
+        label: false,
+        reveal: isFocus,
+      };
+    });
   }, [selected, visibleLayout]);
 
   const activeSpec = visibleSpecimens[activeIndex] || visibleSpecimens[0];
@@ -72,12 +85,13 @@ export default function Portfolio() {
     const field = createField(canvasRef.current, {
       items,
       spatial: true,
+      interactive: !selected,
       onState: setHud,
       onSelect: select,
     });
     fieldRef.current = field;
     return () => { field.destroy(); fieldRef.current = null; };
-  }, [fieldLayout, mode, select]);
+  }, [fieldLayout, mode, select, selected]);
 
   useEffect(() => {
     if (mode === 'field') fieldRef.current?.setFocus(selected ? -1 : activeIndex);
@@ -94,6 +108,25 @@ export default function Portfolio() {
     wheelLock.current = now;
     moveActive(event.deltaY > 0 ? 1 : -1);
   }, [moveActive, selected]);
+
+  const handleListPointerMove = useCallback((event) => {
+    if (mode !== 'list' || !listSceneRef.current) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    listSceneRef.current.style.setProperty('--slab-ry', `${x * 7}deg`);
+    listSceneRef.current.style.setProperty('--slab-rx', `${y * -5}deg`);
+    listSceneRef.current.style.setProperty('--slab-x', `${x * 16}px`);
+    listSceneRef.current.style.setProperty('--slab-y', `${y * 12}px`);
+  }, [mode]);
+
+  const resetListPointer = useCallback(() => {
+    if (!listSceneRef.current) return;
+    listSceneRef.current.style.setProperty('--slab-ry', '0deg');
+    listSceneRef.current.style.setProperty('--slab-rx', '0deg');
+    listSceneRef.current.style.setProperty('--slab-x', '0px');
+    listSceneRef.current.style.setProperty('--slab-y', '0px');
+  }, []);
 
   useEffect(() => {
     const handleKey = (event) => {
@@ -114,7 +147,12 @@ export default function Portfolio() {
 
   return (
     <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''}`}>
-      <div className="portfolio__stage" onWheel={handleWheel}>
+      <div
+        className={`portfolio__stage portfolio__stage--${mode}`}
+        onWheel={handleWheel}
+        onPointerMove={handleListPointerMove}
+        onPointerLeave={resetListPointer}
+      >
         {mode === 'field' ? (
           <>
             <canvas ref={canvasRef} className="field-canvas" />
@@ -138,23 +176,42 @@ export default function Portfolio() {
             </ul>
           </>
         ) : (
-          <ul className="plist" style={{ '--active-index': activeIndex }}>
-            {visibleSpecimens.map((s, index) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  className={`plist__row ${index === activeIndex ? 'is-active' : ''} ${selected === s.id ? 'is-selected' : ''}`}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onFocus={() => setActiveIndex(index)}
-                  onClick={() => index === activeIndex ? select(s.id) : setActiveIndex(index)}
-                >
-                  <span className="plist__no sys">{s.no}</span>
-                  <span className="plist__name">{s.ko}</span>
-                  <span className="plist__meta sys">{s.tag} / {s.year}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div
+            ref={listSceneRef}
+            className={`plist-scene plist-scene--${activeSpec.id}`}
+            style={{ '--active-index': activeIndex }}
+          >
+            <div className="cryo-stage" aria-hidden="true">
+              <div className="cryo-slab" key={activeSpec.id}>
+                <div className="cryo-slab__depth" />
+                <div className="cryo-slab__face">
+                  <img src={activeSpec.image} alt="" />
+                </div>
+              </div>
+              <div className="cryo-stage__caption">
+                <span>{activeSpec.tag} SPECIMEN</span>
+                <span>{activeSpec.role}</span>
+              </div>
+            </div>
+
+            <ul className="plist">
+              {visibleSpecimens.map((s, index) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={`plist__row ${index === activeIndex ? 'is-active' : ''} ${selected === s.id ? 'is-selected' : ''}`}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onFocus={() => setActiveIndex(index)}
+                    onClick={() => index === activeIndex ? select(s.id) : setActiveIndex(index)}
+                  >
+                    <span className="plist__no sys">{s.no}</span>
+                    <span className="plist__name">{s.ko}</span>
+                    <span className="plist__meta sys">{s.tag} / {s.year}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
         <header className="portfolio__head">
