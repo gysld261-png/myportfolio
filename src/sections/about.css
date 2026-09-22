@@ -67,9 +67,12 @@
   font-weight: 600;
   letter-spacing: -0.035em;
 }
+/* 깊이 단계는 유지하되 네 단계 모두 WCAG AA(4.5:1)를 넘긴다.
+   배경 #0b0d0e 기준 측정값 — core 17.3:1 / solid 9.2:1 / trace 6.1:1 / residue 4.8:1
+   깊이감은 이제 불투명도만이 아니라 글자 크기가 함께 만든다. */
 .about__kw--solid { --base-color: var(--text); --alpha: 0.72; }
-.about__kw--trace { --base-color: var(--muted); --alpha: 0.5; }
-.about__kw--residue { --base-color: var(--muted); --alpha: 0.26; }
+.about__kw--trace { --base-color: var(--frost); --alpha: 0.74; }
+.about__kw--residue { --base-color: var(--frost); --alpha: 0.64; }
 
 .about__intro {
   position: absolute;
@@ -106,7 +109,9 @@
   transform: translateX(-50%);
   margin: 0;
   white-space: nowrap;
-  opacity: 0.56;
+  /* muted @ 0.56 은 2.8:1 로 사실상 안 보였다 → frost @ 0.72 = 5.9:1 */
+  color: var(--frost);
+  opacity: 0.72;
 }
 
 @keyframes about-condense {
@@ -120,7 +125,7 @@
 }
 
 @media (max-width: 760px) {
-  .about__kw { font-size: 10px !important; }
+  .about__kw { font-size: 12px !important; }
   .about__kw--core { font-size: 25px !important; }
   .about__intro > p:last-child { max-width: 30ch; }
   .about__instruction { display: none; }

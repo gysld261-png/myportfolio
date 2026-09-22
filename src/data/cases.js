@@ -1,154 +1,176 @@
 /**
  * 케이스 스터디 콘텐츠.
  *
- * 컴포넌트를 건드리지 않고 여기만 채우면 상세 페이지가 완성된다.
- * 섹션 순서는 고정이다 — Overview → Problem → Research → UX → UI → Development → Result
+ * 화면은 2열이다.
+ *   stream — 왼쪽. 이미지와 그 근거가 번갈아 흐른다. 이 페이지의 본문.
+ *   panel  — 오른쪽. 프로젝트 팩트. 스크롤하지 않고 고정된다.
  *
- * 블록 타입
- *   { type: 'p',     text }                     문단
- *   { type: 'list',  items: [] }                불릿
- *   { type: 'steps', items: [] }                번호가 의미를 갖는 순서
- *   { type: 'kv',    rows: [[label, value]] }   표
- *   { type: 'quote', text, source }             인용 · 사용자 발언
- *   { type: 'figure', src, caption }            이미지 (src 없으면 자리만)
- *   { type: 'note',  text }                     보조 설명
+ * 표(kv)를 쓰지 않는다. 라벨 위 / 값 아래로 쌓는다.
+ * 내용이 없는 블록은 넣지 않는다. 빈 섹션을 "작성 예정"으로 채우지 않는다.
+ *
+ * stream 블록 네 가지
+ *   { type:'shot',  src, label, caption, flat? }   이미지 한 장. src 를 비우면 촬영 대기 슬롯.
+ *   { type:'duo',   items:[{ src, label, caption }] }  나란히 두 장
+ *   { type:'note',  label, title, body:[문단] }    이미지 없는 근거
+ *   { type:'steps', label, title, items:[] }       순서 자체가 의미인 것
  */
-
-const TODO = (what) => ({ type: 'note', text: `작성 예정 — ${what}` });
 
 export const CASES = {
   /* ─────────────────────────────────────────────────────────
-     02 TCHAIKIM — 지금 작성 중
+     02 TCHAIKIM
      ───────────────────────────────────────────────────────── */
   tchaikim: {
-    headline: '4명이 각자 다르게 만들던 것을 하나의 시스템으로 묶다',
-    summary:
-      '한복 브랜드 차이킴의 글로벌 웹사이트를 4인 팀으로 리디자인했습니다. 저는 디자인 시스템과 개발 핸드오프를 맡아, 흩어진 결정들을 팀이 함께 쓸 수 있는 하나의 기준으로 정리했습니다.',
-    meta: [
-      ['역할', 'Design System · Handoff · Documentation'],
-      ['팀 구성', '4인'],
-      ['기간', '작성 예정'],
-      ['산출물', '타이포 토큰 v1 · 핸드오프 워크플로 · Design Log'],
-      ['리포지토리', 'gysld261-png/tchaikimm'],
+    kicker: '[2025] GLOBAL WEBSITE · 4-PERSON TEAM',
+    panel: [
+      {
+        label: 'ROLE',
+        body: 'DESIGN SYSTEM · HANDOFF · DOCUMENTATION',
+      },
+      {
+        label: 'PROJECT',
+        body: [
+          '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. ready-to-wear와 bespoke, 성격이 다른 두 서브 브랜드를 한 사이트 안에서 구분하면서도 같은 브랜드로 읽히게 만드는 것이 구조의 핵심이었습니다.',
+          '제가 맡은 범위는 디자인 시스템과 개발 핸드오프입니다. 네 명이 각자 다르게 내리던 결정을 팀이 함께 쓰는 하나의 기준으로 묶고, 그 기준이 구현까지 새지 않고 도착하도록 만드는 일이었습니다.',
+        ],
+      },
+      {
+        label: 'SKILLS & DELIVERABLES',
+        body:
+          'FIGMA, DEV MODE ANNOTATION, DESIGN TOKENS, TYPE SCALE, IA, PERSONA, HANDOFF WORKFLOW, DESIGN LOG, NETLIFY',
+      },
     ],
-    sections: {
-      overview: [
-        {
-          type: 'p',
-          text: '차이킴은 ready-to-wear와 bespoke 두 개의 서브 브랜드를 가진 한복 브랜드입니다. 해외 고객이 브랜드를 이해하고 주문까지 이어질 수 있는 영문 웹사이트를 목표로 했습니다.',
-        },
-        {
-          type: 'kv',
-          rows: [
-            ['정보 구조', 'Brand · Collection · Shop · Bespoke'],
-            ['타깃', '해외 거주 고객 — Sophie Martin, Clara Jensen 두 페르소나'],
-            ['맡은 범위', '디자인 시스템 · 핸드오프 · 문서화 인프라'],
-          ],
-        },
-      ],
-      problem: [TODO('기존 사이트의 어떤 점이 안 됐는지, 그게 누구의 문제였는지')],
-      research: [
-        { type: 'p', text: '두 명의 페르소나를 세우고 그 기준으로 정보 구조를 검증했습니다.' },
-        {
-          type: 'kv',
-          rows: [
-            ['Sophie Martin', '작성 예정 — 어떤 사람이고 무엇이 필요했나'],
-            ['Clara Jensen', '작성 예정'],
-          ],
-        },
-        TODO('무엇을 조사했고 무엇을 발견했는지'),
-      ],
-      ux: [
-        {
-          type: 'p',
-          text: '서로 다른 성격의 두 서브 브랜드를 한 사이트 안에서 구분하면서도 같은 브랜드로 읽히게 만드는 것이 구조 설계의 핵심이었습니다.',
-        },
-        TODO('IA 확정 과정과 플로우'),
-      ],
-      ui: [
-        {
-          type: 'p',
-          text: '타이포그래피 시스템을 두 가지 버전으로 만들고, 팀 표준으로 v1을 채택했습니다.',
-        },
-        {
-          type: 'kv',
-          rows: [
-            ['v1 (채택)', 'Trirong · Montserrat · Pretendard — 10 토큰 / 11 사이즈 단계'],
-            ['채택 근거', '작성 예정'],
-            ['배포', 'v1 토큰 페이지를 Netlify에 배포해 팀이 항상 같은 기준을 볼 수 있게 함'],
-          ],
-        },
-        TODO('컬러 · 그리드 · 컴포넌트 결정 근거'),
-      ],
-      development: [
-        {
-          type: 'p',
-          text: '디자인과 구현 사이에서 정보가 새는 지점을 줄이는 것이 제 역할이었습니다.',
-        },
-        {
-          type: 'steps',
-          items: [
-            'Figma Dev Mode의 annotation을 기준으로 핸드오프 워크플로를 정의했습니다.',
-            'annotation과 comment의 용도를 분리하는 운영 규칙을 만들어 결정과 논의가 섞이지 않게 했습니다.',
-            'DL(Design Log) 번호 체계를 도입해 디자인 결정과 그 근거를 추적 가능하게 남겼습니다.',
-          ],
-        },
-        TODO('도입 전에 무엇이 안 굴러갔는지, 도입 후 무엇이 달라졌는지'),
-      ],
-      result: [TODO('팀이 실제로 썼는지, 무엇이 줄거나 빨라졌는지, 무엇을 배웠는지')],
-    },
+    visit: [{ label: 'VIEW REPO', href: 'https://github.com/gysld261-png/tchaikimm' }],
+    stream: [
+      {
+        type: 'shot',
+        src: '/cases/tchaikim-home.jpg',
+        label: 'FINAL / HOME',
+        caption:
+          '첫 화면에서 두 서브 브랜드를 좌우로 나눴다. 각자의 톤은 유지하면서 같은 그리드 위에 올라간다.',
+      },
+      {
+        type: 'note',
+        label: 'STRUCTURE',
+        title: '두 개의 브랜드, 하나의 사이트',
+        body: [
+          'Brand · Collection · Shop · Bespoke 네 갈래로 정보 구조를 잡았습니다. 구매까지 바로 이어지는 ready-to-wear와, 상담부터 시작하는 bespoke는 사용자가 밟는 단계 자체가 다릅니다.',
+          '두 경로를 같은 메뉴에 섞지 않고 진입부터 갈라놓되, 브랜드를 설명하는 층은 공유하게 했습니다.',
+        ],
+      },
+      {
+        type: 'note',
+        label: 'RESEARCH',
+        title: '해외 고객 두 명을 기준으로 세웠다',
+        body: [
+          'Sophie Martin과 Clara Jensen, 두 페르소나를 정의하고 그 기준으로 정보 구조를 검증했습니다. 한복을 이미 아는 사람과 처음 보는 사람은 같은 메뉴를 다르게 읽습니다.',
+        ],
+      },
+      {
+        type: 'shot',
+        src: '',
+        flat: true,
+        label: 'TYPE SYSTEM / v1',
+        caption: 'Netlify에 배포한 타이포 토큰 페이지 — 팀이 항상 같은 기준을 보게 한 장치',
+      },
+      {
+        type: 'note',
+        label: 'TYPOGRAPHY',
+        title: '두 버전을 만들고 v1을 팀 표준으로 채택했다',
+        body: [
+          'Trirong · Montserrat · Pretendard 조합으로 10개 토큰, 11단계 사이즈 스케일을 정의했습니다.',
+          '결정을 Figma 안에만 두지 않고 토큰 페이지를 Netlify에 배포해, 팀 누구나 같은 주소에서 같은 기준을 확인할 수 있게 했습니다.',
+        ],
+      },
+      {
+        type: 'steps',
+        label: 'HANDOFF',
+        title: '결정이 구현까지 새지 않게',
+        items: [
+          'Figma Dev Mode의 annotation을 핸드오프의 기준 문서로 삼았습니다.',
+          'annotation과 comment의 용도를 분리하는 운영 규칙을 만들어, 확정된 결정과 진행 중인 논의가 한자리에 섞이지 않게 했습니다.',
+          'DL(Design Log) 번호 체계를 도입해 디자인 결정과 그 근거를 나중에도 되짚을 수 있게 남겼습니다.',
+        ],
+      },
+      {
+        type: 'duo',
+        items: [
+          { src: '', flat: true, label: 'DEV MODE', caption: 'annotation 기준 핸드오프 화면' },
+          { src: '', flat: true, label: 'DESIGN LOG', caption: 'DL 번호로 추적되는 결정 기록' },
+        ],
+      },
+    ],
   },
 
   /* ─────────────────────────────────────────────────────────
      01 ODIT — 진행 중
      ───────────────────────────────────────────────────────── */
   odit: {
-    headline: '',
-    summary: '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다.',
-    meta: [
-      ['역할', 'UX/UI + Frontend'],
-      ['기간', '2026'],
-      ['상태', '진행 중'],
+    kicker: '[2026] IN PROGRESS',
+    panel: [
+      { label: 'ROLE', body: 'UX/UI · FRONTEND' },
+      {
+        label: 'PROJECT',
+        body: [
+          '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 하나를 찾으러 들어왔다가 옆으로 새는 경험을 구조로 설계하고 있습니다.',
+        ],
+      },
     ],
-    sections: {
-      overview: [{ type: 'note', text: '프로젝트가 진행 중입니다. 완료 후 작성합니다.' }],
-      problem: [], research: [], ux: [], ui: [], development: [], result: [],
-    },
+    visit: [],
+    stream: [
+      {
+        type: 'note',
+        label: 'STATUS',
+        title: '진행 중인 프로젝트입니다',
+        body: ['설계와 구현을 함께 진행하고 있습니다. 완료되는 대로 과정을 정리해 올립니다.'],
+      },
+    ],
   },
 
   /* ─────────────────────────────────────────────────────────
      03 문화누리카드
      ───────────────────────────────────────────────────────── */
   nuri: {
-    headline: '',
-    summary: '특정 사용자의 명확한 사용성 문제를 해결한 프로젝트입니다.',
-    meta: [['역할', 'UX/UI'], ['기간', '2025']],
-    sections: {
-      overview: [TODO('개요')], problem: [], research: [], ux: [], ui: [], development: [], result: [],
-    },
+    kicker: '[2025] USABILITY REDESIGN',
+    panel: [
+      { label: 'ROLE', body: 'UX/UI' },
+      {
+        label: 'PROJECT',
+        body: ['꼭 필요한 사람에게 가장 빠른 길을 내주는 것이 목표였던 사용성 개선 프로젝트입니다.'],
+      },
+    ],
+    visit: [],
+    stream: [
+      {
+        type: 'note',
+        label: 'STATUS',
+        title: '정리 중입니다',
+        body: ['화면과 근거를 정리해 곧 채웁니다.'],
+      },
+    ],
   },
 
   /* ─────────────────────────────────────────────────────────
      04 왈가왈봇
      ───────────────────────────────────────────────────────── */
   walga: {
-    headline: '',
-    summary: 'AI 판정과 배심원 투표로 사건의 시비를 가리는 커뮤니티 서비스입니다.',
-    meta: [['역할', 'PM · UX/UI + Frontend'], ['기간', '2026']],
-    sections: {
-      overview: [TODO('개요')], problem: [], research: [], ux: [], ui: [], development: [], result: [],
-    },
+    kicker: '[2026] TEAM PROJECT · PM',
+    panel: [
+      { label: 'ROLE', body: 'PM · UX/UI · FRONTEND' },
+      {
+        label: 'PROJECT',
+        body: ['AI 판정과 배심원 투표로 사건의 시비를 가리는 커뮤니티 서비스입니다. PM으로 IA와 홈 화면 설계를 맡고 있습니다.'],
+      },
+    ],
+    visit: [],
+    stream: [
+      {
+        type: 'note',
+        label: 'STATUS',
+        title: '진행 중인 프로젝트입니다',
+        body: ['IA와 주요 화면을 설계하는 단계입니다.'],
+      },
+    ],
   },
 };
-
-export const SECTION_ORDER = [
-  { id: 'overview', label: 'OVERVIEW', ko: '개요' },
-  { id: 'problem', label: 'PROBLEM', ko: '문제' },
-  { id: 'research', label: 'RESEARCH', ko: '조사' },
-  { id: 'ux', label: 'UX', ko: '구조' },
-  { id: 'ui', label: 'UI', ko: '화면' },
-  { id: 'development', label: 'DEVELOPMENT', ko: '구현' },
-  { id: 'result', label: 'RESULT', ko: '결과' },
-];
 
 export const getCase = (id) => CASES[id] || null;

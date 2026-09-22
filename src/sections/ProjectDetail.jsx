@@ -1,85 +1,79 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SPECIMENS } from '../data/specimens';
-import { getCase, SECTION_ORDER } from '../data/cases';
+import { getCase } from '../data/cases';
 import './detail.css';
 
-/** 블록 하나를 그린다. 타입 정의는 data/cases.js 주석 참고. */
-function Block({ block }) {
+/** 이미지 한 장. src 가 비면 촬영 대기 슬롯으로 그린다. */
+function Shot({ src, label, caption, flat, half }) {
+  return (
+    <figure className={`shot ${half ? 'shot--half' : ''} ${flat ? 'is-flat' : ''} ${src ? '' : 'is-pending'}`}>
+      {label && <p className="shot__label sys">{label}</p>}
+      {src
+        ? <img src={src} alt={caption || label || ''} loading="lazy" />
+        : <span className="shot__slot sys" aria-hidden="true">CAPTURE PENDING</span>}
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
+
+function Blk({ block }) {
   switch (block.type) {
-    case 'p':
-      return <p className="blk-p">{block.text}</p>;
-    case 'list':
+    case 'shot':
+      return <Shot {...block} />;
+    case 'duo':
       return (
-        <ul className="blk-list">
-          {block.items.map((t, i) => <li key={i}>{t}</li>)}
-        </ul>
+        <div className="duo">
+          {block.items.map((it, i) => <Shot key={i} {...it} half />)}
+        </div>
+      );
+    case 'note':
+      return (
+        <section className="note">
+          {block.label && <p className="note__label sys">{block.label}</p>}
+          {block.title && <h3 className="note__title">{block.title}</h3>}
+          {block.body.map((t, i) => <p key={i} className="note__p">{t}</p>)}
+        </section>
       );
     case 'steps':
       return (
-        <ol className="blk-steps">
-          {block.items.map((t, i) => (
-            <li key={i}>
-              <span className="blk-steps__no">{String(i + 1).padStart(2, '0')}</span>
-              <span>{t}</span>
-            </li>
-          ))}
-        </ol>
+        <section className="note">
+          {block.label && <p className="note__label sys">{block.label}</p>}
+          {block.title && <h3 className="note__title">{block.title}</h3>}
+          <ol className="steps">
+            {block.items.map((t, i) => (
+              <li key={i}>
+                <span className="steps__no sys">{String(i + 1).padStart(2, '0')}</span>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
       );
-    case 'kv':
-      return (
-        <dl className="blk-kv">
-          {block.rows.map(([k, v], i) => (
-            <div key={i}>
-              <dt>{k}</dt>
-              <dd>{v}</dd>
-            </div>
-          ))}
-        </dl>
-      );
-    case 'quote':
-      return (
-        <blockquote className="blk-quote">
-          <p>{block.text}</p>
-          {block.source && <cite>{block.source}</cite>}
-        </blockquote>
-      );
-    case 'figure':
-      return (
-        <figure className="blk-figure">
-          {block.src
-            ? <img src={block.src} alt={block.caption || ''} loading="lazy" />
-            : <div className="blk-figure__empty" aria-hidden="true" />}
-          {block.caption && <figcaption>{block.caption}</figcaption>}
-        </figure>
-      );
-    case 'note':
-      return <p className="blk-note">{block.text}</p>;
     default:
       return null;
   }
 }
 
 /**
- * PROJECT DETAIL — SELECTED → READ
+ * PROJECT DETAIL
  *
- * 탐색 Field와 분리된 전체 화면 읽기 모드다.
- * 상세 구간에서는 컨셉 효과보다 작품 읽기가 우선이다.
+ * 왼쪽은 작업물이 흐르고, 오른쪽 팩트 패널은 따라붙은 채 고정된다.
+ * 읽는 구간에서는 컨셉 효과보다 작업을 보는 일이 먼저다.
  */
 export default function ProjectDetail({ spec, onClose, onSwitch }) {
   const scrollRef = useRef(null);
-  const [current, setCurrent] = useState('overview');
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
   const data = renderSpec ? getCase(renderSpec.id) : null;
 
-  // 닫힐 때 내용을 즉시 제거하지 않는다. 정보층이 얼음 안으로 다시 흡수된 뒤 정리한다.
+  // 닫힐 때 내용을 즉시 지우지 않는다. 정보층이 얼음 안으로 흡수된 뒤 정리한다.
   useEffect(() => {
     let revealTimer;
     let clearTimer;
     if (spec) {
       setRenderSpec(spec);
       setRevealed(false);
-      revealTimer = window.setTimeout(() => setRevealed(true), 920);
+      revealTimer = window.setTimeout(() => setRevealed(true), 720);
     } else {
       setRevealed(false);
       clearTimer = window.setTimeout(() => setRenderSpec(null), 760);
@@ -90,43 +84,28 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     };
   }, [spec]);
 
-  const { prev, next } = useMemo(() => {
-    if (!renderSpec) return { prev: null, next: null };
+  const next = useMemo(() => {
+    if (!renderSpec) return null;
     const i = SPECIMENS.findIndex((s) => s.id === renderSpec.id);
-    return {
-      prev: SPECIMENS[(i - 1 + SPECIMENS.length) % SPECIMENS.length],
-      next: SPECIMENS[(i + 1) % SPECIMENS.length],
-    };
+    return SPECIMENS[(i + 1) % SPECIMENS.length];
   }, [renderSpec]);
+
+  // onClose 는 부모에서 매 렌더 새로 만들어진다. Field 의 HUD 가 매 프레임 갱신되므로
+  // 이걸 의존성에 넣으면 스크롤 위치가 계속 0 으로 되돌아간다. ref 로 고정한다.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
 
   useEffect(() => {
     if (!spec) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') closeRef.current(); };
     window.addEventListener('keydown', onKey);
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-    setCurrent('overview');
     return () => window.removeEventListener('keydown', onKey);
-  }, [spec, onClose]);
-
-  // 읽고 있는 섹션을 왼쪽 목차에 반영한다
-  useEffect(() => {
-    const root = scrollRef.current;
-    if (!spec || !root) return undefined;
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => { if (e.isIntersecting) setCurrent(e.target.dataset.section); });
-      },
-      { root, rootMargin: '-45% 0px -45% 0px' }
-    );
-    root.querySelectorAll('[data-section]').forEach((el) => io.observe(el));
-    return () => io.disconnect();
   }, [spec]);
 
-  const goSection = (id) => {
-    const root = scrollRef.current;
-    const el = root?.querySelector(`[data-section="${id}"]`);
-    if (root && el) root.scrollTo({ top: el.offsetTop, behavior: 'smooth' });
-  };
+  // 프로젝트가 바뀔 때만 맨 위로 올린다
+  useEffect(() => {
+    if (spec && scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [spec?.id]);
 
   return (
     <article
@@ -136,84 +115,59 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     >
       {renderSpec && data && (
         <>
-          <header className="detail__head">
-            <div>
-              <p className="sys detail__eyebrow">MATERIAL REVEAL / {renderSpec.tag}</p>
-              <h2 className="detail__title">{renderSpec.no} / {renderSpec.ko}</h2>
-              <p className="sys detail__meta">{renderSpec.role} · {renderSpec.year}</p>
-            </div>
-            <button type="button" className="detail__close sys" onClick={onClose} aria-label="필드로 돌아가기">
-              RE-SOLIDIFY / ESC
-            </button>
-          </header>
-
-          <nav className="detail__toc" aria-label="섹션">
-            {SECTION_ORDER.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={current === s.id ? 'is-current' : ''}
-                onClick={() => goSection(s.id)}
-              >
-                {s.label}
-              </button>
-            ))}
+          <nav className="detail__pills" aria-label="상세 탐색">
+            <button type="button" onClick={onClose}>/ RETURN</button>
+            <button type="button" onClick={() => onSwitch(next.id)}>NEXT</button>
           </nav>
 
           <div className="detail__scroll" ref={scrollRef}>
-            <div className="detail__pad">
-              <section className="detail__intro" data-section="overview">
-                <div className="detail__plane detail__plane--intro">
-                  <p className="sys detail__observe">OBSERVATION POINT / 00</p>
-                  {data.headline && <p className="detail__headline">{data.headline}</p>}
-                  <p className="detail__lead">{data.summary}</p>
+            <div className="detail__grid">
+              {/* 왼쪽 — 작업물이 흐른다 */}
+              <div className="detail__stream">
+                {data.stream.map((b, i) => <Blk key={i} block={b} />)}
 
-                  {data.meta?.length > 0 && (
-                    <dl className="blk-kv detail__factsheet">
-                      {data.meta.map(([k, v], i) => (
-                        <div key={i}><dt>{k}</dt><dd>{v}</dd></div>
+                <button type="button" className="detail__next" onClick={() => onSwitch(next.id)}>
+                  <span className="sys">NEXT SPECIMEN</span>
+                  <em>{next.no} / {next.ko}</em>
+                </button>
+              </div>
+
+              {/* 가운데 — 지금 보고 있는 표본 */}
+              <div className="detail__chip" aria-hidden="true">
+                <span className="sys">{renderSpec.ko}</span>
+              </div>
+
+              {/* 오른쪽 — 팩트. 스크롤하지 않는다. */}
+              <aside className="detail__panel">
+                <h2 className="detail__title">{renderSpec.ko}</h2>
+                <p className="detail__kicker sys">{data.kicker}</p>
+
+                {data.panel.map((row, i) => (
+                  <div key={i} className="prow">
+                    <p className="prow__label sys">{row.label}</p>
+                    {Array.isArray(row.body)
+                      ? row.body.map((t, j) => <p key={j} className="prow__body">{t}</p>)
+                      : <p className="prow__body prow__body--sys">{row.body}</p>}
+                  </div>
+                ))}
+
+                {data.visit?.length > 0 && (
+                  <div className="prow">
+                    <p className="prow__label sys">VISIT</p>
+                    <p className="prow__links">
+                      {data.visit.map((v) => (
+                        <a key={v.href} className="sys" href={v.href} target="_blank" rel="noreferrer">
+                          [{v.label}]
+                        </a>
                       ))}
-                    </dl>
-                  )}
+                    </p>
+                  </div>
+                )}
 
-                  <p className="sys detail__swatch">
-                    <i aria-hidden="true" /> PROJECT COLOR
-                  </p>
-                  {(data.sections.overview || []).map((block, index) => (
-                    <Block key={index} block={block} />
-                  ))}
-                </div>
-              </section>
-
-              {SECTION_ORDER.filter((s) => s.id !== 'overview').map((s, sectionIndex) => {
-                const blocks = data.sections[s.id] || [];
-                return (
-                  <section key={s.id} data-section={s.id} className={`detail__section ${sectionIndex % 2 ? 'is-left' : 'is-right'}`}>
-                    <div className="detail__plane">
-                      <p className="sys detail__observe">OBSERVATION POINT / {String(sectionIndex + 1).padStart(2, '0')}</p>
-                      <h3 className="detail__h3">
-                        <span className="sys">{s.label}</span>
-                        <em>{s.ko}</em>
-                      </h3>
-                      {blocks.length === 0
-                        ? <p className="blk-note">작성 예정</p>
-                        : blocks.map((b, i) => <Block key={i} block={b} />)}
-                    </div>
-                  </section>
-                );
-              })}
-
-              {/* 다른 프로젝트로 전환할 때 같은 세계 안에서 선택이 바뀌는 느낌을 준다 */}
-              <nav className="detail__switch" aria-label="다른 프로젝트">
-                <button type="button" onClick={() => onSwitch(prev.id)}>
-                  <span className="sys">PREV</span>
-                  <em>{prev.no} {prev.ko}</em>
+                <button type="button" className="detail__close sys" onClick={onClose}>
+                  RE-SOLIDIFY / ESC
                 </button>
-                <button type="button" onClick={() => onSwitch(next.id)}>
-                  <span className="sys">NEXT</span>
-                  <em>{next.no} {next.ko}</em>
-                </button>
-              </nav>
+              </aside>
             </div>
           </div>
         </>

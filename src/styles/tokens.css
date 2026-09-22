@@ -19,7 +19,8 @@
 
   /* type */
   --display: 'Manrope', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
-  --mono: 'Manrope', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
+  /* 시스템 정보용 진짜 고정폭. 되돌리려면 이 한 줄만 --display 와 같게 바꾸면 된다. */
+  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   --kr: 'Pretendard Variable', 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 
   /* layout */

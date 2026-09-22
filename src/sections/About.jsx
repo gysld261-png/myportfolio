@@ -6,13 +6,15 @@ const KEYWORDS = [
   { t: 'UX/UI', kind: 'solid', x: 23, y: 29, size: 16 },
   { t: 'FRONTEND', kind: 'solid', x: 72, y: 26, size: 16 },
   { t: 'DETAIL', kind: 'solid', x: 76, y: 63, size: 16 },
-  { t: 'RESEARCH', kind: 'trace', x: 15, y: 55, size: 12 },
-  { t: 'INTERACTION', kind: 'trace', x: 61, y: 78, size: 12 },
-  { t: 'ORGANIZE', kind: 'trace', x: 39, y: 69, size: 12 },
-  { t: 'BUILD', kind: 'trace', x: 88, y: 43, size: 12 },
-  { t: 'EARLY BIRD', kind: 'residue', x: 9, y: 81, size: 10 },
-  { t: 'OLD SOUL', kind: 'residue', x: 86, y: 84, size: 10 },
-  { t: 'PERSISTENT', kind: 'residue', x: 54, y: 14, size: 10 },
+  /* x 값은 좁은 화면에서 잘리지 않도록 안쪽으로 당겼다.
+     (기존 x:9 / x:88 은 375px 에서 'EARLY BIRD', 'BUILD' 가 화면 밖으로 나갔다) */
+  { t: 'RESEARCH', kind: 'trace', x: 19, y: 55, size: 13 },
+  { t: 'INTERACTION', kind: 'trace', x: 61, y: 78, size: 13 },
+  { t: 'ORGANIZE', kind: 'trace', x: 39, y: 69, size: 13 },
+  { t: 'BUILD', kind: 'trace', x: 84, y: 43, size: 13 },
+  { t: 'EARLY BIRD', kind: 'residue', x: 18, y: 81, size: 12 },
+  { t: 'OLD SOUL', kind: 'residue', x: 80, y: 84, size: 12 },
+  { t: 'PERSISTENT', kind: 'residue', x: 54, y: 14, size: 12 },
 ];
 
 const PARTICLES = Array.from({ length: 92 }, (_, i) => ({
