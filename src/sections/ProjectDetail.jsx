@@ -1,44 +1,62 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
-import { attachSmoothScroll } from '../lib/smooth';
+import { attachSmoothScroll, attachScrollVelocity } from '../lib/smooth';
 import './detail.css';
 
 /**
  * 이미지 한 장. src 가 비면 자리만 잡는다.
- * caption 은 화면에 그리지 않는다 — alt 로만 쓴다. 왼쪽 열엔 글자가 없다.
+ * alt 는 화면에 그리지 않는다 — 이 페이지엔 캡션이 없다.
  */
-function Shot({ src, caption, flat, half, hero }) {
+function Shot({ src, alt, ratio }) {
   return (
-    <figure className={`shot ${half ? 'shot--half' : ''} ${flat ? 'is-flat' : ''} ${hero ? 'shot--hero' : ''}`}>
+    <figure className="shot" style={ratio ? { '--ratio': ratio } : undefined}>
       {src
-        ? <img src={src} alt={caption || ''} loading="lazy" />
-        : <span className="shot__slot" role="img" aria-label={caption || '준비 중인 이미지'} />}
+        ? <img src={src} alt={alt || ''} loading="lazy" />
+        : <span className="shot__slot" role="img" aria-label={alt || '준비 중인 이미지'} />}
     </figure>
   );
 }
 
-function Blk({ block, hero }) {
-  switch (block.type) {
-    case 'shot':
-      return <Shot {...block} hero={hero} />;
-    case 'duo':
-      return (
-        <div className="duo">
-          {block.items.map((it, i) => <Shot key={i} {...it} half />)}
-        </div>
-      );
-    default:
-      return null;
+/* 이미지 리듬. 한 줄에 최대 셋까지만 간다. */
+function Row({ block }) {
+  if (block.type === 'full') return <div className="row row--full"><Shot {...block} /></div>;
+  if (block.type === 'duo') {
+    return (
+      <div className="row row--duo">
+        {block.items.map((it, i) => <Shot key={i} {...it} />)}
+      </div>
+    );
   }
+  if (block.type === 'split') {
+    return (
+      <div className="row row--split">
+        {block.items.map((it, i) => <Shot key={i} {...it} />)}
+      </div>
+    );
+  }
+  if (block.type === 'trio') {
+    return (
+      <div className="row row--trio">
+        {block.items.map((it, i) => <Shot key={i} {...it} />)}
+      </div>
+    );
+  }
+  return null;
 }
 
 /**
  * PROJECT DETAIL
  *
- * 한쪽은 이미지만, 다른 쪽은 글만. 섞지 않는다.
- *   왼쪽  — 작업물이 끝까지 이미지로만 흐른다
- *   오른쪽 — 제목과 팩트. 따라붙은 채 고정된다.
+ * 이미지가 캐리하고, 자세한 건 링크로 넘긴다.
+ *
+ *   히어로   표본 하나. 좌우 끝에 제목과 연도가 걸린다. 딱 한 화면.
+ *   메타     왼쪽 1/3 에 라벨, 오른쪽 절반에 INFO. 링크는 여기 모인다.
+ *   리듬     full / duo / split / trio. 캡션 없음.
+ *   CONCEPT  글이 두 번째이자 마지막으로 나오는 자리. 왼쪽 절반을 비운다.
+ *   NEXT     다음 표본 하나.
+ *
+ * 글을 두 군데로 제한하는 게 이 레이아웃의 전부다. 늘리면 무너진다.
  */
 export default function ProjectDetail({ spec, onClose, onSwitch }) {
   const scrollRef = useRef(null);
@@ -53,7 +71,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     if (spec) {
       setRenderSpec(spec);
       setRevealed(false);
-      revealTimer = window.setTimeout(() => setRevealed(true), 620);
+      revealTimer = window.setTimeout(() => setRevealed(true), 420);
     } else {
       setRevealed(false);
       clearTimer = window.setTimeout(() => setRenderSpec(null), 760);
@@ -71,6 +89,14 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     const i = SPECIMENS.findIndex((s) => s.id === renderSpec.id);
     return SPECIMENS[(i + 1) % SPECIMENS.length];
   }, [renderSpec]);
+
+  /* concept 자리표가 없으면 리듬 맨 끝에 붙인다 — 글이 사라지는 일은 없게 */
+  const blocks = useMemo(() => {
+    if (!data) return [];
+    const has = data.blocks.some((b) => b.type === 'concept');
+    const hasText = (data.concept || []).length > 0;
+    return has || !hasText ? data.blocks : [...data.blocks, { type: 'concept' }];
+  }, [data]);
 
   // onClose 는 부모에서 매 렌더 새로 만들어진다. Field 의 HUD 가 매 프레임 갱신되므로
   // 이걸 의존성에 넣으면 스크롤 위치가 계속 0 으로 되돌아간다. ref 로 고정한다.
@@ -90,9 +116,12 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
   }, [spec?.id]);
 
   // 상세 스크롤에 관성을 준다. 휠 한 칸이 그대로 한 칸 점프하지 않는다.
+  // 거기에 속도를 CSS 로 흘려보내서, 빠르게 내릴수록 이미지가 울렁이게 한다.
   useEffect(() => {
     if (!spec) return undefined;
-    return attachSmoothScroll(scrollRef.current, { tau: 0.2 });
+    const off1 = attachSmoothScroll(scrollRef.current, { tau: 0.2 });
+    const off2 = attachScrollVelocity(scrollRef.current, { max: 2400, tau: 0.07 });
+    return () => { off1(); off2(); };
   }, [spec]);
 
   return (
@@ -109,52 +138,70 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
           </nav>
 
           <div className="detail__scroll" ref={scrollRef}>
-            <div className="detail__grid">
-              {/* 왼쪽 — 이미지만 */}
-              <div className="detail__stream">
-                {/* 첫 장은 정확히 한 화면. 해상도가 달라도 잘리거나 넘치지 않는다. */}
-                {data.stream.map((b, i) => <Blk key={i} block={b} hero={i === 0} />)}
+            {/* ── 히어로 — 표본 하나, 좌우 끝에 제목과 연도 ── */}
+            <header className="dhero">
+              <h2 className="dhero__title">{renderSpec.ko}</h2>
+              <div className="dhero__plate">
+                <img src={renderSpec.imageCut || renderSpec.image} alt="" />
+              </div>
+              <p className="dhero__year sys">YEAR — {data.year}</p>
+            </header>
+
+            {/* ── 메타 — 라벨은 깨알, 값은 보통. 자세한 건 전부 링크로. ── */}
+            <section className="dmeta">
+              <div className="dmeta__col">
+                <p className="dmeta__label sys">CATEGORIES</p>
+                {data.categories.map((c) => <p key={c} className="dmeta__value">{c}</p>)}
               </div>
 
-              {/* 오른쪽 — 제목과 팩트. 고정. */}
-              <aside className="detail__panel">
-                <p className="detail__no sys">{renderSpec.no}</p>
-                <h2 className="detail__title">{renderSpec.ko}</h2>
-                <p className="detail__kicker sys">{data.kicker}</p>
+              <div className="dmeta__col">
+                <p className="dmeta__label sys">ROLE</p>
+                {data.role.map((r) => <p key={r} className="dmeta__value">{r}</p>)}
 
-                {data.panel.map((row, i) => (
-                  <div key={i} className="prow">
-                    <p className="prow__label sys">{row.label}</p>
-                    {Array.isArray(row.body)
-                      ? row.body.map((t, j) => <p key={j} className="prow__body">{t}</p>)
-                      : <p className="prow__body prow__body--sys">{row.body}</p>}
-                  </div>
-                ))}
-
-                {/* 주소가 아직 없는 링크는 내보내지 않는다 */}
                 {links.length > 0 && (
-                  <div className="prow">
-                    <p className="prow__label sys">VISIT</p>
-                    <p className="prow__links">
-                      {links.map((v) => (
-                        <a key={v.label} className="sys" href={v.href} target="_blank" rel="noreferrer">
-                          {v.label}
-                        </a>
-                      ))}
-                    </p>
-                  </div>
+                  <ul className="dmeta__links">
+                    {links.map((v) => (
+                      <li key={v.label}>
+                        <a className="sys" href={v.href} target="_blank" rel="noreferrer">{v.label}</a>
+                      </li>
+                    ))}
+                  </ul>
                 )}
+              </div>
 
-                <div className="detail__foot">
-                  <button type="button" className="sys" onClick={() => onSwitch(next.id)}>
-                    NEXT — {next.no} {next.ko}
-                  </button>
-                  <button type="button" className="sys" onClick={onClose}>
-                    RE-SOLIDIFY / ESC
-                  </button>
-                </div>
-              </aside>
+              <div className="dmeta__info">
+                <p className="dmeta__label sys">(INFO)</p>
+                <p className="dmeta__body">{data.info}</p>
+              </div>
+            </section>
+
+            {/* ── 리듬 ── */}
+            <div className="dflow">
+              {blocks.map((b, i) => (
+                b.type === 'concept'
+                  ? (data.concept || []).length > 0 && (
+                      <section className="dconcept" key={i}>
+                        <p className="dmeta__label sys">CONCEPT</p>
+                        <div className="dconcept__body">
+                          {data.concept.map((t, j) => <p key={j}>{t}</p>)}
+                        </div>
+                      </section>
+                    )
+                  : <Row key={i} block={b} />
+              ))}
             </div>
+
+            {/* ── 다음 표본 ── */}
+            <footer className="dnext">
+              <span className="sys dnext__mark">{renderSpec.no}</span>
+              <button type="button" className="dnext__plate" onClick={() => onSwitch(next.id)}>
+                <img src={next.imageCut || next.image} alt="" />
+                <span className="dnext__name">{next.ko}</span>
+              </button>
+              <button type="button" className="sys dnext__go" onClick={() => onSwitch(next.id)}>
+                NEXT PROJECT →
+              </button>
+            </footer>
           </div>
         </>
       )}

@@ -18,6 +18,9 @@ export const SPECIMENS = [
     ko: 'ODIT',
     tag: 'CONNECTED',
     image: '/specimens/odit.png',
+    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
+       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
+    imageCut: '/specimens/odit-cut.png',
     imageRect: [0.07, 0.025, 0.87, 0.945],
     imageOpacity: 0.82,
     vb: [100, 81],
@@ -42,6 +45,9 @@ export const SPECIMENS = [
     ko: 'TCHAIKIM',
     tag: 'REFINED',
     image: '/specimens/tchaikim.png',
+    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
+       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
+    imageCut: '/specimens/tchaikim-cut.png',
     imageRect: [0.365, 0.01, 0.265, 0.98],
     imageOpacity: 0.86,
     vb: [27, 100],
@@ -65,6 +71,9 @@ export const SPECIMENS = [
     ko: '문화누리카드',
     tag: 'COMPACT',
     image: '/specimens/nuri.png',
+    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
+       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
+    imageCut: '/specimens/nuri-cut.png',
     imageRect: [0.065, 0.035, 0.86, 0.92],
     imageOpacity: 0.8,
     vb: [100, 81],
@@ -87,6 +96,9 @@ export const SPECIMENS = [
     ko: '왈가왈봇',
     tag: 'CLUSTER',
     image: '/specimens/walga.png',
+    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
+       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
+    imageCut: '/specimens/walga-cut.png',
     // 상단 우측의 먼지처럼 작은 일곱 번째 파편은 crop 밖으로 제외한다.
     imageRect: [0.08, 0.16, 0.84, 0.68],
     imageOpacity: 0.84,

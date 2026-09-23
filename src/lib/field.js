@@ -48,6 +48,7 @@ export function createField(canvas, options) {
 
   let W = 0;
   let H = 0;
+  let DPR = 1;
   let raf = 0;
   let disposed = false;
 
@@ -66,10 +67,20 @@ export function createField(canvas, options) {
    * 폴리곤은 그대로 승화하므로, 사진이 바깥 가장자리부터 깎여 들어간다.
    * 각 표본은 imageOpacity 로 화면 안에서의 밝기를 독립적으로 맞춘다.
    */
+  /* 광원은 좌상단 고정. 제품 사진의 기본이고, 네 표본이 같은 공간에 있다는 게 이걸로 읽힌다.
+     y 는 아래로 자라므로 위쪽이 음수다. 림라이트·그림자·엠보스가 전부 이 하나를 본다. */
+  const LIGHT = { x: -0.62, y: -0.78 };
+
+  /* 릴리프 버퍼 — 사진 한 장의 부조를 여기서 합성한 뒤 통째로 옮긴다.
+     본화면에 바로 겹쳐 그리면 밀어낸 밴드가 사진 밖으로 삐져나와
+     느슨한 폴리곤 외곽에 얼룩으로 남는다. source-atop 으로 사진 알파 안에 가둔다. */
+  const relief = document.createElement('canvas');
+  const rctx = relief.getContext('2d');
+
   const imageCache = new Map();
   function getImage(src) {
     if (imageCache.has(src)) return imageCache.get(src);
-    const entry = { ready: false, canvas: null };
+    const entry = { ready: false, canvas: null, near: null, far: null };
     imageCache.set(src, entry);
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -117,6 +128,38 @@ export function createField(canvas, options) {
           }
         }
         cc.putImageData(data, 0, 0);
+
+        /* ── 깊이 밴드 ──
+           네 장 다 정면에서 고르게 찍혀 있어서 빛의 방향이 없다(밝기 무게중심 편차 2% 미만).
+           그래서 밝기로 앞뒤를 가른다 — 밝은 데는 빛을 받는 면이니 앞, 어두운 데는 파인 곳이니 뒤.
+           이 두 겹을 서로 반대로 밀면 사진 한 장 안에서 두께가 생긴다.
+           반 해상도로 만든다. 어차피 흐릿하게 겹칠 레이어라 차이가 안 보인다. */
+        const ss = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+        /* tint 가 핵심이다. 밴드를 원래 밝기 그대로 밀면 그냥 번질 뿐 부조가 안 된다.
+           앞면은 더 밝게, 뒷면은 더 어둡게 만들어야 밀었을 때 명암 방향이 생긴다. */
+        const band = (weight, tint) => {
+          const full = document.createElement('canvas');
+          full.width = c.width;
+          full.height = c.height;
+          const fx = full.getContext('2d');
+          const bd = fx.createImageData(c.width, c.height);
+          const bp = bd.data;
+          for (let i = 0; i < px.length; i += 4) {
+            bp[i] = Math.min(255, px[i] * tint);
+            bp[i + 1] = Math.min(255, px[i + 1] * tint);
+            bp[i + 2] = Math.min(255, px[i + 2] * tint);
+            const lum = (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+            bp[i + 3] = Math.round(px[i + 3] * weight(lum));
+          }
+          fx.putImageData(bd, 0, 0);
+          const half = document.createElement('canvas');
+          half.width = Math.max(1, c.width >> 1);
+          half.height = Math.max(1, c.height >> 1);
+          half.getContext('2d').drawImage(full, 0, 0, half.width, half.height);
+          return half;
+        };
+        entry.near = band((l) => ss(0.52, 0.88, l), 1.55);
+        entry.far = band((l) => 1 - ss(0.14, 0.46, l), 0.3);
       } catch (e) {
         /* 다른 출처의 이미지라 픽셀을 못 읽는 경우 — 원본 그대로 쓴다 */
       }
@@ -150,7 +193,18 @@ export function createField(canvas, options) {
     ox: 0, oy: 0, vx: 0, vy: 0,
     /* 던져진 직후엔 마찰로 뜨거워져 더 빨리 승화한다 */
     throwHeat: 0,
+    /* 상세로 들어갈 때 이 덩어리가 쪼개진다 */
+    burstAt: 0,
   }));
+
+  /* 파쇄가 끝나기까지. 금이 먼저 보여야 하므로 천천히 간다. */
+  const BURST_MS = 1500;
+
+  /* 파편의 방향 — 클릭할 때마다 달라지지 않도록 인덱스로 고정한다 */
+  const shardSeed = (i, k) => {
+    const v = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return v - Math.floor(v);
+  };
 
   /* 집어 든 표본 */
   const drag = { i: -1, gx: 0, gy: 0, moved: 0, lx: 0, ly: 0, lt: 0, vx: 0, vy: 0 };
@@ -270,6 +324,7 @@ export function createField(canvas, options) {
 
   function resize() {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
+    DPR = dpr;
     const nw = canvas.clientWidth;
     const nh = canvas.clientHeight;
     if (!nw || !nh || (nw === W && nh === H)) return;
@@ -349,9 +404,13 @@ export function createField(canvas, options) {
       st.throwHeat = Math.max(st.throwHeat, power);
       shock(pointer.x, pointer.y, 0.55 + power * 0.7);
     } else {
-      /* 거의 안 움직였으면 클릭이다 */
+      /* 거의 안 움직였으면 클릭이다.
+         얼음에 금이 가고 천천히 벌어진다. 화면은 그 틈으로 밀고 들어간다.
+         언제 상세로 넘어갈지는 바깥이 정하므로, 여기선 깨진 지점만 넘긴다. */
       shock(pointer.x, pointer.y, 1);
-      if (onSelect) onSelect(id);
+      st.burstAt = performance.now();
+      st.throwHeat = 1;
+      if (onSelect) onSelect(id, { x: st.box.cx + st.ox, y: st.box.cy + st.oy });
     }
     drag.i = -1;
     canvas.style.cursor = '';
@@ -493,6 +552,17 @@ export function createField(canvas, options) {
       });
     }
 
+    /* 바닥 — 표본들이 같은 면 위에 있다는 단서.
+       CO2 는 공기보다 무거우니 안개도 위가 아니라 여기 깔린다. */
+    if (!reduced) {
+      const gg = ctx.createLinearGradient(0, H * 0.54, 0, H);
+      gg.addColorStop(0, `rgba(${FROST},0)`);
+      gg.addColorStop(0.66, `rgba(${FROST},0.022)`);
+      gg.addColorStop(1, `rgba(${FROST},0.055)`);
+      ctx.fillStyle = gg;
+      ctx.fillRect(0, H * 0.54, W, H * 0.46);
+    }
+
     let anyActive = 0;
 
     items.forEach((item, idx) => {
@@ -529,6 +599,46 @@ export function createField(canvas, options) {
         cy: focusCy + parallaxY,
       };
       st.renderBox = renderBox;
+
+      /* ── 접지 ──
+         떠 있는 물체는 아무리 음영을 넣어도 스티커로 보인다. 눈은 입체를 닿은 자리로 먼저 읽는다.
+         표본 아래에 옅은 빛 웅덩이를 깔고, 그 위에 빛 반대쪽으로 누운 그림자를 얹는다.
+         던져서 떠오르면 그림자가 넓어지고 옅어진다 — 멀어졌다는 뜻이다. */
+      if (!reduced && materialAlpha > 0.06) {
+        const lift = clamp01(-st.oy / 150);
+        const contact = 0.34 * materialAlpha * (1 - st.t * 0.72) * (1 - lift * 0.6);
+        if (contact > 0.012) {
+          const baseY = renderBox.y + renderBox.h * 1.0;
+          const poolR = renderBox.w * (0.52 + lift * 0.22);
+          const flat = Math.max(0.055, 0.085 - depth * 0.02);
+
+          ctx.save();
+          ctx.translate(renderBox.cx, baseY);
+          ctx.scale(1, flat * 2);
+
+          /* 표본대 — 바닥이 여기 있다는 최소한의 단서 */
+          const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, poolR);
+          pool.addColorStop(0, `rgba(${FROST},${(contact * 0.16).toFixed(3)})`);
+          pool.addColorStop(1, `rgba(${FROST},0)`);
+          ctx.fillStyle = pool;
+          ctx.beginPath();
+          ctx.arc(0, 0, poolR, 0, Math.PI * 2);
+          ctx.fill();
+
+          /* 그림자는 빛의 반대쪽으로 눕는다 */
+          const shR = renderBox.w * (0.34 + lift * 0.26);
+          const shX = -LIGHT.x * renderBox.w * 0.16;
+          const shade = ctx.createRadialGradient(shX, 0, 0, shX, 0, shR);
+          shade.addColorStop(0, `rgba(0,0,0,${contact.toFixed(3)})`);
+          shade.addColorStop(0.52, `rgba(0,0,0,${(contact * 0.42).toFixed(3)})`);
+          shade.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = shade;
+          ctx.beginPath();
+          ctx.arc(shX, 0, shR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
 
       let target = 0;
       if (item.reveal) {
@@ -592,7 +702,92 @@ export function createField(canvas, options) {
 
         // 면 — 승화할수록 옅어진다
         const tex = spec.image ? getImage(spec.image) : null;
+
+        /* ── 파쇄 ──
+           덩어리를 중심에서 뻗은 쐐기 조각으로 나눠 각각 다른 방향으로 날린다.
+           클립과 그리는 좌표를 같은 양만큼 옮기므로 조각 위의 사진이 어긋나지 않는다.
+           무거우니 사방으로 튀지 않고 결국 아래로 간다. */
+        const bp = st.burstAt ? clamp01((now - st.burstAt) / BURST_MS) : 0;
+        const bursting = st.burstAt > 0 && bp < 1;
+
         if (tex && tex.ready) {
+          const imageOpacity = spec.imageOpacity ?? 0.84;
+          const r = spec.imageRect || [0, 0, 1, 1];
+          const iw = tex.canvas.width;
+          const ih = tex.canvas.height;
+          const baseAlpha = Math.max(0, (imageOpacity - st.t * 0.36) * materialAlpha);
+
+          if (bursting) {
+            /* 세제곱이라 앞쪽이 거의 멈춰 있다 — 금이 먼저 보이고 그 다음에 벌어진다 */
+            const ease = bp * bp * bp;
+            /* 갈라진 자리의 빛. 벌어지기 시작할 때 가장 밝고 곧 사라진다. */
+            const crack = Math.sin(clamp01(bp * 2.6) * Math.PI) * 0.5;
+            const n = pts.length;
+            /* 실루엣 점 하나에 조각 하나를 만들면 부챗살이 된다.
+               큰 덩어리 예닐곱 개로 쪼개야 얼음이 깨진 것처럼 보인다. */
+            const K = 6 + (idx % 3);
+            /* 조각마다 시작점이 조금씩 어긋나야 금이 직선으로 안 떨어진다 */
+            const edgeAt = (s) => Math.floor(((s + shardSeed(idx, s + 7) * 0.55) / K) * n) % n;
+
+            for (let s = 0; s < K; s += 1) {
+              const from = edgeAt(s);
+              const to = edgeAt(s + 1);
+              const count = (to - from + n) % n || n;
+
+              /* 조각의 무게중심 방향으로 날아간다 */
+              let sx = 0;
+              let sy = 0;
+              for (let k = 0; k <= count; k += 1) {
+                const q = pts[(from + k) % n];
+                sx += q[0];
+                sy += q[1];
+              }
+              const mx = sx / (count + 1) - renderBox.cx;
+              const my = sy / (count + 1) - renderBox.cy;
+              const len = Math.max(1, Math.hypot(mx, my));
+              const spin = (shardSeed(idx, s) - 0.5) * 0.7;
+              const speed = 38 + shardSeed(idx, s + 31) * 66;
+              const dx = (mx / len) * speed * ease;
+              const dy = (my / len) * speed * ease + 108 * ease * ease;
+
+              ctx.save();
+              ctx.translate(renderBox.cx + dx, renderBox.cy + dy);
+              ctx.rotate(spin * ease);
+              ctx.translate(-renderBox.cx, -renderBox.cy);
+
+              ctx.beginPath();
+              ctx.moveTo(renderBox.cx, renderBox.cy);
+              for (let k = 0; k <= count; k += 1) {
+                const q = pts[(from + k) % n];
+                ctx.lineTo(q[0], q[1]);
+              }
+              ctx.closePath();
+
+              if (crack > 0.02) {
+                /* 갈라진 단면 — 조각의 테두리만 얇게 빛난다 */
+                ctx.globalAlpha = crack;
+                ctx.strokeStyle = 'rgba(206, 232, 248, 1)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+              }
+
+              ctx.save();
+              ctx.clip();
+              /* 화면이 밀고 들어가는 동안은 조각이 남아 있어야 한다 — 끝까지 다 지우지 않는다 */
+              ctx.globalAlpha = baseAlpha * (1 - ease * 0.28);
+              ctx.drawImage(
+                tex.canvas,
+                r[0] * iw, r[1] * ih, r[2] * iw, r[3] * ih,
+                renderBox.x, renderBox.y, renderBox.w, renderBox.h
+              );
+              ctx.globalAlpha = 1;
+              ctx.restore();
+
+              ctx.restore();
+            }
+          } else {
+
           // 사진을 승화 중인 실루엣으로 클립한다 — 가장자리부터 깎여 들어간다
           ctx.save();
           ctx.beginPath();
@@ -600,20 +795,56 @@ export function createField(canvas, options) {
           for (let a = 1; a < pts.length; a += 1) ctx.lineTo(pts[a][0], pts[a][1]);
           ctx.closePath();
           ctx.clip();
-          const imageOpacity = spec.imageOpacity ?? 0.84;
-          ctx.globalAlpha = Math.max(0, (imageOpacity - st.t * 0.36) * materialAlpha);
-          // imageRect 는 원본에서 오브젝트가 차지하는 영역(0–1). 여백을 잘라내 실루엣과 맞춘다.
-          const r = spec.imageRect || [0, 0, 1, 1];
-          const iw = tex.canvas.width;
-          const ih = tex.canvas.height;
-          ctx.drawImage(
-            tex.canvas,
-            r[0] * iw, r[1] * ih, r[2] * iw, r[3] * ih,
-            renderBox.x, renderBox.y, renderBox.w, renderBox.h
-          );
+          ctx.globalAlpha = baseAlpha;
+
+          /* ── 두께 ──
+             밝은 면은 빛 쪽으로, 어두운 면은 반대로 민다.
+             고정 오프셋은 사진에 없는 명암 방향을 만들고(엠보스),
+             카메라 시차분은 마우스를 움직일 때 덩어리 안쪽이 따로 밀리게 한다.
+             둘을 더해야 튀어나온 면이 실제로 앞에 있는 것처럼 움직인다. */
+          const bw = Math.max(2, Math.ceil(renderBox.w * DPR));
+          const bh = Math.max(2, Math.ceil(renderBox.h * DPR));
+          if (tex.near && tex.far && bw <= 2048 && bh <= 2048) {
+            if (relief.width < bw) relief.width = bw;
+            if (relief.height < bh) relief.height = bh;
+            rctx.setTransform(1, 0, 0, 1, 0, 0);
+            rctx.globalCompositeOperation = 'source-over';
+            rctx.globalAlpha = 1;
+            rctx.clearRect(0, 0, bw, bh);
+            rctx.drawImage(tex.canvas, r[0] * iw, r[1] * ih, r[2] * iw, r[3] * ih, 0, 0, bw, bh);
+
+            const emboss = bw * 0.02;
+            const par = spatial ? bw * (0.006 + depth * 0.012) : 0;
+            const nxo = LIGHT.x * emboss - camera.x * par * 1.4;
+            const nyo = LIGHT.y * emboss - camera.y * par * 1.1;
+            const nw2 = tex.near.width;
+            const nh2 = tex.near.height;
+
+            /* 사진 알파 밖으로는 한 픽셀도 나가지 않는다 */
+            rctx.globalCompositeOperation = 'source-atop';
+            rctx.globalAlpha = 0.52;
+            rctx.drawImage(tex.near, r[0] * nw2, r[1] * nh2, r[2] * nw2, r[3] * nh2,
+              nxo, nyo, bw, bh);
+            rctx.globalAlpha = 0.44;
+            rctx.drawImage(tex.far, r[0] * nw2, r[1] * nh2, r[2] * nw2, r[3] * nh2,
+              -nxo, -nyo, bw, bh);
+            rctx.globalCompositeOperation = 'source-over';
+            rctx.globalAlpha = 1;
+
+            ctx.drawImage(relief, 0, 0, bw, bh,
+              renderBox.x, renderBox.y, renderBox.w, renderBox.h);
+          } else {
+            ctx.drawImage(
+              tex.canvas,
+              r[0] * iw, r[1] * ih, r[2] * iw, r[3] * ih,
+              renderBox.x, renderBox.y, renderBox.w, renderBox.h
+            );
+          }
+
           ctx.globalAlpha = 1;
           ctx.restore();
-        } else {
+          }
+        } else if (!bursting) {
           const fillA = (0.92 - st.t * 0.44) * materialAlpha;
           if (fillA > 0.02) {
             ctx.beginPath();
@@ -651,27 +882,47 @@ export function createField(canvas, options) {
           }
         }
 
-        // 윤곽 — 승화 중인 구간은 끊긴다
+        // 윤곽 — 승화 중인 구간은 끊긴다. 깨진 뒤엔 온전한 윤곽이 있으면 안 된다.
+        if (!bursting) {
         ctx.lineWidth = 1.2;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
+        const hasTex = Boolean(spec.image);
         for (let b = 0; b < pts.length; b += 1) {
           const c0 = pts[b];
           const c1 = pts[(b + 1) % pts.length];
           const pp = (c0[2] + c1[2]) / 2;
           if (pp > 0.86) continue;
-          /* 사진이 깔린 오브젝트는 자기 실루엣이 이미 있다.
-             폴리곤 윤곽선을 그대로 그으면 물체 바깥으로 삐져나와 스티커처럼 보인다.
-             그래서 사진이 있으면 승화가 시작될 때만 아주 옅게 긋는다. */
-          const hasTex = Boolean(spec.image);
-          const edgeMul = hasTex ? Math.min(0.5, st.t * 1.6) : 1;
-          const alpha = Math.min(1, (1 - pp * 0.95) * materialAlpha * detailBoost * edgeMul);
+          const edgeBase = (1 - pp * 0.95) * materialAlpha * detailBoost;
+
+          if (hasTex) {
+            /* 폴리곤은 사진 실루엣에 딱 붙지 않는 느슨한 껍질이다.
+               여기에 선을 그으면 사진 바깥 허공에 선이 남아 스티커가 된다.
+               방향성 조명은 릴리프 버퍼가 사진 알파 안에서 이미 만들고 있으므로,
+               이 선은 승화로 가장자리가 부서지기 시작할 때만 옅게 나온다. */
+            const s0 = list[b];
+            const lit = s0.nx * LIGHT.x + s0.ny * LIGHT.y;
+            const rimA = Math.min(1, edgeBase * Math.min(0.5, st.t * 1.7) * (0.34 + Math.max(0, lit) * 0.42));
+            if (rimA > 0.02) {
+              ctx.lineWidth = 1;
+              ctx.strokeStyle = `rgba(${FROST},${rimA.toFixed(3)})`;
+              ctx.beginPath();
+              ctx.moveTo(c0[0], c0[1]);
+              ctx.lineTo(c1[0], c1[1]);
+              ctx.stroke();
+            }
+            continue;
+          }
+
+          const alpha = Math.min(1, edgeBase);
           if (alpha <= 0.02) continue;
+          ctx.lineWidth = 1.2;
           ctx.strokeStyle = `rgba(${FROST},${alpha.toFixed(3)})`;
           ctx.beginPath();
           ctx.moveTo(c0[0], c0[1]);
           ctx.lineTo(c1[0], c1[1]);
           ctx.stroke();
+        }
         }
 
         if (reduced) return;
@@ -711,7 +962,9 @@ export function createField(canvas, options) {
             const trail = pointer.inside
               ? 1 + 0.9 * clamp01(1 - Math.hypot(pts[e][0] - pointer.x, pts[e][1] - pointer.y) / 150)
               : 1;
-            if (Math.random() > rate * low * trail * active * 0.11) continue;
+            /* 파쇄 중에는 단면이 통째로 드러나므로 연기가 폭발적으로 나온다 */
+            const burstFog = st.burstAt ? 1 + 8 * clamp01(1 - (now - st.burstAt) / BURST_MS) : 1;
+            if (Math.random() > rate * low * trail * active * burstFog * 0.11) continue;
             // 하나의 puff 는 원이 아니라 서로 어긋난 3~4개 로브의 덩어리다
             const lobeCount = 3 + (Math.random() < 0.45 ? 1 : 0);
             const lobes = [];
@@ -892,6 +1145,13 @@ export function createField(canvas, options) {
     setFocus,
     resize,
     settings: S,
+    /* 상세를 닫고 돌아오면 깨졌던 덩어리가 다시 붙어 있어야 한다 */
+    resetBursts() {
+      for (let i = 0; i < state.length; i += 1) {
+        state[i].burstAt = 0;
+        state[i].throwHeat = 0;
+      }
+    },
     destroy() {
       disposed = true;
       cancelAnimationFrame(raf);

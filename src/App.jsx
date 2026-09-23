@@ -5,6 +5,7 @@ import Main from './sections/Main';
 import About from './sections/About';
 import Portfolio from './sections/Portfolio';
 import Contact from './sections/Contact';
+import SplashCursor from './components/SplashCursor';
 import { approach, clamp, prefersReduced } from './lib/smooth';
 
 const routeFromLocation = () => {
@@ -256,6 +257,9 @@ export default function App() {
         {current === 'about' && <About onGoMain={() => go('main', { rewind: true })} />}
         {current === 'portfolio' && <Portfolio />}
       </main>
+
+      {/* 커서 유체. 빼려면 이 줄과 위의 import 한 줄만 지우면 된다. */}
+      {intro === 'done' && <SplashCursor />}
 
       <Contact open={contactOpen} onClose={() => setContactOpen(false)} />
       {intro !== 'done' && <Intro phase={intro} onSkip={() => setIntro('leaving')} />}

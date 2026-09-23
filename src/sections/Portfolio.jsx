@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createField } from '../lib/field';
 import { SPECIMENS, FIELD_LAYOUT, byId } from '../data/specimens';
 import StateReadout from '../components/StateReadout';
 import ProjectDetail from './ProjectDetail';
 import './portfolio.css';
+
+/* 깨지는 걸 보고, 그 틈으로 들어가고, 그 다음에 상세다. CSS 의 field-plunge 와 맞춰 둔다. */
+const ENTRY_MS = 1180;
 
 const hashId = () => {
   const m = window.location.hash.match(/^#\/project\/([\w-]+)$/);
@@ -23,6 +26,9 @@ export default function Portfolio() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [selected, setSelected] = useState(hashId);
   const [hud, setHud] = useState({ state: 'SOLID', temp: 'LOW', tempValue: 0 });
+  /* 깨진 얼음 안으로 밀고 들어가는 중 — { id, x, y } 는 깨진 지점이다 */
+  const [entering, setEntering] = useState(null);
+  const entryTimer = useRef(0);
 
   const sectionRef = useRef(null);
   const listSceneRef = useRef(null);
@@ -31,33 +37,10 @@ export default function Portfolio() {
   const visibleSpecimens = SPECIMENS;
   const visibleLayout = FIELD_LAYOUT;
 
-  // 선택 뒤에도 Field의 좌표는 유지한다. 선택 표본은 관찰 지점으로 접근하고
-  // 나머지 표본은 제거되지 않은 채 후경으로 물러난다.
-  const fieldLayout = useMemo(() => {
-    if (!selected) return visibleLayout;
-    return visibleLayout.map((layout) => {
-      const isFocus = layout.id === selected;
-      const side = layout.cx < 0.5 ? -1 : 1;
-      return {
-        ...layout,
-        fromCx: layout.cx,
-        fromCy: layout.cy,
-        fromW: layout.w,
-        fromZ: layout.z,
-        cx: isFocus ? 0.31 : Math.max(0.06, Math.min(0.94, layout.cx + side * 0.055)),
-        cy: isFocus ? 0.53 : layout.cy + (layout.cy < 0.5 ? -0.025 : 0.025),
-        z: isFocus ? 1 : Math.max(0.08, layout.z * 0.42),
-        w: isFocus
-          ? (layout.id === 'tchaikim' ? 0.145 : Math.max(layout.w * 1.42, 0.205))
-          : layout.w * 0.72,
-        ambient: isFocus,
-        detailFocus: isFocus,
-        dimmed: !isFocus,
-        label: false,
-        reveal: isFocus,
-      };
-    });
-  }, [selected, visibleLayout]);
+  /* 선택해도 배치는 건드리지 않는다.
+     표본이 제자리로 돌아왔다가 가운데로 날아오면, 깨진 것이 없던 일이 된다.
+     깨진 자리 그대로 두고 화면이 그리로 들어간다. */
+  const fieldLayout = visibleLayout;
 
   const activeSpec = visibleSpecimens[activeIndex] || visibleSpecimens[0];
 
@@ -72,6 +55,19 @@ export default function Portfolio() {
     }
   }, []);
 
+  /* 얼음이 깨지는 걸 다 보여준 다음에 상세를 연다.
+     field 는 깨진 지점을 알려주고, 언제 넘어갈지는 여기서 정한다. */
+  const beginEntry = useCallback((id, point) => {
+    if (entryTimer.current) return;
+    setEntering({ id, x: point?.x ?? 0, y: point?.y ?? 0 });
+    entryTimer.current = window.setTimeout(() => {
+      entryTimer.current = 0;
+      select(id);
+    }, ENTRY_MS);
+  }, [select]);
+
+  useEffect(() => () => { if (entryTimer.current) window.clearTimeout(entryTimer.current); }, []);
+
   // 뒤로가기로 상세를 닫을 수 있어야 한다
   useEffect(() => {
     const onPop = () => setSelected(hashId());
@@ -79,19 +75,27 @@ export default function Portfolio() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
+  /* 닫고 나오면 깨졌던 덩어리가 다시 붙고 화면도 물러난다 */
+  useEffect(() => {
+    if (selected) return;
+    if (entryTimer.current) { window.clearTimeout(entryTimer.current); entryTimer.current = 0; }
+    setEntering(null);
+    fieldRef.current?.resetBursts();
+  }, [selected]);
+
   useEffect(() => {
     if (mode !== 'field') return undefined;
     const items = fieldLayout.map((l) => ({ ...l, spec: byId(l.id) }));
     const field = createField(canvasRef.current, {
       items,
       spatial: true,
-      interactive: !selected,
+      interactive: true,
       onState: setHud,
-      onSelect: select,
+      onSelect: beginEntry,
     });
     fieldRef.current = field;
     return () => { field.destroy(); fieldRef.current = null; };
-  }, [fieldLayout, mode, select, selected]);
+  }, [fieldLayout, mode, beginEntry]);
 
   useEffect(() => {
     if (mode === 'field') fieldRef.current?.setFocus(selected ? -1 : activeIndex);
@@ -102,12 +106,12 @@ export default function Portfolio() {
   }, [visibleSpecimens.length]);
 
   const handleWheel = useCallback((event) => {
-    if (selected || Math.abs(event.deltaY) < 12) return;
+    if (selected || entering || Math.abs(event.deltaY) < 12) return;
     const now = performance.now();
     if (now - wheelLock.current < 360) return;
     wheelLock.current = now;
     moveActive(event.deltaY > 0 ? 1 : -1);
-  }, [moveActive, selected]);
+  }, [entering, moveActive, selected]);
 
   const handleListPointerMove = useCallback((event) => {
     if (mode !== 'list' || !listSceneRef.current) return;
@@ -130,7 +134,7 @@ export default function Portfolio() {
 
   useEffect(() => {
     const handleKey = (event) => {
-      if (selected) return;
+      if (selected || entering) return;
       if (['ArrowDown', 'PageDown'].includes(event.key)) {
         event.preventDefault();
         moveActive(1);
@@ -143,12 +147,13 @@ export default function Portfolio() {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [activeSpec, moveActive, select, selected]);
+  }, [activeSpec, entering, moveActive, select, selected]);
 
   return (
     <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''}`}>
       <div
-        className={`portfolio__stage portfolio__stage--${mode}`}
+        className={`portfolio__stage portfolio__stage--${mode} ${entering ? 'is-entering' : ''}`}
+        style={entering ? { '--zx': `${entering.x}px`, '--zy': `${entering.y}px` } : undefined}
         onWheel={handleWheel}
         onPointerMove={handleListPointerMove}
         onPointerLeave={resetListPointer}

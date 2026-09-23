@@ -20,6 +20,80 @@ export const prefersReduced = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
+ * 스크롤 속도를 CSS 변수로 흘려보낸다.
+ *
+ * 관성만으로는 "미끄러진다"까지만 간다. 울렁이려면 화면이 속도를 알아야 한다.
+ * 빠르게 내릴수록 이미지가 늘어나고 줄이 기울게, 멈추면 0 으로 돌아오게.
+ *
+ * --sv   부호 있는 속도 (-1 ~ 1). 방향까지 쓴다.
+ * --sva  절대값 (0 ~ 1). 늘어남처럼 방향이 상관없는 곳에 쓴다.
+ *
+ * 값은 지수 감쇠로 따라가므로 휠이 띄엄띄엄 들어와도 덜컥거리지 않는다.
+ *
+ * @returns {() => void} 해제 함수
+ */
+export function attachScrollVelocity(el, { max = 2400, tau = 0.07 } = {}) {
+  if (!el || prefersReduced()) return () => {};
+
+  let vel = 0;
+  let lastTop = el.scrollTop;
+  let lastT = 0;
+  let raf = 0;
+  let idle = 0;
+
+  const write = () => {
+    el.style.setProperty('--sv', vel.toFixed(4));
+    el.style.setProperty('--sva', Math.abs(vel).toFixed(4));
+  };
+
+  const tick = (now) => {
+    const dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 0.016;
+    lastT = now;
+
+    const top = el.scrollTop;
+    const raw = (top - lastTop) / dt;   // px/s
+    lastTop = top;
+
+    const target = clamp(raw / max, -1, 1);
+    /* 붙을 땐 빠르게, 돌아올 땐 느리게.
+       대칭으로 두면 멈추는 순간 딱 끊겨서 울렁이 아니라 딸깍이 된다.
+       여운은 되돌아오는 쪽에 있다. */
+    const t = Math.abs(target) > Math.abs(vel) ? tau : tau * 2.8;
+    vel = approach(vel, target, dt, t);
+    write();
+
+    /* 멈춘 뒤에도 바로 끄지 않는다 — 0 으로 돌아오는 동안이 여운이다 */
+    if (Math.abs(vel) < 0.003 && Math.abs(raw) < 12) {
+      idle += 1;
+      if (idle > 8) {
+        vel = 0;
+        write();
+        raf = 0;
+        return;
+      }
+    } else {
+      idle = 0;
+    }
+    raf = requestAnimationFrame(tick);
+  };
+
+  const wake = () => {
+    if (raf) return;
+    lastT = 0;
+    idle = 0;
+    raf = requestAnimationFrame(tick);
+  };
+
+  el.addEventListener('scroll', wake, { passive: true });
+  return () => {
+    if (raf) cancelAnimationFrame(raf);
+    el.removeEventListener('scroll', wake);
+    el.style.removeProperty('--sv');
+    el.style.removeProperty('--sva');
+  };
+}
+
+/**
  * 스크롤 컨테이너에 관성을 입힌다.
  * 휠만 가로챈다 — 터치는 OS 관성이 이미 좋아서 건드리지 않는다.
  *

@@ -1,14 +1,17 @@
 /* ─────────────────────────────────────────────────────────────
-   PROJECT DETAIL
+   PROJECT DETAIL — K95 골격
 
-   레퍼런스(Belen Jones / MOLYXA)의 원칙은 하나다.
-   한쪽은 이미지만, 다른 쪽은 글만. 섞지 않는다.
+   원칙 셋. 이걸 깨면 레이아웃이 아니라 그냥 긴 페이지가 된다.
+     1. 글은 두 군데(INFO / CONCEPT)만. 나머지는 전부 이미지.
+     2. 캡션 없음. 이미지가 스스로 설명 못 하면 그 이미지를 안 쓴다.
+     3. 자세한 건 링크 한 줄로 밀어낸다.
 
-   왼쪽  — 작업물이 끝까지 이미지로만 흐른다. 라벨도 캡션도 없다.
-   오른쪽 — 큰 제목과 팩트. 스크롤을 따라붙은 채 고정된다.
+   배경은 필드와 같은 어둠을 유지하고, K95 의 색면 대신 옅은 격자만 깐다.
    ───────────────────────────────────────────────────────────── */
 
 .detail {
+  --dg: clamp(20px, 4vw, 72px);   /* 거터 — 모든 블록이 이 안에서 꽉 찬다 */
+  --gap: clamp(12px, 1.6vw, 26px);
   position: absolute;
   inset: 0;
   z-index: 12;
@@ -25,8 +28,10 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition-delay: 320ms, 0s;
+  /* 연기가 이미 화면을 덮은 뒤에 열리므로 기다릴 이유가 없다 */
+  transition-delay: 0s, 0s;
 }
+
 /* 스크롤한 이미지가 nav 와 알약 아래로 사라진다 */
 .detail::before {
   content: '';
@@ -38,193 +43,318 @@
   background: linear-gradient(
     to bottom,
     rgba(11, 13, 14, 0.96) 0 52%,
-    rgba(11, 13, 14, 0.68) 78%,
-    transparent 100%
+    rgba(11, 13, 14, 0)
   );
 }
 
-/* ── 좌상단 알약 ── */
-.detail__pills {
-  position: absolute;
-  top: calc(var(--nav-h) + 20px);
-  left: var(--gutter);
-  z-index: 6;
-  display: flex;
-  gap: 8px;
-  opacity: 0;
-  transition: opacity 380ms var(--ease);
-}
-.detail.is-revealed .detail__pills { opacity: 1; }
-.detail__pills button {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  padding: 12px 22px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--text);
-  color: #0b0d0e;
-  cursor: pointer;
-  transition: background 180ms var(--ease);
-}
-.detail__pills button:hover { background: var(--pc, var(--frost)); }
-
-/* ── 스크롤 ── */
 .detail__scroll {
   position: absolute;
   inset: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
   opacity: 0;
   transition: opacity 520ms var(--ease);
+  /* 격자 — K95 의 색면 위 그리드를 어둠 위로 옮긴 것 */
+  background-image:
+    linear-gradient(to right, rgba(175, 194, 200, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(175, 194, 200, 0.035) 1px, transparent 1px);
+  background-size: clamp(90px, 8vw, 150px) clamp(90px, 8vw, 150px);
+  scrollbar-width: none;
 }
-.detail.is-revealed .detail__scroll { opacity: 1; }
 .detail__scroll::-webkit-scrollbar { display: none; }
+.detail.is-revealed .detail__scroll { opacity: 1; }
 
-.detail__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 34%);
-  gap: clamp(32px, 5vw, 96px);
-  align-items: start;
-  padding: calc(var(--nav-h) + 86px) var(--gutter) 22svh;
+.detail__pills {
+  position: absolute;
+  top: calc(var(--nav-h) + 14px);
+  left: var(--dg);
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 420ms var(--ease);
+}
+.detail.is-revealed .detail__pills { opacity: 1; }
+.detail__pills button {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  padding: 7px 15px;
+  border-radius: 999px;
+  border: 1px solid rgba(175, 194, 200, 0.2);
+  background: rgba(11, 13, 14, 0.6);
+  backdrop-filter: blur(8px);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 260ms var(--ease), border-color 260ms var(--ease);
+}
+.detail__pills button:hover {
+  color: var(--text);
+  border-color: rgba(175, 194, 200, 0.5);
 }
 
-/* ─────────────────────────────────────────────
-   왼쪽 — 이미지만. 글자가 하나도 없다.
-   ───────────────────────────────────────────── */
-.detail__stream {
+/* ── 히어로 ──
+   표본 하나가 가운데. 좌우 끝에 제목과 연도가 그 세로 중앙선에 걸린다.
+   딱 한 화면. 스크롤하면 바로 메타가 나온다. */
+.dhero {
+  position: relative;
+  min-height: 100svh;
   display: grid;
-  gap: clamp(56px, 9vh, 120px);
-  min-width: 0;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: var(--dg);
+  padding: calc(var(--nav-h) + 40px) var(--dg) 40px;
 }
-.shot { margin: 0; display: block; }
+.dhero__title {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: clamp(10px, 0.95vw, 13px);
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text);
+  justify-self: start;
+}
+.dhero__year {
+  margin: 0;
+  justify-self: end;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dhero__plate {
+  /* 안쪽 img 는 등장 애니메이션이 transform 을 쓰고 있어서(fill-mode: both)
+     여기에 겹쳐 쓰면 애니메이션이 이긴다. 스크롤 변위는 바깥 상자가 받는다. */
+  transform: translateY(calc(var(--sv, 0) * -30px));
+  will-change: transform;
+  /* K95 의 히어로는 화면 폭의 30% 를 차지한다. 표본은 배경이 없어 더 작아 보이므로
+     높이로도 한 번 잡아준다 — 가로로 납작한 표본도 세로로 긴 표본도 같은 무게가 되게. */
+  width: clamp(230px, 30vw, 420px);
+  height: clamp(300px, 52svh, 560px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.dhero__plate img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* -cut 판본은 배경이 알파로 잘려 있어서 블렌드가 필요 없다.
+     screen 을 쓰면 원본의 완전히 검지 않은 배경이 사각형으로 남는다. */
+  filter: contrast(1.04) brightness(1.03);
+  animation: dhero-rise 900ms var(--ease) both;
+}
+@keyframes dhero-rise {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); filter: blur(7px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* ── 메타 ──
+   왼쪽 1/3 에 라벨 두 칸, 오른쪽 절반에 INFO. 자세한 건 링크로 넘긴다. */
+.dmeta {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 2fr);
+  column-gap: var(--dg);
+  row-gap: 38px;
+  padding: 0 var(--dg) clamp(70px, 9vw, 150px);
+}
+.dmeta__col { min-width: 0; }
+.dmeta__label {
+  margin: 0 0 14px;
+  color: var(--muted);
+  opacity: 0.55;
+}
+.dmeta__value {
+  margin: 0 0 4px;
+  font-size: clamp(13px, 1.05vw, 15px);
+  line-height: 1.5;
+  color: var(--text);
+}
+.dmeta__links {
+  list-style: none;
+  margin: 26px 0 0;
+  padding: 0;
+}
+.dmeta__links li { margin-bottom: 7px; }
+.dmeta__links a {
+  position: relative;
+  padding-left: 15px;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 260ms var(--ease);
+}
+/* K95 의 불릿 — 링크가 목록이 아니라 신호로 보이게 한다 */
+.dmeta__links a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: var(--pc, var(--frost));
+  transition: transform 300ms var(--ease);
+}
+.dmeta__links a:hover { color: var(--text); }
+.dmeta__links a:hover::before { transform: scale(1.7); }
+
+.dmeta__info { min-width: 0; }
+.dmeta__body {
+  margin: 0;
+  font-size: clamp(13px, 1.05vw, 15px);
+  line-height: 1.75;
+  color: var(--text);
+  opacity: 0.86;
+  max-width: 62ch;
+}
+
+/* ── 리듬 ──
+   한 줄에 최대 셋. 전부 같은 거터 안에서 꽉 찬다. */
+.dflow {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 2vw, 34px);
+  padding: 0 var(--dg);
+}
+.row { display: grid; gap: var(--gap); }
+.row--full { grid-template-columns: 1fr; }
+.row--duo { grid-template-columns: 1fr 1fr; }
+.row--split { grid-template-columns: 1fr 2fr; }
+.row--trio { grid-template-columns: 1fr 1fr 1fr; }
+
+/* ── 울렁 ──
+   --sv 는 스크롤 속도(-1~1), --sva 는 그 절대값. smooth.js 가 매 프레임 써 준다.
+   프레임은 직사각형 그대로 두고 안의 사진만 늘어나고 기운다.
+   틀까지 같이 찌그러지면 정렬이 무너져서 레이아웃이 어설퍼 보인다.
+   틀이 버티는데 안이 밀리니까, 사진이 종이가 아니라 무게 있는 것으로 읽힌다. */
+.shot {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  background: rgba(175, 194, 200, 0.028);
+}
 .shot img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 4px;
 }
-/* 첫 장은 패널과 함께 정확히 한 화면에 들어간다 */
-.shot--hero img,
-.shot--hero .shot__slot {
-  max-height: calc(100svh - var(--nav-h) - 132px);
-  width: 100%;
-  object-fit: contain;
-  object-position: left center;
+/* 빈 자리표도 같이 울렁여야 한다. 안 그러면 사진 있는 줄만 움직여서 따로 논다. */
+.shot img,
+.shot__slot {
+  /* 1.06 만큼 미리 키워 두는 건 여백을 만들기 위해서다.
+     그래야 안에서 밀거나 기울여도 프레임 가장자리에 빈틈이 안 생긴다. */
+  transform:
+    scale(1.06)
+    translateY(calc(var(--sv, 0) * -18px))
+    scaleY(calc(1 + var(--sva, 0) * 0.05))
+    skewY(calc(var(--sv, 0) * 0.9deg));
+  transform-origin: 50% 50%;
+  will-change: transform;
 }
-.shot--hero .shot__slot { height: calc(100svh - var(--nav-h) - 132px); }
-
-/* 목업은 이미 프레임을 갖고 있다. 평면 캡처만 테두리로 화면 경계를 잡는다. */
-.shot.is-flat img { border-radius: 0; border: 1px solid var(--line); }
+/* 아직 없는 이미지는 비워두지 않고 자리를 잡아둔다 — 리듬이 먼저 보여야 한다 */
 .shot__slot {
   display: block;
-  height: clamp(190px, 34vh, 380px);
-  background: #101314;
+  width: 100%;
+  aspect-ratio: var(--ratio, 16 / 10);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(175, 194, 200, 0.045) 0 1px,
+      transparent 1px 11px
+    );
+  border: 1px solid rgba(175, 194, 200, 0.07);
 }
+.row--trio .shot__slot,
+.row--split .shot:first-child .shot__slot { aspect-ratio: 3 / 4; }
 
-.duo {
+/* ── CONCEPT ──
+   왼쪽 절반을 통째로 비운다. 이 여백이 "읽을 건 여기까지"라고 말한다. */
+.dconcept {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: clamp(14px, 1.8vw, 26px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: var(--dg);
+  padding: clamp(60px, 8vw, 130px) 0 clamp(50px, 6vw, 100px);
 }
-.shot--half .shot__slot { height: clamp(150px, 24vh, 260px); }
+.dconcept__body { min-width: 0; }
+.dconcept__body p {
+  margin: 0 0 1.1em;
+  font-size: clamp(13px, 1.05vw, 15px);
+  line-height: 1.8;
+  color: var(--text);
+  opacity: 0.86;
+}
+.dconcept__body p:last-child { margin-bottom: 0; }
 
-/* ─────────────────────────────────────────────
-   오른쪽 — 제목과 팩트. 고정.
-   ───────────────────────────────────────────── */
-.detail__panel {
-  position: sticky;
-  top: calc(var(--nav-h) + 86px);
-  align-self: start;
+/* ── 다음 표본 ── */
+.dnext {
+  position: relative;
   display: grid;
-  gap: 26px;
-  min-width: 0;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  column-gap: var(--dg);
+  padding: clamp(90px, 12vw, 190px) var(--dg) clamp(40px, 5vw, 70px);
 }
-.detail__no {
-  margin: 0;
+.dnext__mark {
   justify-self: start;
-  padding: 6px 11px;
-  background: var(--pc, var(--frost));
-  color: #0b0d0e;
-}
-.detail__title {
-  margin: -8px 0 0;
-  font-family: var(--display);
-  font-size: clamp(38px, 4.6vw, 76px);
-  font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: -0.05em;
-  color: var(--text);
-  word-break: keep-all;
-}
-.detail__kicker { margin: -12px 0 6px; color: var(--muted); opacity: 0.8; }
-
-.prow { display: grid; gap: 10px; }
-.prow__label { margin: 0; color: var(--muted); opacity: 0.5; }
-.prow__body {
-  margin: 0;
-  font-size: 13px;
-  line-height: 2;
-  color: var(--text);
-}
-.prow__body--sys {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  line-height: 1.95;
+  align-self: end;
   color: var(--muted);
+  opacity: 0.5;
 }
-
-/* 링크가 이 페이지의 목적지다. 작게 두지 않는다. */
-.prow__links { margin: 0; display: grid; gap: 6px; }
-.prow__links a {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 15px;
-  background: var(--surface);
-  color: var(--text);
-  text-decoration: none;
-  transition: background 180ms var(--ease), color 180ms var(--ease);
-}
-.prow__links a::after { content: '\2197'; font-size: 12px; opacity: 0.6; }
-.prow__links a:hover { background: var(--pc, var(--frost)); color: #0b0d0e; }
-
-.detail__foot {
+.dnext__plate {
   display: grid;
-  gap: 10px;
-  justify-items: start;
-  margin-top: 4px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-.detail__foot button {
+  place-items: center;
+  gap: 18px;
+  width: clamp(150px, 19vw, 260px);
+  padding: 0;
   background: none;
   border: 0;
-  padding: 3px 0;
+  cursor: pointer;
+}
+.dnext__plate img {
+  width: 100%;
+  height: auto;
+  opacity: 0.72;
+  transition: opacity 420ms var(--ease), transform 620ms var(--ease);
+}
+.dnext__plate:hover img { opacity: 1; transform: translateY(-6px); }
+.dnext__name {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+.dnext__plate:hover .dnext__name { color: var(--text); }
+.dnext__go {
+  justify-self: end;
+  align-self: end;
+  padding: 0;
+  background: none;
+  border: 0;
   color: var(--muted);
   cursor: pointer;
-  transition: color 180ms var(--ease);
+  transition: color 260ms var(--ease);
 }
-.detail__foot button:first-child { color: var(--text); }
-.detail__foot button:hover { color: var(--pc, var(--frost)); }
+.dnext__go:hover { color: var(--text); }
 
-/* ── 좁은 화면 — 팩트가 먼저, 이미지가 뒤따른다 ── */
-@media (max-width: 1080px) {
-  .detail__grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: clamp(40px, 7vh, 72px);
+@media (max-width: 860px) {
+  .dhero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    row-gap: 26px;
+    text-align: center;
   }
-  .detail__panel { position: static; order: -1; gap: 22px; }
+  .dhero__title, .dhero__year { justify-self: center; }
+  .dmeta {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 34px;
+  }
+  .dmeta__info { grid-column: 1 / -1; }
+  .row--duo, .row--split, .row--trio { grid-template-columns: 1fr; }
+  .dconcept { grid-template-columns: 1fr; }
+  .dnext { grid-template-columns: 1fr; justify-items: center; row-gap: 22px; }
+  .dnext__mark, .dnext__go { justify-self: center; }
 }
 
-@media (max-width: 720px) {
-  .detail__pills { top: calc(var(--nav-h) + 12px); gap: 6px; }
-  .detail__pills button { padding: 10px 16px; font-size: 9px; }
-  .detail__grid { padding: calc(var(--nav-h) + 70px) 20px 18svh; }
-  .duo { grid-template-columns: 1fr; }
+@media (prefers-reduced-motion: reduce) {
+  .dhero__plate img { animation: none; }
 }
