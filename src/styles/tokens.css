@@ -23,8 +23,12 @@
      라틴은 Archivo 로, 한글은 자동으로 프리텐다드로 떨어진다.
      (Manrope 는 끝이 둥근 지오메트릭이라 레퍼런스와 성격이 반대였다) */
   --display: 'Archivo', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
-  /* 시스템 정보용 진짜 고정폭. 되돌리려면 이 한 줄만 --display 와 같게 바꾸면 된다. */
-  --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* 라벨·버튼도 같은 서체다.
+     K95 를 실측해 보면 'VISIT WEBSITE' 의 I 는 6px, W 는 28px 로 진폭이 4.67 배 다르다 —
+     모노스페이스가 아니라 본문과 같은 그로테스크를 작게·대문자로·자간만 벌려 쓴 것이다.
+     모노 + 대문자 + 넓은 자간은 개발자 템플릿의 기본값이라 어디서 본 듯한 인상을 준다.
+     숫자 정렬은 서체를 바꾸는 대신 tabular-nums 로 잡는다(.sys 참고). */
+  --mono: 'Archivo', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
   --kr: 'Archivo', 'Pretendard Variable', 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 
   /* layout */

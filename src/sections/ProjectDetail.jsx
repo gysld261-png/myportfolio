@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
 import { attachSmoothScroll, attachScrollVelocity } from '../lib/smooth';
+import RollText from '../components/RollText';
 import './detail.css';
 
 /**
@@ -133,11 +134,12 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
       {renderSpec && data && (
         <>
           <nav className="detail__pills" aria-label="상세 탐색">
-            <button type="button" className="roll" onClick={onClose}>
-              <span className="roll__in" data-label="/ RETURN"><span>/ RETURN</span></span>
+            <button type="button" className="roll" onClick={onClose} aria-label="필드로 돌아가기">
+              <RollText text="/ RETURN" />
             </button>
-            <button type="button" className="roll" onClick={() => onSwitch(next.id)}>
-              <span className="roll__in" data-label="NEXT"><span>NEXT</span></span>
+            <button type="button" className="roll" onClick={() => onSwitch(next.id)}
+              aria-label="다음 프로젝트">
+              <RollText text="NEXT" />
             </button>
           </nav>
 
@@ -166,7 +168,10 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                   <ul className="dmeta__links">
                     {links.map((v) => (
                       <li key={v.label}>
-                        <a className="sys" href={v.href} target="_blank" rel="noreferrer">{v.label}</a>
+                        <a className="sys roll" href={v.href} target="_blank" rel="noreferrer"
+                          aria-label={v.label}>
+                          <RollText text={v.label} />
+                        </a>
                       </li>
                     ))}
                   </ul>
@@ -202,8 +207,9 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                 <img src={next.imageCut || next.image} alt="" />
                 <span className="dnext__name">{next.ko}</span>
               </button>
-              <button type="button" className="sys dnext__go roll" onClick={() => onSwitch(next.id)}>
-                <span className="roll__in" data-label="NEXT PROJECT →"><span>NEXT PROJECT →</span></span>
+              <button type="button" className="sys dnext__go roll" onClick={() => onSwitch(next.id)}
+                aria-label="다음 프로젝트">
+                <RollText text="NEXT PROJECT →" />
               </button>
             </footer>
           </div>

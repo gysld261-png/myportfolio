@@ -258,8 +258,20 @@ export default function App() {
         {current === 'portfolio' && <Portfolio />}
       </main>
 
-      {/* 커서 유체. 빼려면 이 줄과 위의 import 한 줄만 지우면 된다. */}
-      {intro === 'done' && <SplashCursor />}
+      {/* ── 커서 유체 — MAIN 에서만 ──
+           연기는 어두운 배경에 빛을 더하는 방식이라, 밝은 글자의 대비를 만들어 주는
+           바로 그 어둠을 없앤다. 본문 위에서 재 보면 14.6:1 → 10.3:1 로 떨어진다.
+           z-index 를 낮춰 글자 뒤로 보내도 배경이 밝아지는 건 같고(게다가 각 화면 배경이
+           불투명이라 아예 안 보이게 된다), screen 블렌드도 배경을 같이 올려서 소용없다.
+           설정으로 풀 수 없는 문제라 범위로 푼다.
+
+           MAIN 은 얼음 하나에 큰 글씨 세 줄뿐이고 자체 안개가 없다.
+           FIELD 는 field.js 가, ABOUT 은 입자와 열기 글로우가 이미 커서에 반응하고 있어서
+           여기에 얹으면 안개가 두세 겹이 된다.
+           CONTACT 가 열려 있을 때도 끈다 — 그때는 읽고 연락하는 화면이다.
+
+           빼려면 이 블록과 위의 import 한 줄만 지우면 된다. */}
+      {intro === 'done' && current === 'main' && !contactOpen && <SplashCursor />}
 
       <Contact open={contactOpen} onClose={() => setContactOpen(false)} />
       {intro !== 'done' && <Intro phase={intro} onSkip={() => setIntro('leaving')} />}

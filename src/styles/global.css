@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css');
 @import './tokens.css';
 
@@ -51,10 +51,15 @@ body {
 :focus-visible { outline: 1px solid var(--frost); outline-offset: 3px; }
 
 /* ── 시스템 정보 타이포 — 10~12px, 넓은 자간 ── */
+/* 시스템 라벨 — 본문과 같은 서체다. 작게, 대문자로, 자간만 벌린다.
+   숫자가 제자리에서 바뀌는 곳(표본 번호·온도)이 있어서 tabular-nums 로 폭을 고정한다.
+   이것 하나면 되고, 그러자고 고정폭 서체를 한 벌 더 불러올 이유는 없다. */
 .sys {
-  font-family: var(--mono);
+  font-family: var(--display);
   font-size: 11.5px;
-  letter-spacing: 0.15em;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
   color: var(--muted);
   text-transform: uppercase;
 }
@@ -124,47 +129,41 @@ body {
 
 /* ── 롤 ──
    호버하면 글자가 위로 빠지고 같은 글자가 아래에서 올라온다.
+   글자마다 --i 만큼 늦게 출발해서 단어를 가로지르는 물결이 된다.
 
-   여기서 한 번 틀렸던 것: translateY 의 % 는 "부모 높이"가 아니라 "자기 높이" 기준이다.
-   패딩 있는 버튼에 바로 걸면 글자가 제 높이(한 줄)만큼만 움직여서
-   패딩 영역에 두 벌이 같이 보인다. 그래서 잘라내는 상자를 글자 딱 한 줄로 따로 둔다.
+   왜 한 글자씩인가: 단어를 통째로 굴리면 11~13px 글씨에선 이동 거리가 12px 남짓이다.
+   400ms 동안 12px 움직이는 건 눈이 "움직임"으로 안 잡는다.
+   시차를 주면 같은 거리인데도 분명하게 읽힌다.
 
-     <button class="roll" >          호버를 판정하는 바깥 (패딩은 여기)
-       <span class="roll__in" data-label="NEXT">   잘라내는 상자 (패딩 없음)
-         <span>NEXT</span>
-       </span>
-     </button>
-
-   두 번째 벌은 ::after 의 content 로만 띄운다 — DOM 에 같은 글자를 두 번 넣으면
-   스크린리더가 두 번 읽는다. */
-.roll { position: relative; }
-.roll .roll__in {
+   두 번째 벌을 ::after 의 content 로 못 쓰는 이유: 글자마다 따로 지연을 줘야 해서
+   실제 엘리먼트가 필요하다. 대신 전체를 aria-hidden 으로 묶고
+   링크 이름은 바깥 a 의 aria-label 로 준다(RollText.jsx 참고). */
+.rt { display: inline-flex; }
+.rt__c {
   display: inline-grid;
   overflow: hidden;
   vertical-align: bottom;
 }
-.roll .roll__in > span,
-.roll .roll__in::after {
+.rt__a,
+.rt__b {
   grid-area: 1 / 1;
   display: block;
-  white-space: nowrap;
-  transition: transform 400ms var(--ease);
+  white-space: pre;
+  transition: transform 360ms var(--ease);
+  transition-delay: calc(var(--i, 0) * var(--step, 24ms));
   will-change: transform;
 }
-.roll .roll__in::after {
-  content: attr(data-label);
-  transform: translateY(105%);
-}
-.roll:hover .roll__in > span,
-.roll:focus-visible .roll__in > span { transform: translateY(-105%); }
-.roll:hover .roll__in::after,
-.roll:focus-visible .roll__in::after { transform: translateY(0); }
+.rt__b { transform: translateY(105%); }
+
+.roll:hover .rt__a,
+.roll:focus-visible .rt__a { transform: translateY(-105%); }
+.roll:hover .rt__b,
+.roll:focus-visible .rt__b { transform: translateY(0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .roll .roll__in > span,
-  .roll .roll__in::after { transition: none; }
-  .roll:hover .roll__in > span { transform: none; }
-  .roll:hover .roll__in::after { transform: translateY(105%); }
+  .rt__a, .rt__b { transition: none; }
+  .roll:hover .rt__a { transform: none; }
+  .roll:hover .rt__b { transform: translateY(105%); }
 }
 
 /* ── 화면 공통 ── */
