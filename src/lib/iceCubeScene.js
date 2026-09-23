@@ -39,7 +39,19 @@ const noise = /* glsl */`
   }
 `;
 
-export function createIceMaterial(uniforms) {
+/**
+ * 드라이아이스 재질. 메인 큐브와 포트폴리오 표본이 같이 쓴다.
+ *   positionScale  노이즈·성에를 계산하는 좌표 배율. 큐브(한 변 2.35) 기준으로 맞춰져 있어서
+ *                  크기가 다른 덩어리는 이 값으로 결의 굵기를 큐브와 같게 맞춘다.
+ *   edge           'box'      큐브 — 좌표로 모서리를 알고 거기에 성에가 두껍게 낀다
+ *                  'fresnel'  모양이 제각각인 덩어리 — 윤곽(비스듬히 보이는 면)에 성에가 낀다
+ */
+export function createIceMaterial(uniforms, { positionScale = 1, edge = 'box', frostBase = 0.12, mottle = 0.35 } = {}) {
+  const iceEdgeGlsl = edge === 'fresnel'
+    ? 'float iceEdge = pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 2.2);'
+    : `vec3 iceAbs = abs(vIcePosition);
+      float iceMiddle = iceAbs.x + iceAbs.y + iceAbs.z - max(max(iceAbs.x, iceAbs.y), iceAbs.z) - min(min(iceAbs.x, iceAbs.y), iceAbs.z);
+      float iceEdge = smoothstep(0.9, 1.18, iceMiddle);`;
   // 드라이아이스는 유리가 아니다 — 눈을 눌러 굳힌 하얀 결정 덩어리.
   // 몸통은 분필처럼 탁하고, 빛만 속으로 살짝 스며 뒤의 글자가 뿌옇게 번져 보인다.
   const material = new THREE.MeshPhysicalMaterial({
@@ -60,7 +72,7 @@ export function createIceMaterial(uniforms) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vIcePosition;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvIcePosition = position;');
+      .replace('#include <begin_vertex>', `#include <begin_vertex>\nvIcePosition = position * ${positionScale.toFixed(4)};`);
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', /* glsl */`
       #include <common>
       varying vec3 vIcePosition;
@@ -69,14 +81,12 @@ export function createIceMaterial(uniforms) {
       ${noise}
     `).replace('#include <roughnessmap_fragment>', /* glsl */`
       #include <roughnessmap_fragment>
-      vec3 iceAbs = abs(vIcePosition);
-      float iceMiddle = iceAbs.x + iceAbs.y + iceAbs.z - max(max(iceAbs.x, iceAbs.y), iceAbs.z) - min(min(iceAbs.x, iceAbs.y), iceAbs.z);
-      float iceEdge = smoothstep(0.9, 1.18, iceMiddle);
+      ${iceEdgeGlsl}
       float iceClouds = smoothstep(0.35, 0.8, iceCloud(vIcePosition * 3.2 + 7.0));
       float iceGrain = iceNoise(vIcePosition * 42.0);
       float iceHeat = (1.0 - smoothstep(0.1, 0.95, distance(vIcePosition, uHeatPoint))) * uHeat;
       // 성에 층: 모서리일수록 두껍고, 커서(열)가 닿은 자리는 녹아서 속이 비친다
-      float iceFrost = clamp(0.12 + iceEdge * 0.75 + iceClouds * 0.35 + iceGrain * 0.12 - iceHeat * 0.55, 0.0, 1.0);
+      float iceFrost = clamp(${frostBase.toFixed(3)} + iceEdge * 0.75 + iceClouds * ${mottle.toFixed(3)} + iceGrain * 0.12 - iceHeat * 0.55, 0.0, 1.0);
       roughnessFactor = mix(0.2, 0.9, iceFrost);
       diffuseColor.rgb = mix(vec3(0.70, 0.76, 0.78), vec3(0.97, 0.985, 0.99), iceFrost);
     `).replace('#include <normal_fragment_maps>', /* glsl */`
@@ -99,7 +109,7 @@ export function createIceMaterial(uniforms) {
       'material.transmission = transmission * (1.0 - iceFrost * 0.5);'
     ));
   };
-  material.customProgramCacheKey = () => 'dry-ice-chalk-v3';
+  material.customProgramCacheKey = () => `dry-ice-chalk-v3-${edge}-${positionScale.toFixed(4)}-${frostBase}-${mottle}`;
   return material;
 }
 
