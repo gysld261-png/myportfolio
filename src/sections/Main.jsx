@@ -18,7 +18,7 @@ const IceCubeHero = lazy(() => import('../components/IceCubeHero'));
  */
 /* 히어로 문장. 이름은 이미 상단 nav 에 있다 — 한 화면에 두 번 쓰지 않는다.
    신입 포폴에서 가운데를 차지해야 하는 건 이름이 아니라 "뭘 하는 사람인가" 다. */
-const CLAIM = ['흩어진 결정을', '팀이 함께 쓰는', '기준으로 만듭니다'];
+const CLAIM = ['차분한 인상,', '멈추지 않는 생각'];
 
 export default function Main({ onScrollCue, introEntrance = false, transitionProgress = 0, rewinding = false }) {
   const [cubeReady, setCubeReady] = useState(false);
@@ -69,7 +69,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       <div className="main__type">
         <p className="sys main__eyebrow">IDENTITY / SPECIMEN 00</p>
         {/* 한 줄씩 아래에서 올라온다 — 마스크 안에서 밀려 올라오는 방식 */}
-        <h1 className="main__claim">
+        <h1 className="main__claim" aria-label={CLAIM.join(' ')}>
           {CLAIM.map((line, i) => (
             <span className="claimline" key={line} style={{ '--i': i }}>
               <i>{line}</i>
@@ -77,14 +77,14 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
           ))}
         </h1>
         <p className="sys main__role">
-          UX/UI DESIGNER
+          WEB DESIGNER
           <br />
           FRONTEND DEVELOPER
         </p>
         <p className="main__lead">
-          조용하지만 멈춰 있지 않은 사람을
+          화면의 분위기부터 작은 움직임까지,
           <br />
-          드라이아이스의 상태 변화로 번역한다
+          의도한 느낌이 전해지도록 디자인합니다.
         </p>
       </div>
 
@@ -105,7 +105,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
             <dd>{readout.mass.toFixed(1)}<i>%</i></dd>
           </div>
           <div className={readout.lit ? 'is-live' : ''}>
-            <dt>LUMEN AZ</dt>
+            <dt>LIGHT ANGLE</dt>
             <dd>{readout.azimuth > 0 ? '+' : ''}{readout.azimuth}<i>°</i></dd>
           </div>
         </dl>
@@ -115,7 +115,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       </div>
 
       <p className="main__hint sys" aria-hidden="true">
-        MOVE TO EXPLORE · DRAG TO TURN · SCROLL TO ENTER
+        DRAG TO ROTATE
       </p>
 
       <div
@@ -127,7 +127,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       </div>
 
       <button type="button" className="main__scroll sys" onClick={onScrollCue}>
-        ENTER THE FISSURE <span className="main__scroll-line" />
+        SCROLL TO EXPLORE <span className="main__scroll-line" />
       </button>
     </section>
   );

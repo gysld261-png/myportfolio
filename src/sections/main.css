@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css');
+
 /* ──────────────────────────────────────────────
    MAIN — SUBLIMATION CHAMBER
 
@@ -32,6 +34,19 @@
   /* 끝까지 남는다 — 마지막 화면의 연기 결이 곧 ABOUT 전환(SmokePassage)의 첫 화면이다 */
 }
 .ice-cube-hero canvas { display: block; width: 100%; height: 100%; }
+.ice-cube-hero__layout {
+  --cube-top: max(218px, calc(32.8svh - var(--nav-h)));
+  position: absolute;
+  left: 34.3%;
+  top: var(--cube-top);
+  width: 38.3%;
+  height: min(58.7svh, calc(100% - var(--cube-top) - 76px));
+  pointer-events: none;
+}
+.main .ticks {
+  z-index: 3;
+  mask-image: linear-gradient(to bottom, #000, transparent 160px);
+}
 .ice-cube-hero:active { cursor: grabbing; }
 .ice-cube-hero--unavailable { visibility: hidden; }
 .ice-cube-hero--loading { background: radial-gradient(ellipse at 63% 48%, rgba(175, 194, 200, 0.06), transparent 38%); }
@@ -133,14 +148,15 @@
   position: absolute;
   z-index: 1;
   left: 0;
-  top: clamp(52px, 7.6vh, 92px);
-  max-width: min(100%, 15ch);
+  top: clamp(48px, 6.33svh, 72px);
+  max-width: 100%;
   margin: 0;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: clamp(38px, 6.4vw, 104px);
-  line-height: 1.02;
-  letter-spacing: -0.045em;
+  font-family: 'Wanted Sans Variable', 'Wanted Sans', var(--kr);
+  font-weight: 600;
+  font-variation-settings: 'wght' 600;
+  font-size: clamp(48px, 6.39vw, 92px);
+  line-height: 1.2;
+  letter-spacing: 0;
   color: var(--text);
   word-break: keep-all;
   text-shadow: 0 2px 40px rgba(6, 9, 10, 0.85);
@@ -148,8 +164,10 @@
 .claimline {
   display: block;
   overflow: hidden;      /* 이 창 밖으로 나간 부분은 잘린다 */
-  padding-bottom: 0.06em; /* 받침이 잘리지 않게 */
+  white-space: nowrap;
 }
+.claimline:first-child { font-size: clamp(28px, 2.78vw, 40px); }
+.claimline + .claimline { margin-top: -8px; }
 .claimline i {
   display: block;
   font-style: normal;
@@ -178,9 +196,9 @@
   left: 0;
   bottom: 96px;
   margin: 0;
-  line-height: 1.9;
-  font-size: 11px;
-  letter-spacing: 0.18em;
+  line-height: 22px;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
   color: var(--frost);
   opacity: 0.92;
   text-shadow: 0 1px 16px rgba(6, 9, 10, 0.9);
@@ -189,14 +207,15 @@
 .main__lead {
   position: absolute;
   right: 0;
-  bottom: 86px;
+  bottom: clamp(90px, 12svh, 130px);
   margin: 0;
-  max-width: 30ch;
+  max-width: min(440px, 34vw);
   color: var(--text);
-  font-size: clamp(18px, 1.6vw, 24px);
-  line-height: 1.6;
+  font-size: clamp(18px, 1.6vw, 23px);
+  line-height: 1.2;
   font-weight: 300;
-  letter-spacing: -0.025em;
+  font-variation-settings: 'wght' 300;
+  letter-spacing: 0;
   /* 한국어는 단어 중간에서 끊지 않는다 */
   word-break: keep-all;
   overflow-wrap: break-word;
@@ -207,8 +226,8 @@
 .instrument {
   position: absolute;
   z-index: 8;
-  right: var(--gutter);
-  top: clamp(228px, 29vh, 288px);
+  right: calc(var(--gutter) + 200px);
+  top: 40.44svh;
   width: min(248px, 38vw);
   pointer-events: none;
   opacity: var(--exit-opacity, 1);
@@ -268,7 +287,7 @@
   bottom: 44px;
   transform: translateX(-50%);
   margin: 0;
-  font-size: 9px;
+  font-size: 11.5px;
   color: var(--muted);
   white-space: nowrap;
   opacity: 0.72;
@@ -324,43 +343,58 @@
   opacity: 0.7;
 }
 
-/* ── 모바일 ── */
-@media (max-width: 760px) {
-  .main__name {
-    top: 26px;
-    font-size: clamp(44px, 15.5vw, 92px);
-    line-height: 0.88;
+/* Keep a clear vertical reading order when the desktop composition no longer fits. */
+@media (max-width: 900px) {
+  .main__eyebrow { top: 26px; }
+  .main__claim { top: 58px; font-size: clamp(32px, 8.8vw, 64px); }
+  .claimline:first-child { font-size: clamp(24px, 4.2vw, 32px); }
+  .claimline + .claimline { margin-top: 4px; }
+  .ice-cube-hero__layout {
+    left: 10%;
+    top: clamp(166px, 21svh, 208px);
+    width: 80%;
+    height: calc(100% - clamp(166px, 21svh, 208px) - 338px);
   }
-  .main__eyebrow { top: 168px; }
   .main__lead {
-    right: auto;
+    right: 0;
     left: 0;
-    bottom: 232px;
-    max-width: 18ch;
-    font-size: 17px;
+    bottom: 150px;
+    max-width: none;
+    font-size: clamp(16px, 2.3vw, 20px);
+    line-height: 1.45;
   }
-  .main__role { bottom: 92px; }
-
-  /* 하단은 수직 스택으로 명확히 나눈다 — 겹침이 생기지 않도록 각 블록의 bottom 을 고정 */
+  .main__role { bottom: 82px; font-size: 10px; line-height: 19px; }
   .instrument {
     top: auto;
     right: var(--gutter);
-    bottom: 148px;
+    bottom: 218px;
     width: min(172px, 50vw);
   }
   .instrument::before { inset: -18px -20px -20px -20px; }
-  .instrument__head { margin-bottom: 9px; padding-bottom: 7px; font-size: 8px; letter-spacing: 0.1em; white-space: nowrap; }
+  .main .instrument__head { margin-bottom: 9px; padding-bottom: 7px; font-size: 8px; letter-spacing: 0.1em; white-space: nowrap; }
   .instrument__grid { gap: 8px 10px; }
   .instrument__grid dd { font-size: 11px; }
   .instrument__track { margin-top: 10px; }
 
   .main__hint { display: none; }
-  .main__scroll { bottom: 40px; }
+  .main__scroll { bottom: 30px; font-size: 10px; }
 }
 
-@media (max-width: 400px) {
-  .main__lead { bottom: 238px; font-size: 16px; max-width: 17ch; }
-  .instrument { bottom: 142px; }
+@media (max-width: 900px) and (max-height: 740px) {
+  .ice-cube-hero__layout { height: calc(100% - clamp(166px, 21svh, 208px) - 208px); }
+  .instrument { display: none; }
+  .main__lead { bottom: 132px; }
+}
+
+@media (max-width: 900px) and (max-height: 520px) {
+  .main__eyebrow { top: 12px; }
+  .main__claim { top: 38px; font-size: 38px; }
+  .claimline:first-child { font-size: 22px; }
+  .ice-cube-hero__layout { left: 50%; top: 64px; width: 46%; height: calc(100% - 92px); }
+  .main__lead { bottom: 110px; max-width: 47%; font-size: 14px; }
+  .main__lead br { display: none; }
+  .main__role { bottom: 55px; }
+  .main__scroll { bottom: 14px; }
 }
 
 

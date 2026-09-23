@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { byId } from '../data/specimens';
 import './about.css';
 
 /**
@@ -12,6 +13,8 @@ import './about.css';
  *
  * note 는 각 키워드가 굳었을 때 나오는 문장이다.
  * 프로젝트에서 실제로 있었던 일에만 근거를 둔다 — 형용사만 늘어놓지 않는다.
+ * projects 는 그 문장의 근거가 된 프로젝트다. 굳은 설명 아래 칩으로 나오고, 누르면 상세로 간다.
+ * note 에 실제로 등장하는 프로젝트만 넣는다 — 키워드마다 전부 달면 근거가 아니라 장식이 된다.
  */
 const KEYWORDS = [
   {
@@ -21,6 +24,7 @@ const KEYWORDS = [
   {
     t: 'UX/UI', kind: 'solid', x: 23, y: 29, size: 16,
     note: '화면을 그리기 전에 구조부터 잡습니다. 차이킴에서는 성격이 다른 두 서브 브랜드를 한 사이트 안에서 어떻게 가를지가 먼저였습니다.',
+    projects: ['tchaikim'],
   },
   {
     t: 'FRONTEND', kind: 'solid', x: 72, y: 26, size: 16,
@@ -29,10 +33,12 @@ const KEYWORDS = [
   {
     t: 'DETAIL', kind: 'solid', x: 76, y: 63, size: 16,
     note: '타이포 스케일을 11단계로 쪼갠 이유는 하나입니다. 그래야 팀이 매번 고민하지 않고 고를 수 있습니다.',
+    projects: ['tchaikim'],
   },
   {
     t: 'RESEARCH', kind: 'trace', x: 19, y: 55, size: 13,
     note: '만들기 전에 기준을 세웁니다. 페르소나 두 명을 정의하고 그 기준으로 정보 구조를 검증했습니다.',
+    projects: ['walga'],
   },
   {
     t: 'INTERACTION', kind: 'trace', x: 61, y: 78, size: 13,
@@ -41,16 +47,43 @@ const KEYWORDS = [
   {
     t: 'ORGANIZE', kind: 'trace', x: 39, y: 69, size: 13,
     note: '흩어진 결정을 한자리에 모읍니다. DL 번호 체계로 무엇을 왜 정했는지 나중에도 되짚을 수 있게 남겼습니다.',
+    projects: ['tchaikim'],
   },
   {
     t: 'BUILD', kind: 'trace', x: 84, y: 43, size: 13,
     note: '기획으로 끝내지 않습니다. 왈가왈봇에서는 PM으로 IA를 잡고 화면까지 만들었습니다.',
+    projects: ['walga'],
   },
   /* ↓ 아래 세 개는 프로젝트가 아니라 사람에 대한 것이라 네가 직접 써야 맞다 */
   { t: 'EARLY BIRD', kind: 'residue', x: 18, y: 81, size: 12, note: '' },
   { t: 'OLD SOUL', kind: 'residue', x: 80, y: 84, size: 12, note: '' },
   { t: 'PERSISTENT', kind: 'residue', x: 54, y: 14, size: 12, note: '' },
 ];
+
+/* 결정 격자 — 키워드끼리의 결합.
+   중심(HYOMIN)에서 모든 키워드로 한 가닥씩, 그리고 실제로 같이 일어나는 것끼리 한 가닥씩.
+   평소엔 보일 듯 말 듯하고, 열(커서)이 닿은 키워드의 결합만 밝아진다. */
+const kwAt = Object.fromEntries(KEYWORDS.map((k) => [k.t, k]));
+const LINKS = [
+  ...KEYWORDS.filter((k) => k.kind !== 'core').map((k) => ['HYOMIN', k.t]),
+  ['RESEARCH', 'UX/UI'],     // 기준을 세우고 구조를 잡는다
+  ['UX/UI', 'DETAIL'],
+  ['FRONTEND', 'BUILD'],     // 구현하고 끝까지 만든다
+  ['FRONTEND', 'INTERACTION'],
+  ['ORGANIZE', 'DETAIL'],    // 결정을 모아 기준으로 만든다
+  ['ORGANIZE', 'RESEARCH'],
+];
+/* 선이 글자를 관통하지 않게 양끝을 글자 앞에서 끊는다.
+   좌표는 % 라서 1440×900 화면 비율로 길이를 재고, 글자 크기만큼 안쪽으로 당긴다. */
+const GAP = { core: 70, solid: 50, trace: 44, residue: 44 };
+const trimmed = (A, B) => {
+  const dx = (B.x - A.x) * 14.4, dy = (B.y - A.y) * 9, len = Math.hypot(dx, dy) || 1;
+  const ta = Math.min(0.45, GAP[A.kind] / len), tb = Math.min(0.45, GAP[B.kind] / len);
+  return {
+    x1: A.x + (B.x - A.x) * ta, y1: A.y + (B.y - A.y) * ta,
+    x2: B.x - (B.x - A.x) * tb, y2: B.y - (B.y - A.y) * tb,
+  };
+};
 
 const PARTICLES = Array.from({ length: 92 }, (_, i) => ({
   x: (i * 47 + 13) % 97,
@@ -72,7 +105,7 @@ const anchorOf = (k) => ({
   y: k.y + (38 - k.y) * 0.55,
 });
 
-export default function About({ onGoMain }) {
+export default function About({ onGoMain, onOpenProject }) {
   const fieldRef = useRef(null);
   const sectionRef = useRef(null);
   const [picked, setPicked] = useState(null);
@@ -88,6 +121,7 @@ export default function About({ onGoMain }) {
     fieldRef.current.style.setProperty('--py', `${y}px`);
     fieldRef.current.style.setProperty('--pointer-active', '1');
 
+    const heats = {};
     fieldRef.current.querySelectorAll('.about__kw').forEach((node) => {
       const kx = (Number(node.dataset.x) / 100) * rect.width;
       const ky = (Number(node.dataset.y) / 100) * rect.height;
@@ -96,10 +130,16 @@ export default function About({ onGoMain }) {
       const distance = Math.max(1, Math.hypot(dx, dy));
       const heat = Math.max(0, 1 - distance / Math.min(260, rect.width * 0.22));
       const force = heat * heat * 24;
+      heats[node.dataset.t] = heat;
       node.style.setProperty('--heat', heat.toFixed(3));
       node.style.setProperty('--glow', `${(heat * 22).toFixed(1)}px`);
       node.style.setProperty('--rx', `${((dx / distance) * force).toFixed(2)}px`);
       node.style.setProperty('--ry', `${((dy / distance) * force).toFixed(2)}px`);
+    });
+    // 결합은 양끝 중 더 뜨거운 쪽만큼 밝아진다
+    fieldRef.current.querySelectorAll('.about__link').forEach((line) => {
+      const h = Math.max(heats[line.dataset.a] || 0, heats[line.dataset.b] || 0);
+      line.style.setProperty('--heat', h.toFixed(3));
     });
   };
 
@@ -112,6 +152,7 @@ export default function About({ onGoMain }) {
       node.style.setProperty('--rx', '0px');
       node.style.setProperty('--ry', '0px');
     });
+    fieldRef.current.querySelectorAll('.about__link').forEach((line) => line.style.setProperty('--heat', '0'));
   }, []);
 
   const pick = useCallback((keyword) => {
@@ -218,6 +259,27 @@ export default function About({ onGoMain }) {
         </div>
 
         <div className="about__thermal" aria-hidden="true" />
+
+        {/* 결정 격자 — 공간과 같이 확대되도록 about__space 안에 둔다 */}
+        <svg className="about__links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          {LINKS.map(([a, b], i) => {
+            const A = kwAt[a], Bk = kwAt[b];
+            const lit = picked && (picked.t === a || picked.t === b);
+            const kind = A.kind === 'core' ? Bk.kind : 'cross';
+            return (
+              <line
+                key={`${a}-${b}`}
+                className={`about__link about__link--${kind} ${lit ? 'is-lit' : ''}`}
+                data-a={a}
+                data-b={b}
+                {...trimmed(A, Bk)}
+                vectorEffect="non-scaling-stroke"
+                style={{ '--delay': `${280 + i * 45}ms` }}
+              />
+            );
+          })}
+        </svg>
+
         {/* 충격파 파문 */}
         <span className="about__wave" aria-hidden="true" />
 
@@ -226,6 +288,7 @@ export default function About({ onGoMain }) {
             type="button"
             key={keyword.t}
             className={`about__kw about__kw--${keyword.kind} ${picked?.t === keyword.t ? 'is-picked' : ''}`}
+            data-t={keyword.t}
             data-x={keyword.x}
             data-y={keyword.y}
             // 이미 굳은 상태면 키워드를 눌러도 새로 고르지 않고, 바깥 클릭처럼 필드로 돌아간다
@@ -263,6 +326,26 @@ export default function About({ onGoMain }) {
             {picked.note
               ? <p className="about__deposit-note">{picked.note}</p>
               : <p className="about__deposit-note about__deposit-note--empty">아직 굳지 않았습니다.</p>}
+            {/* 근거 — 이 문장이 나온 프로젝트로 바로 간다 */}
+            {picked.projects?.length > 0 && (
+              <div className="about__evidence">
+                <p className="sys about__evidence-label">EVIDENCE</p>
+                <ul>
+                  {picked.projects.map((id) => {
+                    const s = byId(id);
+                    return (
+                      <li key={id}>
+                        <button type="button" className="about__evidence-chip" onClick={() => onOpenProject?.(id)}>
+                          <span className="sys">{s.no}</span>
+                          <b>{s.ko}</b>
+                          <i aria-hidden="true">↗</i>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             <button type="button" className="about__deposit-back sys" onClick={release}>
               ← SUBLIMATE
             </button>

@@ -61,7 +61,8 @@ export default function App() {
    * rewind: MAIN 으로 되돌아갈 때 승화를 거꾸로 재생한다.
    * 진행도를 1 에서 시작해 0 으로 풀면 안개가 걷히고 얼음이 다시 굳는다.
    */
-  const go = useCallback((id, { replace = false, rewind = false, via = null } = {}) => {
+  /* project: 포트폴리오로 가면서 그 프로젝트 상세를 바로 연다 (ABOUT 키워드의 근거 칩에서 쓴다) */
+  const go = useCallback((id, { replace = false, rewind = false, via = null, project = null } = {}) => {
     if (id === 'contact') {
       setContactOpen(true);
       return;
@@ -86,7 +87,8 @@ export default function App() {
     }
     window.clearTimeout(exitTimer.current);
     exitTimer.current = 0;
-    const target = routeFor(id);
+    // Portfolio 는 마운트될 때 주소의 #/project/:id 를 읽어 상세를 연다
+    const target = id === 'portfolio' && project ? `${window.location.pathname}#/project/${project}` : routeFor(id);
     if (replace) window.history.replaceState(null, '', target);
     else if (`${window.location.pathname}${window.location.hash}` !== target) {
       window.history.pushState(null, '', target);
@@ -266,7 +268,12 @@ export default function App() {
             onScrollCue={requestExit}
           />
         )}
-        {current === 'about' && <About onGoMain={() => go('main', { rewind: true })} />}
+        {current === 'about' && (
+          <About
+            onGoMain={() => go('main', { rewind: true })}
+            onOpenProject={(project) => go('portfolio', { project })}
+          />
+        )}
         {current === 'portfolio' && <Portfolio />}
       </main>
 

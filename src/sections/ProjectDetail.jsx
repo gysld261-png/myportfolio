@@ -3,6 +3,7 @@ import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
 import { attachSmoothScroll, attachScrollVelocity } from '../lib/smooth';
 import RollText from '../components/RollText';
+import CaseStudyBoards from '../components/CaseStudyBoards';
 import './detail.css';
 
 /**
@@ -19,8 +20,48 @@ function Shot({ src, alt, ratio }) {
   );
 }
 
+/**
+ * PC 목업 안에서 실제 사이트가 스크롤되는 영상.
+ * 화면에 들어오면 소리 없이 재생하고, 나가면 멈춘다 — 안 보이는 영상을 계속 돌리지 않는다.
+ * 모션 축소 설정이거나 브라우저가 자동 재생을 막으면 대표 이미지 위에 재생 버튼을 둔다.
+ */
+function Device({ video, poster, alt }) {
+  const ref = useRef(null);
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setBlocked(true); return undefined; }
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) el.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+      else el.pause();
+    }, { threshold: 0.35 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const play = () => { ref.current?.play().then(() => setBlocked(false)).catch(() => {}); };
+
+  return (
+    <figure className="device" aria-label={alt}>
+      <div className="device__frame">
+        <div className="device__screen">
+          <video ref={ref} src={video} poster={poster} muted loop playsInline preload="metadata" aria-hidden="true" />
+          {blocked && (
+            <button type="button" className="device__play sys" onClick={play}>PLAY ▶</button>
+          )}
+        </div>
+      </div>
+      <span className="device__neck" aria-hidden="true" />
+      <span className="device__base" aria-hidden="true" />
+    </figure>
+  );
+}
+
 /* 이미지 리듬. 한 줄에 최대 셋까지만 간다. */
 function Row({ block }) {
+  if (block.type === 'device') return <div className="row row--device"><Device {...block} /></div>;
   if (block.type === 'full') return <div className="row row--full"><Shot {...block} /></div>;
   if (block.type === 'duo') {
     return (
@@ -64,7 +105,8 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
   const data = renderSpec ? getCase(renderSpec.id) : null;
-  const projectHero = renderSpec?.id === 'tchaikim' ? '/cases/tchaikim-home.jpg' : null;
+  const projectHero = data?.hero?.src || (renderSpec?.id === 'tchaikim' ? '/cases/tchaikim-home.jpg' : null);
+  const heroAlt = data?.hero?.alt || (projectHero ? '차이킴 웹사이트 디자인' : '');
 
   // 닫힐 때 내용을 즉시 지우지 않는다. 정보층이 얼음 안으로 흡수된 뒤 정리한다.
   useEffect(() => {
@@ -111,7 +153,14 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
   useEffect(() => {
     if (!spec) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeRef.current(); } };
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const viewer = scrollRef.current?.querySelector('.case-board-viewer[open]');
+      if (viewer) viewer.close();
+      else closeRef.current();
+    };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [spec]);
@@ -150,11 +199,15 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
           </nav>
 
           <div className="detail__scroll" ref={scrollRef}>
-            {/* ── 히어로 — 표본 하나, 좌우 끝에 제목과 연도 ── */}
-            <header className={`dhero ${projectHero ? 'dhero--project' : ''}`}>
+            {/* Project artwork, with transparent mockups framed to their visible bounds. */}
+            <header className={`dhero ${projectHero ? 'dhero--project' : ''} ${data.hero?.viewBox ? 'dhero--cutout' : ''}`}>
               <h2 className="dhero__title" tabIndex={-1}>{renderSpec.ko}</h2>
               <div className="dhero__plate">
-                <img src={projectHero || renderSpec.imageCut || renderSpec.image} alt={projectHero ? '차이킴 웹사이트 디자인' : ''} />
+                {data.hero?.viewBox ? (
+                  <svg className="dhero__cutout" viewBox={data.hero.viewBox} role="img" aria-label={heroAlt}>
+                    <image href={projectHero} width={data.hero.width} height={data.hero.height} />
+                  </svg>
+                ) : <img src={projectHero || renderSpec.imageCut || renderSpec.image} alt={heroAlt} />}
               </div>
               <p className="dhero__year sys">YEAR — {data.year}</p>
             </header>
@@ -191,7 +244,9 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
             </section>
 
             {/* ── 리듬 ── */}
-            <div className="dflow">
+            {data.layout === 'boards' ? (
+              <CaseStudyBoards key={renderSpec.id} blocks={blocks} active={Boolean(spec)} />
+            ) : <div className="dflow">
               {blocks.map((b, i) => (
                 b.type === 'concept'
                   ? (data.concept || []).length > 0 && (
@@ -204,7 +259,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                     )
                   : <Row key={i} block={b} />
               ))}
-            </div>
+            </div>}
 
             {/* ── 다음 표본 ── */}
             <footer className="dnext">

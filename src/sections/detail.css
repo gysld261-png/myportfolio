@@ -155,7 +155,7 @@
   grid-template-rows: auto 1fr;
   gap: 28px;
   padding-top: calc(var(--nav-h) + 112px);
-  padding-bottom: 56px;
+  padding-bottom: 96px;
 }
 .dhero--project .dhero__title {
   font-family: var(--display);
@@ -185,6 +185,22 @@
   animation: none;
   filter: none;
 }
+
+/* Transparent project mockups sit directly on the dark page, without a card. */
+.dhero.dhero--cutout {
+  padding-top: calc(var(--nav-h) + 90px);
+}
+.dhero--cutout .dhero__title {
+  font-size: clamp(34px, 5.5vw, 80px);
+  line-height: 1.1;
+}
+.dhero--cutout .dhero__plate {
+  width: min(100%, 620px, max(280px, calc(100svh - var(--nav-h) - 260px)));
+  aspect-ratio: 2601 / 2579;
+  justify-self: center;
+  will-change: auto;
+}
+.dhero__cutout { display: block; width: 100%; height: 100%; }
 
 /* ── 메타 ──
    왼쪽 1/3 에 라벨 두 칸, 오른쪽 절반에 INFO. 자세한 건 링크로 넘긴다. */
@@ -321,6 +337,71 @@
 .row--duo { grid-template-columns: 1fr 1fr; }
 .row--split { grid-template-columns: 1fr 2fr; }
 .row--trio { grid-template-columns: 1fr 1fr 1fr; }
+
+/* ── PC 목업 ──
+   정면에 가까운 얇은 베젤 모니터. 화면 비율은 녹화한 뷰포트(1440×900 = 16:10)와 같아야
+   영상이 잘리거나 늘어나지 않는다. 목과 받침은 모니터라는 걸 알려줄 만큼만. */
+.row--device {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  padding: clamp(40px, 6vw, 96px) 0 clamp(20px, 3vw, 48px);
+}
+.device {
+  margin: 0;
+  /* 모니터·목·받침이 한 화면(900px 높이)에 다 들어오는 폭 */
+  width: min(100%, 960px, calc((100svh - 220px) * 1.6));
+  display: grid;
+  justify-items: center;
+}
+.device__frame {
+  width: 100%;
+  padding: 1.1%;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1b1f21, #111415);
+  border: 1px solid rgba(175, 194, 200, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 40px 90px rgba(0, 0, 0, 0.55),
+    0 0 120px rgba(175, 194, 200, 0.05);
+}
+.device__screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #fffdf9;
+}
+.device__screen video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.device__play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 20px;
+  border: 1px solid rgba(241, 242, 239, 0.4);
+  border-radius: 999px;
+  background: rgba(11, 13, 14, 0.72);
+  color: var(--text);
+  cursor: pointer;
+}
+.device__neck {
+  width: 14%;
+  height: clamp(28px, 4vw, 56px);
+  background: linear-gradient(90deg, #121516, #1e2224 50%, #121516);
+  clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+}
+.device__base {
+  width: 30%;
+  height: 8px;
+  border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(180deg, #23282a, #131617);
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.5);
+}
 
 /* ── 울렁 ──
    --sv 는 스크롤 속도(-1~1), --sva 는 그 절대값. smooth.js 가 매 프레임 써 준다.
@@ -468,7 +549,7 @@
 @media (max-width: 700px) {
   .dhero.dhero--project {
     padding-top: calc(var(--nav-h) + 96px);
-    padding-bottom: 56px;
+    padding-bottom: 96px;
     grid-template-rows: auto auto;
     align-content: start;
     min-height: auto;
@@ -477,4 +558,12 @@
   .dhero--project .dhero__title { justify-self: start; }
   .dhero--project .dhero__plate { aspect-ratio: 4 / 3; }
   .dhero--project .dhero__year { font-size: 9px; }
+  .dhero.dhero--cutout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    text-align: left;
+  }
+  .dhero--cutout .dhero__plate {
+    width: min(100%, 520px);
+    aspect-ratio: 2601 / 2579;
+  }
 }

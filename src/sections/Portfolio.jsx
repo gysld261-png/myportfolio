@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ENTRY } from '../lib/portfolioMotion';
 import { SPECIMENS, FIELD_LAYOUT, byId } from '../data/specimens';
 import StateReadout from '../components/StateReadout';
 import ProjectDetail from './ProjectDetail';
 import './portfolio.css';
-const study=import.meta.env.DEV && new URLSearchParams(window.location.search).has('field-study');
 const loadField=()=>import('../lib/portfolioScene');
 
 const hashId = () => {
@@ -26,11 +24,7 @@ export default function Portfolio() {
   const [selected, setSelected] = useState(hashId);
   const hud = { state: 'SOLID', temp: 'LOW', tempValue: 0 };
   const returnTarget = useRef(selected);
-  const [reaction, setReaction] = useState(null);
-  const reactionLock = useRef(false);
-  const skipRef = useRef(null);
-  const [studyTime,setStudyTime]=useState(0);
-  const currentState=useRef({selected,reaction,activeIndex});currentState.current={selected,reaction,activeIndex};
+  const currentState=useRef({selected,activeIndex});currentState.current={selected,activeIndex};
 
   const sectionRef = useRef(null);
   const listSceneRef = useRef(null);
@@ -64,35 +58,6 @@ export default function Portfolio() {
     }
   }, [restoreFocus]);
 
-  const clearReaction = useCallback(() => {
-    reactionLock.current = false;
-    setReaction(null);
-  }, []);
-
-  const cancelReaction = useCallback(() => {
-    if(currentState.current.selected){fieldRef.current?.finish();return;}
-    fieldRef.current?.cancelEntry();
-    clearReaction();
-    restoreFocus();
-  }, [clearReaction, restoreFocus]);
-
-  // Every specimen travels inside the same persistent 3D field.
-  const beginEntry = useCallback((id) => {
-    if (reactionLock.current || !byId(id)) return;
-    returnTarget.current = id;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      select(id);
-      return;
-    }
-    if (mode === 'field' && fieldRef.current?.startEntry(id)) {
-      reactionLock.current = true;
-      setReaction({ id });
-      setStudyTime(0);
-    } else {
-      select(id);
-    }
-  }, [select, mode]);
-
   // Warm the case image while the field itself prepares its four textured meshes.
   useEffect(() => {
     const image = new Image();
@@ -102,8 +67,6 @@ export default function Portfolio() {
   // 뒤로가기로 상세를 닫을 수 있어야 한다
   useEffect(() => {
     const onPop = () => {
-      fieldRef.current?.cancelEntry();
-      clearReaction();
       const id = hashId();
       setSelected(id);
       if (id) {
@@ -113,23 +76,7 @@ export default function Portfolio() {
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [clearReaction, restoreFocus]);
-
-  // Escape cancels an unfinished entry without triggering App's main shortcut.
-  useEffect(() => {
-    if (!reaction) return undefined;
-    const nav=document.querySelector('.nav'),previousInert=nav?.inert;
-    if(nav)nav.inert=true;
-    const onKey = (event) => {
-      if(event.key==='Tab') { event.preventDefault();skipRef.current?.focus({preventScroll:true});return; }
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      cancelReaction();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => {window.removeEventListener('keydown', onKey, true);if(nav)nav.inert=previousInert;};
-  }, [reaction, cancelReaction]);
+  }, [restoreFocus]);
 
   useEffect(() => {
     if (mode !== 'field') return undefined;
@@ -139,39 +86,35 @@ export default function Portfolio() {
       if(disposed)return;
       field=createPortfolioScene(canvasRef.current, {
         items,
-        onSelect: beginEntry,
-        onCovered: select,
-        onFinish: clearReaction,
-        onUnavailable: id => { if(id)select(id);clearReaction(); },
-        study,
+        onSelect: select,
+        onUnavailable: () => sectionRef.current?.classList.add('has-field-fallback'),
       });
       fieldRef.current=field;
       sectionRef.current?.classList.remove('has-field-fallback');
       const state=currentState.current;
       field.setFocus(state.selected?-1:state.activeIndex);
-      field.setPaused(Boolean(state.selected&&!state.reaction));
+      field.setPaused(Boolean(state.selected));
     }).catch(error=>{
       console.warn('3D field unavailable; retaining project navigation.',error);
       sectionRef.current?.classList.add('has-field-fallback');
     });
     return () => { disposed=true;field?.destroy();fieldRef.current=null; };
-  }, [fieldLayout, mode, beginEntry, select, clearReaction]);
+  }, [fieldLayout, mode, select]);
 
   useEffect(() => {
     if (mode === 'field') fieldRef.current?.setFocus(selected ? -1 : activeIndex);
   }, [activeIndex, mode, selected]);
 
   useEffect(() => {
-    if(!selected&&!reaction)fieldRef.current?.reset();
-    else fieldRef.current?.setPaused(Boolean(selected&&!reaction));
-  }, [selected, reaction, mode]);
+    fieldRef.current?.setPaused(Boolean(selected));
+  }, [selected, mode]);
 
   const moveActive = useCallback((direction) => {
     setActiveIndex((current) => Math.max(0, Math.min(visibleSpecimens.length - 1, current + direction)));
   }, [visibleSpecimens.length]);
 
   const handleWheel = useCallback((event) => {
-    if (selected || reactionLock.current || Math.abs(event.deltaY) < 12) return;
+    if (selected || Math.abs(event.deltaY) < 12) return;
     const now = performance.now();
     if (now - wheelLock.current < 360) return;
     wheelLock.current = now;
@@ -199,7 +142,7 @@ export default function Portfolio() {
 
   useEffect(() => {
     const handleKey = (event) => {
-      if (selected || reactionLock.current) return;
+      if (selected) return;
       if (event.target.closest('button, a, input, textarea, select')) return;
       if (['ArrowDown', 'PageDown'].includes(event.key)) {
         event.preventDefault();
@@ -211,18 +154,18 @@ export default function Portfolio() {
       }
       if (event.key === 'Enter' && activeSpec) {
         event.preventDefault();
-        beginEntry(activeSpec.id);
+        select(activeSpec.id);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [activeSpec, moveActive, select, selected, mode, beginEntry]);
+  }, [activeSpec, moveActive, select, selected]);
 
   return (
-    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''} ${reaction ? 'has-journey' : ''}`}>
+    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''}`}>
       <div
-        className={`portfolio__stage portfolio__stage--${mode} ${reaction ? 'is-reacting' : ''}`}
-        inert={selected || reaction ? '' : undefined}
+        className={`portfolio__stage portfolio__stage--${mode}`}
+        inert={selected ? '' : undefined}
         aria-hidden={selected ? true : undefined}
         onWheel={handleWheel}
         onPointerMove={handleListPointerMove}
@@ -242,7 +185,7 @@ export default function Portfolio() {
                       data-project={s.id}
                       onFocus={() => fieldRef.current?.setFocus(i)}
                       onBlur={() => fieldRef.current?.setFocus(-1)}
-                      onClick={() => beginEntry(s.id)}
+                      onClick={() => select(s.id)}
                     >
                       <span className="specimen__number">{s.no}</span><span>{s.ko}</span><span className="specimen__arrow" aria-hidden="true">↗</span>
                     </button>
@@ -279,7 +222,7 @@ export default function Portfolio() {
                     className={`plist__row ${index === activeIndex ? 'is-active' : ''} ${selected === s.id ? 'is-selected' : ''}`}
                     onMouseEnter={() => setActiveIndex(index)}
                     onFocus={() => setActiveIndex(index)}
-                    onClick={() => beginEntry(s.id)}
+                    onClick={() => select(s.id)}
                   >
                     <span className="plist__no sys">{s.no}</span>
                     <span className="plist__name">{s.ko}</span>
@@ -295,7 +238,7 @@ export default function Portfolio() {
           <span className="sys sys--lit">PROJECTS</span>
           <span className="sys">/ {String(SPECIMENS.length).padStart(2, '0')}</span>
           <p className="portfolio__hint">
-            {mode === 'field' ? '스크롤로 표본 사이를 이동하고, 가까이 가면 승화가 시작됩니다' : '스크롤로 프로젝트를 탐색하고 선택하세요'}
+            {mode === 'field' ? '표본을 선택하면 프로젝트 상세를 볼 수 있습니다' : '스크롤로 프로젝트를 탐색하고 선택하세요'}
           </p>
         </header>
 
@@ -333,14 +276,6 @@ export default function Portfolio() {
         onClose={() => select(null)}
         onSwitch={select}
       />
-      {reaction && <div className="portfolio__journey">
-        <span role="status" className="journey__status">{byId(reaction.id).ko} 프로젝트로 이동 중</span>
-        <button ref={skipRef} className="journey__skip" type="button" onClick={()=>fieldRef.current?.finish()}>프로젝트 바로 보기</button>
-      </div>}
-      {study && reaction && <div className="field-study">
-        <label>시간 <input aria-label="장면 시간" type="number" min="0" max={ENTRY.end} step=".1" value={studyTime} onChange={e=>{const t=Number(e.target.value)||0;setStudyTime(t);fieldRef.current?.seek(t);}}/></label>
-        <button type="button" onClick={()=>fieldRef.current?.resume()}>재생</button>
-      </div>}
     </section>
   );
 }

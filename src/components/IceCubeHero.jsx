@@ -6,6 +6,7 @@ const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const REST_Z = 9.4;        // 쉬는 자리의 카메라 거리
 const NEAR_Z = 2.35;       // 승화 끝의 카메라 거리 (큐브 크기 배수) — 앞면 바로 앞
 const VEIL_DISTANCE = 0.5; // 연기 막이 카메라 앞에 떠 있는 거리
+const REST_ROTATION = new THREE.Euler(0.2, -0.48, -0.055);
 
 /** A real mesh with studio reflections and typography inside the refraction pass. */
 export default function IceCubeHero({ onReadout, onReady, initialEntrance = false, exitProgress = 0 }) {
@@ -77,6 +78,49 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
     const hits = [];
     const pointer = { x: 0, y: 0, active: false, dragging: false, downX: 0, drag: 0, startDrag: 0 };
     const base = { x: 0, y: 0, scale: 1 };
+    // Fit the existing mesh to the responsive Figma layout slot, including perspective.
+    geometry.computeBoundingBox();
+    const corners = [];
+    for (const x of [geometry.boundingBox.min.x, geometry.boundingBox.max.x]) {
+      for (const y of [geometry.boundingBox.min.y, geometry.boundingBox.max.y]) {
+        for (const z of [geometry.boundingBox.min.z, geometry.boundingBox.max.z]) {
+          corners.push(new THREE.Vector3(x, y, z));
+        }
+      }
+    }
+    const restEuler = REST_ROTATION.clone();
+    const restRotation = new THREE.Quaternion().setFromEuler(restEuler);
+    const fitCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 50);
+    fitCamera.position.z = REST_Z;
+    fitCamera.updateMatrixWorld(true);
+    const projected = new THREE.Vector3();
+    const fitSculpture = (width, height, worldWidth, worldHeight) => {
+      const hostBounds = host.getBoundingClientRect();
+      const slot = host.querySelector('.ice-cube-hero__layout').getBoundingClientRect();
+      const centerX = slot.left - hostBounds.left + slot.width / 2;
+      const centerY = slot.top - hostBounds.top + slot.height / 2;
+      fitCamera.aspect = width / height;
+      fitCamera.updateProjectionMatrix();
+      base.x = (centerX / width - 0.5) * worldWidth;
+      base.y = (0.5 - centerY / height) * worldHeight;
+      base.scale = 1;
+      for (let step = 0; step < 8; step += 1) {
+        let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+        for (const corner of corners) {
+          projected.copy(corner).applyQuaternion(restRotation).multiplyScalar(base.scale);
+          projected.x += base.x;
+          projected.y += base.y;
+          projected.project(fitCamera);
+          const px = (projected.x + 1) * width / 2;
+          const py = (1 - projected.y) * height / 2;
+          left = Math.min(left, px); right = Math.max(right, px);
+          top = Math.min(top, py); bottom = Math.max(bottom, py);
+        }
+        base.x += (centerX - (left + right) / 2) / width * worldWidth;
+        base.y -= (centerY - (top + bottom) / 2) / height * worldHeight;
+        base.scale *= Math.min(slot.width / (right - left), slot.height / (bottom - top));
+      }
+    };
     let live = true, ready = false, raf = 0, previousTime = 0, elapsed = 0, heat = 0;
     let lastReadout = 0, needsFrame = true, resizeFrame = 0;
 
@@ -104,14 +148,13 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
       const viewSlope = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       const worldHeight = viewSlope * REST_Z;
       const worldWidth = worldHeight * camera.aspect;
+      restEuler.x = width <= 900 ? 0.27 : REST_ROTATION.x;
+      restRotation.setFromEuler(restEuler);
       const backdropHeight = worldHeight * ((REST_Z - backdrop.position.z) / REST_Z);
       veil.scale.set(viewSlope * VEIL_DISTANCE * camera.aspect * 1.02, viewSlope * VEIL_DISTANCE * 1.02, 1);
       veil.material.uniforms.uAspect.value = camera.aspect;
       backdrop.scale.set(backdropHeight * camera.aspect, backdropHeight, 1);
-      // 헤드라인 뒷부분에 걸쳐 놓는다 — 투명한 얼음은 뒤에 비칠 글자가 있어야 얼음으로 읽힌다.
-      base.x = worldWidth * (mobile ? 0.07 : -0.03);
-      base.y = worldHeight * (mobile ? -0.085 : 0.1);
-      base.scale = mobile ? Math.min(0.72, worldWidth / 4.4) : Math.min(1.14, worldHeight / 4.9);
+      fitSculpture(width, height, worldWidth, worldHeight);
       vapor.material.uniforms.uPixelRatio.value = dpr;
       coldFog.material.uniforms.uPixelRatio.value = dpr;
       paint();
@@ -160,10 +203,10 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
       const tiltX = pointer.active && !reduced ? -pointer.y * 0.10 : 0;
       const tiltY = pointer.active && !reduced ? pointer.x * 0.17 : 0;
       if (!pointer.dragging) pointer.drag = THREE.MathUtils.damp(pointer.drag, 0, 3.4, dt);
-      sculpture.rotation.x = THREE.MathUtils.damp(sculpture.rotation.x, 0.27 + tiltX, 4, dt);
-      sculpture.rotation.y = THREE.MathUtils.damp(sculpture.rotation.y, -0.48 + tiltY + (reduced ? 0 : pointer.drag) + exit * 0.45, 4, dt);
-      sculpture.rotation.z = THREE.MathUtils.damp(sculpture.rotation.z, -0.11 + (pointer.active && !reduced ? pointer.x * 0.025 : 0), 4, dt);
-      if (reduced) sculpture.rotation.set(0.27, -0.48, -0.11);
+      sculpture.rotation.x = THREE.MathUtils.damp(sculpture.rotation.x, restEuler.x + tiltX, 4, dt);
+      sculpture.rotation.y = THREE.MathUtils.damp(sculpture.rotation.y, restEuler.y + tiltY + (reduced ? 0 : pointer.drag) + exit * 0.45, 4, dt);
+      sculpture.rotation.z = THREE.MathUtils.damp(sculpture.rotation.z, restEuler.z + (pointer.active && !reduced ? pointer.x * 0.025 : 0), 4, dt);
+      if (reduced) sculpture.rotation.copy(restEuler);
       sculpture.position.set(base.x, base.y + (1 - entrance) * -0.3, 0);
       sculpture.scale.setScalar(base.scale * (0.91 + entrance * 0.09));
       sculpture.updateMatrixWorld(true);
@@ -249,8 +292,14 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
       raf = requestAnimationFrame(animate);
     };
 
-    sculpture.rotation.set(0.27, -0.48, -0.11);
+    sculpture.rotation.copy(REST_ROTATION);
     resize();
+    // Canvas text must wait for each subset used by the two headline sizes.
+    const titleFonts = Array.from(host.parentElement.querySelectorAll('.claimline'), (line) => {
+      const style = getComputedStyle(line);
+      return document.fonts.load(`${style.fontWeight} ${style.fontSize} ${style.fontFamily}`, line.textContent);
+    });
+    Promise.allSettled(titleFonts).then(() => { if (live) paint(); });
     document.fonts.ready.then(() => { if (live) paint(); });
     document.fonts.addEventListener('loadingdone', paint);
     host.addEventListener('pointermove', updatePointer);
@@ -289,5 +338,9 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
     };
   }, [onReady, onReadout]);
 
-  return <div ref={hostRef} className="ice-cube-hero" aria-hidden="true" />;
+  return (
+    <div ref={hostRef} className="ice-cube-hero" aria-hidden="true">
+      <div className="ice-cube-hero__layout" />
+    </div>
+  );
 }
