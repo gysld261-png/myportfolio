@@ -1,7 +1,11 @@
 /* ─────────────────────────────────────────────────────────────
    PROJECT DETAIL
-   왼쪽은 작업물이 흐르고, 오른쪽 팩트 패널은 따라붙은 채 고정된다.
-   표를 쓰지 않는다. 라벨 위 / 값 아래로 쌓는다.
+
+   레퍼런스(Belen Jones / MOLYXA)의 원칙은 하나다.
+   한쪽은 이미지만, 다른 쪽은 글만. 섞지 않는다.
+
+   왼쪽  — 작업물이 끝까지 이미지로만 흐른다. 라벨도 캡션도 없다.
+   오른쪽 — 큰 제목과 팩트. 스크롤을 따라붙은 채 고정된다.
    ───────────────────────────────────────────────────────────── */
 
 .detail {
@@ -9,65 +13,62 @@
   inset: 0;
   z-index: 12;
   overflow: hidden;
-  background: rgba(10, 12, 13, 0.965);
-  backdrop-filter: blur(22px) saturate(0.6);
-  -webkit-backdrop-filter: blur(22px) saturate(0.6);
+  background: var(--bg);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition:
-    opacity 460ms var(--ease),
+    opacity 420ms var(--ease),
     visibility 0s linear 700ms;
 }
 .detail.is-open {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition-delay: 360ms, 0s;
+  transition-delay: 320ms, 0s;
 }
-/* 스크롤한 내용이 nav 와 알약 아래로 사라지게 한다 */
+/* 스크롤한 이미지가 nav 와 알약 아래로 사라진다 */
 .detail::before {
   content: '';
   position: absolute;
   inset: 0 0 auto 0;
-  height: calc(var(--nav-h) + 116px);
+  height: calc(var(--nav-h) + 96px);
   z-index: 5;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    rgba(10, 12, 13, 0.99) 0 62%,
-    rgba(10, 12, 13, 0.8) 82%,
+    rgba(11, 13, 14, 0.96) 0 52%,
+    rgba(11, 13, 14, 0.68) 78%,
     transparent 100%
   );
 }
 
-/* ── 좌상단 알약 — /RETURN · NEXT ── */
+/* ── 좌상단 알약 ── */
 .detail__pills {
   position: absolute;
-  top: calc(var(--nav-h) + 26px);
+  top: calc(var(--nav-h) + 20px);
   left: var(--gutter);
   z-index: 6;
   display: flex;
   gap: 8px;
   opacity: 0;
-  transform: translateY(-10px);
-  transition: opacity 420ms var(--ease), transform 560ms var(--ease);
+  transition: opacity 380ms var(--ease);
 }
-.detail.is-revealed .detail__pills { opacity: 1; transform: translateY(0); }
+.detail.is-revealed .detail__pills { opacity: 1; }
 .detail__pills button {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding: 11px 20px;
+  padding: 12px 22px;
   border-radius: 999px;
-  border: 1px solid rgba(175, 194, 200, 0.22);
-  background: rgba(13, 16, 17, 0.94);
-  color: var(--muted);
+  border: 0;
+  background: var(--text);
+  color: #0b0d0e;
   cursor: pointer;
-  transition: border-color 200ms var(--ease), color 200ms var(--ease);
+  transition: background 180ms var(--ease);
 }
-.detail__pills button:hover { border-color: var(--pc, var(--frost)); color: var(--text); }
+.detail__pills button:hover { background: var(--pc, var(--frost)); }
 
 /* ── 스크롤 ── */
 .detail__scroll {
@@ -77,224 +78,153 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: none;
+  opacity: 0;
+  transition: opacity 520ms var(--ease);
 }
+.detail.is-revealed .detail__scroll { opacity: 1; }
 .detail__scroll::-webkit-scrollbar { display: none; }
 
 .detail__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(280px, 31%);
-  gap: clamp(28px, 4.5vw, 84px);
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 34%);
+  gap: clamp(32px, 5vw, 96px);
   align-items: start;
-  padding: calc(var(--nav-h) + 96px) var(--gutter) 28svh;
-  opacity: 0;
-  transform: translateY(14px);
-  transition: opacity 560ms var(--ease), transform 720ms var(--ease);
+  padding: calc(var(--nav-h) + 86px) var(--gutter) 22svh;
 }
-.detail.is-revealed .detail__grid { opacity: 1; transform: translateY(0); }
 
-/* ── 왼쪽 — 작업물 스트림 ── */
+/* ─────────────────────────────────────────────
+   왼쪽 — 이미지만. 글자가 하나도 없다.
+   ───────────────────────────────────────────── */
 .detail__stream {
   display: grid;
-  gap: clamp(52px, 8vh, 104px);
+  gap: clamp(56px, 9vh, 120px);
   min-width: 0;
 }
-
-.shot { margin: 0; display: grid; gap: 12px; }
-.shot__label { color: var(--pc, var(--frost)); opacity: 0.9; margin: 0; }
+.shot { margin: 0; display: block; }
 .shot img {
   display: block;
   width: 100%;
   height: auto;
-  border-radius: 3px;
+  border-radius: 4px;
 }
-/* 평면 스크린샷은 테두리로 화면 경계를 잡아준다. 목업은 이미 프레임을 갖고 있다. */
-.shot.is-flat img { border: 1px solid var(--line); }
-.shot figcaption {
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--muted);
-  max-width: 64ch;
+/* 첫 장은 패널과 함께 정확히 한 화면에 들어간다 */
+.shot--hero img,
+.shot--hero .shot__slot {
+  max-height: calc(100svh - var(--nav-h) - 132px);
+  width: 100%;
+  object-fit: contain;
+  object-position: left center;
 }
+.shot--hero .shot__slot { height: calc(100svh - var(--nav-h) - 132px); }
+
+/* 목업은 이미 프레임을 갖고 있다. 평면 캡처만 테두리로 화면 경계를 잡는다. */
+.shot.is-flat img { border-radius: 0; border: 1px solid var(--line); }
 .shot__slot {
-  display: grid;
-  place-items: center;
-  height: clamp(140px, 21vh, 210px);
-  border: 1px dashed rgba(175, 194, 200, 0.24);
-  border-radius: 3px;
-  color: var(--muted);
-  opacity: 0.45;
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      transparent 0 9px,
-      rgba(175, 194, 200, 0.035) 9px 18px
-    );
+  display: block;
+  height: clamp(190px, 34vh, 380px);
+  background: #101314;
 }
 
 .duo {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(16px, 2vw, 28px);
+  gap: clamp(14px, 1.8vw, 26px);
 }
-.shot--half figcaption { font-size: 11.5px; }
-.shot--half .shot__slot { height: clamp(120px, 16vh, 165px); }
+.shot--half .shot__slot { height: clamp(150px, 24vh, 260px); }
 
-/* ── 근거 블록 ── */
-.note { display: grid; gap: 10px; max-width: 58ch; }
-.note__label {
-  margin: 0;
-  color: var(--muted);
-  opacity: 0.68;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
-}
-.note__title {
-  margin: 6px 0 2px;
-  font-family: var(--display);
-  font-size: clamp(18px, 1.9vw, 25px);
-  font-weight: 600;
-  line-height: 1.4;
-  letter-spacing: -0.02em;
-  color: var(--text);
-  text-wrap: balance;
-}
-.note__p {
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 2;
-  color: var(--muted);
-}
-
-.steps { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; }
-.steps li {
-  display: grid;
-  grid-template-columns: 26px 1fr;
-  gap: 12px;
-  font-size: 13.5px;
-  line-height: 2;
-  color: var(--muted);
-}
-.steps__no { color: var(--pc, var(--frost)); padding-top: 5px; opacity: 0.9; }
-
-/* ── 다음 표본 ── */
-.detail__next {
-  margin-top: clamp(20px, 5vh, 56px);
-  display: grid;
-  gap: 10px;
-  justify-items: start;
-  padding: 26px 0 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: none;
-  color: var(--muted);
-  text-align: left;
-  cursor: pointer;
-}
-.detail__next em {
-  font-style: normal;
-  font-family: var(--display);
-  font-size: clamp(22px, 2.6vw, 34px);
-  font-weight: 600;
-  letter-spacing: -0.03em;
-  color: var(--text);
-  transition: color 200ms var(--ease);
-}
-.detail__next:hover em { color: var(--pc, var(--frost)); }
-
-/* ── 가운데 칩 — 지금 보고 있는 표본 ── */
-.detail__chip {
-  position: sticky;
-  top: calc(var(--nav-h) + 132px);
-  padding: 9px 14px;
-  border-radius: 2px;
-  background: var(--pc, var(--frost));
-  white-space: nowrap;
-}
-.detail__chip .sys { color: #0b0d0e; font-size: 9.5px; }
-
-/* ── 오른쪽 — 팩트 패널. 스크롤하지 않는다. ── */
+/* ─────────────────────────────────────────────
+   오른쪽 — 제목과 팩트. 고정.
+   ───────────────────────────────────────────── */
 .detail__panel {
   position: sticky;
-  top: calc(var(--nav-h) + 96px);
+  top: calc(var(--nav-h) + 86px);
   align-self: start;
   display: grid;
   gap: 26px;
   min-width: 0;
 }
-.detail__title {
+.detail__no {
   margin: 0;
+  justify-self: start;
+  padding: 6px 11px;
+  background: var(--pc, var(--frost));
+  color: #0b0d0e;
+}
+.detail__title {
+  margin: -8px 0 0;
   font-family: var(--display);
-  font-size: clamp(34px, 4.6vw, 68px);
-  font-weight: 700;
-  line-height: 0.96;
-  letter-spacing: -0.045em;
-  color: transparent;
-  -webkit-text-stroke: 1.3px var(--text);
+  font-size: clamp(38px, 4.6vw, 76px);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  color: var(--text);
   word-break: keep-all;
 }
-.detail__kicker { margin: -14px 0 0; opacity: 0.62; }
+.detail__kicker { margin: -12px 0 6px; color: var(--muted); opacity: 0.8; }
 
-.prow { display: grid; gap: 9px; }
-.prow__label { margin: 0; color: var(--muted); opacity: 0.55; }
+.prow { display: grid; gap: 10px; }
+.prow__label { margin: 0; color: var(--muted); opacity: 0.5; }
 .prow__body {
   margin: 0;
-  font-size: 12.5px;
-  line-height: 1.95;
+  font-size: 13px;
+  line-height: 2;
   color: var(--text);
 }
-/* 영문 나열값은 본문이 아니라 시스템 정보로 읽힌다 */
 .prow__body--sys {
   font-family: var(--mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
-  line-height: 1.9;
+  letter-spacing: 0.05em;
+  line-height: 1.95;
   color: var(--muted);
 }
-.prow__links { margin: 0; display: flex; flex-wrap: wrap; gap: 2px; }
+
+/* 링크가 이 페이지의 목적지다. 작게 두지 않는다. */
+.prow__links { margin: 0; display: grid; gap: 6px; }
 .prow__links a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 15px;
+  background: var(--surface);
   color: var(--text);
   text-decoration: none;
-  border-bottom: 1px solid var(--pc, var(--frost));
-  padding-bottom: 2px;
-  transition: color 200ms var(--ease);
+  transition: background 180ms var(--ease), color 180ms var(--ease);
 }
-.prow__links a:hover { color: var(--pc, var(--frost)); }
+.prow__links a::after { content: '\2197'; font-size: 12px; opacity: 0.6; }
+.prow__links a:hover { background: var(--pc, var(--frost)); color: #0b0d0e; }
 
-.detail__close {
-  justify-self: start;
-  margin-top: 6px;
+.detail__foot {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.detail__foot button {
   background: none;
   border: 0;
-  border-bottom: 1px solid transparent;
-  padding: 4px 0;
+  padding: 3px 0;
   color: var(--muted);
-  opacity: 0.6;
   cursor: pointer;
-  transition: opacity 200ms var(--ease), border-color 200ms var(--ease);
+  transition: color 180ms var(--ease);
 }
-.detail__close:hover { opacity: 1; border-bottom-color: var(--muted); }
+.detail__foot button:first-child { color: var(--text); }
+.detail__foot button:hover { color: var(--pc, var(--frost)); }
 
-/* ── 좁은 화면 — 팩트가 먼저, 작업물이 뒤따른다 ── */
+/* ── 좁은 화면 — 팩트가 먼저, 이미지가 뒤따른다 ── */
 @media (max-width: 1080px) {
   .detail__grid {
     grid-template-columns: minmax(0, 1fr);
     gap: clamp(40px, 7vh, 72px);
-    padding-top: calc(var(--nav-h) + 84px);
   }
-  .detail__chip { display: none; }
-  .detail__panel {
-    position: static;
-    order: -1;
-    gap: 22px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--line);
-  }
+  .detail__panel { position: static; order: -1; gap: 22px; }
 }
 
 @media (max-width: 720px) {
-  .detail__pills { top: calc(var(--nav-h) + 14px); gap: 6px; }
-  .detail__pills button { padding: 9px 15px; font-size: 9px; }
-  .detail__grid { padding: calc(var(--nav-h) + 72px) 20px 22svh; }
+  .detail__pills { top: calc(var(--nav-h) + 12px); gap: 6px; }
+  .detail__pills button { padding: 10px 16px; font-size: 9px; }
+  .detail__grid { padding: calc(var(--nav-h) + 70px) 20px 18svh; }
   .duo { grid-template-columns: 1fr; }
-  .detail__title { -webkit-text-stroke-width: 1px; }
 }

@@ -13,6 +13,17 @@
   background: var(--bg);
 }
 
+/* ── 공간 — 클릭하면 이 판 전체가 움직인다 ──
+   설명이 제자리에 뜨는 게 아니라, 고른 키워드 쪽으로 내가 이동하는 것으로 읽혀야 한다. */
+.about__space {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  transform: translate(var(--sx, 0%), var(--sy, 0%)) scale(var(--sc, 1));
+  transition: transform 1250ms cubic-bezier(0.22, 0.61, 0.24, 1);
+  will-change: transform;
+}
+
 .about__particles {
   position: absolute;
   inset: 0;
@@ -53,7 +64,10 @@
   font-weight: 500;
   letter-spacing: 0.11em;
   white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 6px 8px;
   opacity: 0;
   animation: about-condense 720ms var(--ease) var(--delay) forwards;
   color: var(--base-color, var(--muted));
@@ -129,4 +143,213 @@
   .about__kw--core { font-size: 25px !important; }
   .about__intro > p:last-child { max-width: 30ch; }
   .about__instruction { display: none; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   승화 → 증착
+
+   키워드를 누르면 그 글자가 승화하고(자간이 벌어지며 안개로 흩어진다),
+   나머지는 가라앉고(CO2 는 무겁다), 가운데에서 설명으로 다시 굳는다.
+   ───────────────────────────────────────────────────────────── */
+
+/* 고른 것 — 제자리에서 흩어진다 */
+/* 고른 것 — 사라지지 않는다. 내가 그 앞에 도착하는 것이므로 제목이 된다. */
+.about__kw.is-picked {
+  animation: none;
+  opacity: 1;
+  z-index: 4;
+  color: var(--text);
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  /* 공간이 2.2배로 커지므로 여기서 한 번 더 키우면 제목 크기가 된다 */
+  transform: translate(-50%, -50%) scale(1.85);
+  text-shadow: 0 2px 30px rgba(6, 9, 10, 0.9);
+  transition:
+    transform 1250ms cubic-bezier(0.22, 0.61, 0.24, 1),
+    color 500ms var(--ease),
+    letter-spacing 700ms var(--ease);
+}
+
+/* 나머지 — 위로 흩어지지 않고 가라앉는다 */
+.about.is-deposited .about__kw:not(.is-picked) {
+  animation: none;
+  opacity: 0;
+  filter: blur(4px);
+  transition: opacity 620ms var(--ease), filter 620ms var(--ease);
+  pointer-events: none;
+}
+.about.is-deposited .about__thermal { opacity: 0; }
+.about.is-deposited .about__particles { opacity: 0.35; transition: opacity 600ms var(--ease); }
+.about.is-deposited .about__intro { opacity: 0; transition: opacity 320ms var(--ease); }
+
+/* ── 안개 — 바닥에서 차올라 시야를 덮는다 ──
+   CO2 는 공기보다 무겁다. 위에서 내려오거나 가운데서 퍼지면 안 된다.
+   한 층이면 아무리 블러해도 '하얀 덩어리'로 읽히므로 세 층이 서로 다른 속도로 흐른다. */
+.about__vapor {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+.about__vapor i {
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: -30%;
+  height: 92%;
+  display: block;
+  opacity: 0;
+  transform: translateY(40%);
+  background: radial-gradient(
+    64% 100% at calc(34% + var(--i) * 18%) 100%,
+    rgba(224, 235, 239, 0.62),
+    rgba(196, 212, 219, 0.3) 46%,
+    transparent 78%
+  );
+  filter: blur(calc(22px + var(--i) * 12px));
+}
+.about.is-deposited .about__vapor i {
+  animation: about-swell calc(1500ms + var(--i) * 260ms) var(--ease) forwards;
+  animation-delay: calc(var(--i) * 90ms);
+}
+@keyframes about-swell {
+  0%   { opacity: 0;    transform: translateY(46%) scaleX(1); }
+  38%  { opacity: 0.95; transform: translateY(-12%) scaleX(1.1); }
+  100% { opacity: 0.2;  transform: translateY(2%)  scaleX(1.18); }
+}
+
+/* 증착된 설명 — 화면 한가운데 */
+.about__deposit {
+  position: absolute;
+  z-index: 8;
+  left: var(--ax, 50%);
+  top: calc(var(--ay, 50%) + 7%);
+  width: min(78vw, 460px);
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  text-align: left;
+  pointer-events: none;
+  opacity: 0;
+}
+/* 화면 오른쪽에 선 키워드는 설명이 왼쪽으로 뻗어야 잘리지 않는다 */
+.about__deposit.is-right {
+  transform: translateX(-100%);
+  justify-items: end;
+  text-align: right;
+}
+
+/* 서리가 번지며 글자가 드러난다.
+   마스크 원이 커지고, 동시에 흐림이 걷힌다. 페이드인이 아니라 '읽히기 시작'하는 것. */
+@property --frost-r {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+.about.is-reveal .about__deposit {
+  pointer-events: auto;
+  animation: about-frost 1150ms var(--ease) forwards;
+  -webkit-mask-image: radial-gradient(
+    circle at 50% 46%,
+    #000 var(--frost-r),
+    rgba(0, 0, 0, 0.35) calc(var(--frost-r) + 9%),
+    transparent calc(var(--frost-r) + 20%)
+  );
+  mask-image: radial-gradient(
+    circle at 50% 46%,
+    #000 var(--frost-r),
+    rgba(0, 0, 0, 0.35) calc(var(--frost-r) + 9%),
+    transparent calc(var(--frost-r) + 20%)
+  );
+}
+@keyframes about-frost {
+  from { opacity: 1; --frost-r: 0%;   filter: blur(14px); }
+  60%  { opacity: 1; }
+  to   { opacity: 1; --frost-r: 150%; filter: blur(0); }
+}
+/* 이동이 끝나갈 때쯤 설명이 굳기 시작한다 */
+.about.is-reveal .about__deposit { animation-delay: 240ms; }
+/* @property 를 모르는 브라우저에서도 최소한 보이게 */
+@supports not (background: paint(x)) {
+  .about.is-reveal .about__deposit { -webkit-mask-image: none; mask-image: none; }
+}
+.about__deposit-state { margin: 0; color: var(--frost); opacity: 0.75; }
+.about__deposit-title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(30px, 4.6vw, 62px);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+}
+.about__deposit-note {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 14.5px;
+  line-height: 2;
+  color: var(--muted);
+  word-break: keep-all;
+}
+.about__deposit-note--empty { opacity: 0.45; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; }
+.about__deposit-back {
+  margin-top: 8px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  padding: 4px 0;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 200ms var(--ease), border-color 200ms var(--ease);
+}
+.about__deposit-back:hover { color: var(--text); border-bottom-color: var(--frost); }
+
+@media (prefers-reduced-motion: reduce) {
+  .about.is-deposited .about__vapor,
+  .about.is-deposited .about__deposit { animation-duration: 0.01ms; }
+  .about__deposit { opacity: 1; }
+}
+
+
+
+
+/* ─────────────────────────────────────────────────────────────
+   충격파 — 클릭한 지점에서 퍼져나가 화면 전체에 도달한다
+   ───────────────────────────────────────────────────────────── */
+.about__wave {
+  position: absolute;
+  left: var(--wx, 50%);
+  top: var(--wy, 50%);
+  z-index: 4;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  /* transform: scale 로 키우면 테두리까지 같이 두꺼워져 도넛이 된다.
+     선 굵기를 1px 로 유지하려면 크기 자체를 키워야 한다. */
+  border: 1px solid rgba(190, 208, 214, 0.9);
+  opacity: 0;
+  pointer-events: none;
+}
+.about__field.is-shocked .about__wave { animation: wave-out 1100ms cubic-bezier(0.1, 0.7, 0.3, 1) forwards; }
+@keyframes wave-out {
+  from { opacity: 0.5; width: 0;      height: 0;      margin: 0; }
+  to   { opacity: 0;   width: 2600px; height: 2600px; margin: -1300px 0 0 -1300px; }
+}
+
+/* 파동이 닿는 순간 각 키워드가 바깥으로 한 번 밀린다 */
+.about__field.is-shocked .about__kw:not(.is-picked) {
+  animation: kw-flinch 460ms var(--ease) var(--fd, 0ms);
+}
+@keyframes kw-flinch {
+  0%   { transform: translate(-50%, -50%); }
+  32%  { transform: translate(calc(-50% + var(--fx, 0px)), calc(-50% + var(--fy, 0px))); }
+  100% { transform: translate(-50%, -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about__field.is-shocked .about__wave,
+  .about__field.is-shocked .about__kw:not(.is-picked) { animation: none; }
 }

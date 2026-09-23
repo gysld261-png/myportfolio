@@ -29,7 +29,16 @@ body {
 }
 
 .app-stage { animation: scene-in 620ms var(--ease) both; }
-.app-stage--about { background: var(--bg); }
+.app-stage--about {
+  background: var(--bg);
+  /* MAIN 의 연기 속에서 걸어 나오듯 등장한다 — 밀려 들어오지 않는다 */
+  animation: fog-clear 920ms var(--ease) both;
+}
+@keyframes fog-clear {
+  from { opacity: 0; filter: blur(26px) brightness(1.85); transform: scale(1.055); }
+  55%  { opacity: 1; }
+  to   { opacity: 1; filter: blur(0) brightness(1); transform: scale(1); }
+}
 .app-stage--portfolio { animation-duration: 420ms; }
 
 @keyframes scene-in {

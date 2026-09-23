@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 const noise = (i, t) =>
   Math.sin(i * 0.61 + t * 1.6) * 0.5 +
   Math.sin(i * 1.77 - t * 2.2) * 0.3 +
@@ -76,8 +77,50 @@ export function createField(canvas, options) {
       const c = document.createElement('canvas');
       c.width = img.naturalWidth;
       c.height = img.naturalHeight;
-      const cc = c.getContext('2d');
+      const cc = c.getContext('2d', { willReadFrequently: true });
       cc.drawImage(img, 0, 0);
+
+      /* 네 장의 사진이 서로 다른 노출로 찍혀 있다.
+         그대로 쓰면 하나는 밝고 셋은 어두워 같은 공간의 물체로 읽히지 않는다.
+         그래서 각 사진의 밝은 쪽 2% 지점을 찾아 같은 밝기로 끌어올린 뒤,
+         그 밝기에서 알파(실루엣)를 만든다. 배경이 거의 검으니 밝기 = 실루엣이다. */
+      try {
+        const data = cc.getImageData(0, 0, c.width, c.height);
+        const px = data.data;
+        const total = px.length / 4;
+
+        let hasAlpha = false;
+        for (let i = 3; i < px.length; i += 4) { if (px[i] < 250) { hasAlpha = true; break; } }
+
+        const hist = new Uint32Array(256);
+        for (let i = 0; i < px.length; i += 4) {
+          hist[(px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) | 0] += 1;
+        }
+        let acc = 0;
+        let hi = 255;
+        for (let v = 255; v >= 0; v -= 1) {
+          acc += hist[v];
+          if (acc > total * 0.02) { hi = v; break; }
+        }
+        /* 밝은 쪽을 212 근처로. 너무 어두운 사진이 과하게 튀지 않게 상한을 둔다. */
+        const gain = Math.min(3.4, 212 / Math.max(28, hi));
+
+        for (let i = 0; i < px.length; i += 4) {
+          const r = Math.min(255, px[i] * gain);
+          const g = Math.min(255, px[i + 1] * gain);
+          const b = Math.min(255, px[i + 2] * gain);
+          px[i] = r; px[i + 1] = g; px[i + 2] = b;
+          if (!hasAlpha) {
+            const lum = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+            const a = clamp01((lum - 0.055) / 0.17);
+            px[i + 3] = Math.round(a * a * (3 - 2 * a) * 255);
+          }
+        }
+        cc.putImageData(data, 0, 0);
+      } catch (e) {
+        /* 다른 출처의 이미지라 픽셀을 못 읽는 경우 — 원본 그대로 쓴다 */
+      }
+
       entry.canvas = c;
       entry.ready = true;
     };
@@ -103,7 +146,22 @@ export function createField(canvas, options) {
     particles: [],
     fogs: [],
     box: null,
+    /* 던지기 — 배치 좌표에 더해지는 변위와 속도. resize 로 box 가 다시 계산돼도 살아남는다. */
+    ox: 0, oy: 0, vx: 0, vy: 0,
+    /* 던져진 직후엔 마찰로 뜨거워져 더 빨리 승화한다 */
+    throwHeat: 0,
   }));
+
+  /* 집어 든 표본 */
+  const drag = { i: -1, gx: 0, gy: 0, moved: 0, lx: 0, ly: 0, lt: 0, vx: 0, vy: 0 };
+  /* 충격파 — 클릭한 지점에서 퍼져나가 모든 것을 건드린다 */
+  const shocks = [];
+  let lastFrameAt = 0;
+
+  function shock(x, y, power = 1) {
+    shocks.push({ x, y, t: 0, p: power });
+    if (shocks.length > 4) shocks.shift();
+  }
 
   function buildItem(item, st) {
     const { spec, cx, cy, w } = item;
@@ -238,15 +296,66 @@ export function createField(canvas, options) {
     pointer.x = x;
     pointer.y = y;
     pointer.inside = true;
+
+    if (drag.i >= 0) {
+      const st = state[drag.i];
+      drag.moved += Math.hypot(x - drag.lx, y - drag.ly);
+      const gap = Math.max(8, performance.now() - drag.lt);
+      /* 프레임 간격에 상관없이 같은 속도가 나오도록 16.7ms 기준으로 환산한다 */
+      drag.vx = drag.vx * 0.55 + ((x - drag.lx) / gap) * 16.7 * 0.45;
+      drag.vy = drag.vy * 0.55 + ((y - drag.ly) / gap) * 16.7 * 0.45;
+      drag.lx = x;
+      drag.ly = y;
+      drag.lt = performance.now();
+      st.ox = x - drag.gx - st.box.cx;
+      st.oy = y - drag.gy - st.box.cy;
+    }
   }
   function onLeave() {
+    if (drag.i >= 0) { drag.i = -1; canvas.style.cursor = ''; }
     pointer.inside = false;
     pointer.x = -9999;
     pointer.y = -9999;
   }
-  function onDown() {
+  function onDown(ev) {
     const hit = nearest();
-    if (hit >= 0 && onSelect) onSelect(items[hit].spec.id);
+    if (hit < 0) return;
+    const st = state[hit];
+    drag.i = hit;
+    drag.gx = pointer.x - (st.box.cx + st.ox);
+    drag.gy = pointer.y - (st.box.cy + st.oy);
+    drag.moved = 0;
+    drag.lx = pointer.x;
+    drag.ly = pointer.y;
+    drag.lt = performance.now();
+    drag.vx = 0;
+    drag.vy = 0;
+    st.vx = 0;
+    st.vy = 0;
+    canvas.style.cursor = 'grabbing';
+    try { canvas.setPointerCapture(ev.pointerId); } catch (e) { /* 지원 안 하면 무시 */ }
+  }
+
+  function onUp(ev) {
+    if (drag.i < 0) return;
+    const st = state[drag.i];
+    const id = items[drag.i].spec.id;
+    const thrown = drag.moved > 7;
+    if (thrown) {
+      /* 놓은 순간의 속도가 그대로 표본의 속도가 된다 */
+      st.vx = clamp(drag.vx, -42, 42);
+      st.vy = clamp(drag.vy, -42, 42);
+      const power = Math.min(1, Math.hypot(st.vx, st.vy) / 22);
+      st.throwHeat = Math.max(st.throwHeat, power);
+      shock(pointer.x, pointer.y, 0.55 + power * 0.7);
+    } else {
+      /* 거의 안 움직였으면 클릭이다 */
+      shock(pointer.x, pointer.y, 1);
+      if (onSelect) onSelect(id);
+    }
+    drag.i = -1;
+    canvas.style.cursor = '';
+    try { canvas.releasePointerCapture(ev.pointerId); } catch (e) { /* 무시 */ }
   }
 
   function nearest() {
@@ -275,8 +384,81 @@ export function createField(canvas, options) {
     fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
     const labelQueue = [];
 
+    /* 프레임 간격이 흔들려도 같은 속도로 움직이게 한다 (16.7ms = 1) */
+    const dtF = lastFrameAt ? clamp((now - lastFrameAt) / 16.7, 0.2, 3) : 1;
+    lastFrameAt = now;
+
     temp = clamp01(temp * 0.94 + Math.min(1, pointer.speed / 1.6) * 0.06);
     pointer.speed *= 0.93;
+
+    /* ── 던져진 표본의 관성 ──
+       CO2 는 무겁다. 위로 뜨지 않고 아래로 가라앉는다.
+       다만 포트폴리오의 배치는 정보라서 영구히 망가지면 안 된다.
+       멈추면 아주 천천히 제자리로 되돌아가 다시 얼어붙는다. */
+    state.forEach((st, i) => {
+      if (!st.box || i === drag.i) return;
+
+      const halfW = st.box.w * 0.46;
+      const floor = H - st.box.h * 0.36;
+      const cyNow = st.box.cy + st.oy;
+      const resting = cyNow >= floor - 0.6 && Math.abs(st.vy) < 0.75;
+      const speed = Math.hypot(st.vx, st.vy);
+
+      if (speed > 0.07 && !resting) {
+        st.vy += 0.052 * dtF;
+        st.ox += st.vx * dtF;
+        st.oy += st.vy * dtF;
+        const f = Math.pow(0.955, dtF);
+        st.vx *= f;
+        st.vy *= f;
+
+        const cx = st.box.cx + st.ox;
+        const cy = st.box.cy + st.oy;
+        const ceil = st.box.h * 0.4;
+        if (cx < halfW) { st.ox += halfW - cx; st.vx = Math.abs(st.vx) * 0.38; }
+        if (cx > W - halfW) { st.ox -= cx - (W - halfW); st.vx = -Math.abs(st.vx) * 0.38; }
+        if (cy < ceil) { st.oy += ceil - cy; st.vy = Math.abs(st.vy) * 0.3; }
+        if (cy > floor) {
+          st.oy -= cy - floor;
+          st.vy = -Math.abs(st.vy) * 0.26;
+          st.vx *= 0.78;
+          if (Math.abs(st.vy) < 0.75) st.vy = 0;
+        }
+      } else {
+        st.vx = 0;
+        st.vy = 0;
+        /* 되돌아가기 — 눈에 띄게 끌려가지 않을 만큼 느리게 */
+        if (Math.abs(st.ox) > 0.5 || Math.abs(st.oy) > 0.5) {
+          const k = 1 - Math.pow(0.9885, dtF);
+          st.ox -= st.ox * k;
+          st.oy -= st.oy * k;
+        } else {
+          st.ox = 0;
+          st.oy = 0;
+        }
+      }
+      st.throwHeat = Math.max(0, st.throwHeat - 0.009 * dtF);
+    });
+
+    /* ── 충격파 ── */
+    for (let i = shocks.length - 1; i >= 0; i -= 1) {
+      const sw = shocks[i];
+      sw.t += 0.021 * dtF;
+      if (sw.t >= 1) { shocks.splice(i, 1); continue; }
+      const r = sw.t * Math.max(W, H) * 0.66;
+      /* 파동이 지나가는 표본을 바깥으로 밀어낸다 */
+      state.forEach((st, k) => {
+        if (!st.box || k === drag.i) return;
+        const cx = st.box.cx + st.ox;
+        const cy = st.box.cy + st.oy;
+        const d = Math.hypot(cx - sw.x, cy - sw.y);
+        if (Math.abs(d - r) > 44 || d < 1) return;
+        const push = (1 - sw.t) * sw.p * 0.42;
+        st.vx += ((cx - sw.x) / d) * push;
+        st.vy += ((cy - sw.y) / d) * push;
+        st.throwHeat = Math.min(1, st.throwHeat + 0.22 * (1 - sw.t) * sw.p);
+      });
+    }
 
     const holdMul = 1 + temp * (S.temp / 100) * 2.2;
     const inRate = 16.7 / Math.max(60, S.tin);
@@ -330,8 +512,11 @@ export function createField(canvas, options) {
       const enter = enterRaw * enterRaw * (3 - 2 * enterRaw);
       const sourceScale = st.sourceBox ? st.sourceBox.w / st.box.w : 1;
       const focusScale = sourceScale + (1 - sourceScale) * enter;
-      const focusCx = st.sourceBox ? st.sourceBox.cx + (st.box.cx - st.sourceBox.cx) * enter : st.box.cx;
-      const focusCy = st.sourceBox ? st.sourceBox.cy + (st.box.cy - st.sourceBox.cy) * enter : st.box.cy;
+      /* 던져서 생긴 변위를 배치 좌표에 더한다 */
+      const baseCx = st.box.cx + st.ox;
+      const baseCy = st.box.cy + st.oy;
+      const focusCx = st.sourceBox ? st.sourceBox.cx + (baseCx - st.sourceBox.cx) * enter : baseCx;
+      const focusCy = st.sourceBox ? st.sourceBox.cy + (baseCy - st.sourceBox.cy) * enter : baseCy;
       const renderW = st.box.w * depthBreath * focusScale;
       const renderH = st.box.h * depthBreath * focusScale;
       const renderBox = {
@@ -358,6 +543,10 @@ export function createField(canvas, options) {
         const raw = clamp01(1 - d / S.radius);
         target = raw * raw * (3 - 2 * raw);
       }
+      /* 던져진 직후엔 마찰열 때문에 커서가 없어도 승화한다 */
+      if (st.throwHeat > 0) target = Math.max(target, st.throwHeat * 0.85);
+      /* 집고 있는 동안은 손의 열이 직접 닿는다 */
+      if (idx === drag.i) target = 1;
 
       st.t += target > st.t
         ? Math.min(target - st.t, inRate)
@@ -471,7 +660,12 @@ export function createField(canvas, options) {
           const c1 = pts[(b + 1) % pts.length];
           const pp = (c0[2] + c1[2]) / 2;
           if (pp > 0.86) continue;
-          const alpha = Math.min(1, (1 - pp * 0.95) * materialAlpha * detailBoost);
+          /* 사진이 깔린 오브젝트는 자기 실루엣이 이미 있다.
+             폴리곤 윤곽선을 그대로 그으면 물체 바깥으로 삐져나와 스티커처럼 보인다.
+             그래서 사진이 있으면 승화가 시작될 때만 아주 옅게 긋는다. */
+          const hasTex = Boolean(spec.image);
+          const edgeMul = hasTex ? Math.min(0.5, st.t * 1.6) : 1;
+          const alpha = Math.min(1, (1 - pp * 0.95) * materialAlpha * detailBoost * edgeMul);
           if (alpha <= 0.02) continue;
           ctx.strokeStyle = `rgba(${FROST},${alpha.toFixed(3)})`;
           ctx.beginPath();
@@ -637,6 +831,20 @@ export function createField(canvas, options) {
       ctx.restore();
     }
 
+    /* 충격파 링 — 얇은 파문 하나. 두꺼우면 만화가 된다. */
+    shocks.forEach((sw) => {
+      const r = sw.t * Math.max(W, H) * 0.66;
+      const fade = (1 - sw.t) * (1 - sw.t);
+      ctx.save();
+      ctx.globalAlpha = fade * 0.42 * sw.p;
+      ctx.strokeStyle = 'rgba(190, 208, 214, 1)';
+      ctx.lineWidth = Math.max(0.5, 2.2 * fade);
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    });
+
     labelQueue.forEach(({ spec, box, t, depth = 0.5 }) => {
       const ly = box.y + box.h + 30;
       ctx.font = '500 10px "Manrope", sans-serif';
@@ -675,6 +883,8 @@ export function createField(canvas, options) {
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerleave', onLeave);
     canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
   }
   raf = requestAnimationFrame(frame);
 
@@ -691,6 +901,8 @@ export function createField(canvas, options) {
         canvas.removeEventListener('pointermove', onMove);
         canvas.removeEventListener('pointerleave', onLeave);
         canvas.removeEventListener('pointerdown', onDown);
+        canvas.removeEventListener('pointerup', onUp);
+        canvas.removeEventListener('pointercancel', onUp);
       }
     },
   };

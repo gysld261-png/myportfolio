@@ -1,18 +1,24 @@
 /**
- * 케이스 스터디 콘텐츠.
+ * 케이스 스터디 콘텐츠 — 인덱스형.
  *
- * 화면은 2열이다.
- *   stream — 왼쪽. 이미지와 그 근거가 번갈아 흐른다. 이 페이지의 본문.
- *   panel  — 오른쪽. 프로젝트 팩트. 스크롤하지 않고 고정된다.
+ * 이 사이트는 잘 만든 목록이지 케이스 스터디 문서가 아니다.
+ * 깊이는 기획서 PDF와 배포 사이트에 있고, 여기엔 그리로 가는 길만 둔다.
  *
- * 표(kv)를 쓰지 않는다. 라벨 위 / 값 아래로 쌓는다.
- * 내용이 없는 블록은 넣지 않는다. 빈 섹션을 "작성 예정"으로 채우지 않는다.
+ *   stream — 왼쪽. 이미지만 쭉 흐른다. 글 블록도 캡션도 넣지 않는다.
+ *   panel  — 오른쪽 고정. 제목 / ROLE / PROJECT(2~3문장) / SKILLS / VISIT.
  *
- * stream 블록 네 가지
- *   { type:'shot',  src, label, caption, flat? }   이미지 한 장. src 를 비우면 촬영 대기 슬롯.
+ * 한쪽은 이미지만, 다른 쪽은 글만. 섞지 않는 것이 이 레이아웃의 전부다.
+ *
+ * PROJECT 에는 "배포 사이트를 봐도 안 보이는 것"만 쓴다.
+ * 완성 화면은 링크가 보여주므로, 여기엔 내가 맡은 범위를 적는다.
+ *
+ * stream 블록
+ *   { type:'shot',  src, label, caption, flat? }       src 를 비우면 이미지 자리만 잡는다
  *   { type:'duo',   items:[{ src, label, caption }] }  나란히 두 장
- *   { type:'note',  label, title, body:[문단] }    이미지 없는 근거
- *   { type:'steps', label, title, items:[] }       순서 자체가 의미인 것
+ *   { type:'note',  label, title, body:[문단] }        꼭 필요할 때만
+ *   { type:'steps', label, title, items:[] }
+ *
+ * visit 는 href 가 빈 항목은 화면에 나오지 않는다. 주소 생기면 채우면 된다.
  */
 
 export const CASES = {
@@ -29,8 +35,8 @@ export const CASES = {
       {
         label: 'PROJECT',
         body: [
-          '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. ready-to-wear와 bespoke, 성격이 다른 두 서브 브랜드를 한 사이트 안에서 구분하면서도 같은 브랜드로 읽히게 만드는 것이 구조의 핵심이었습니다.',
-          '제가 맡은 범위는 디자인 시스템과 개발 핸드오프입니다. 네 명이 각자 다르게 내리던 결정을 팀이 함께 쓰는 하나의 기준으로 묶고, 그 기준이 구현까지 새지 않고 도착하도록 만드는 일이었습니다.',
+          '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다.',
+          '저는 디자인 시스템과 개발 핸드오프를 맡았습니다. 타이포 토큰을 정의해 배포하고, Figma Dev Mode annotation 기준의 핸드오프 워크플로와 DL(Design Log) 기록 체계를 만들어 팀의 결정이 구현까지 흩어지지 않게 했습니다.',
         ],
       },
       {
@@ -39,65 +45,18 @@ export const CASES = {
           'FIGMA, DEV MODE ANNOTATION, DESIGN TOKENS, TYPE SCALE, IA, PERSONA, HANDOFF WORKFLOW, DESIGN LOG, NETLIFY',
       },
     ],
-    visit: [{ label: 'VIEW REPO', href: 'https://github.com/gysld261-png/tchaikimm' }],
+    visit: [
+      // 주소 채우면 자동으로 나온다
+      { label: 'VIEW SITE', href: '' },
+      { label: 'DECK (PDF)', href: '' },   // public/ 에 넣고 '/tchaikim-deck.pdf'
+      { label: 'GITHUB', href: 'https://github.com/gysld261-png/tchaikimm' },
+    ],
+    // 왼쪽은 이미지만 흐른다. caption 은 화면에 안 나오고 alt 로만 쓰인다.
     stream: [
-      {
-        type: 'shot',
-        src: '/cases/tchaikim-home.jpg',
-        label: 'FINAL / HOME',
-        caption:
-          '첫 화면에서 두 서브 브랜드를 좌우로 나눴다. 각자의 톤은 유지하면서 같은 그리드 위에 올라간다.',
-      },
-      {
-        type: 'note',
-        label: 'STRUCTURE',
-        title: '두 개의 브랜드, 하나의 사이트',
-        body: [
-          'Brand · Collection · Shop · Bespoke 네 갈래로 정보 구조를 잡았습니다. 구매까지 바로 이어지는 ready-to-wear와, 상담부터 시작하는 bespoke는 사용자가 밟는 단계 자체가 다릅니다.',
-          '두 경로를 같은 메뉴에 섞지 않고 진입부터 갈라놓되, 브랜드를 설명하는 층은 공유하게 했습니다.',
-        ],
-      },
-      {
-        type: 'note',
-        label: 'RESEARCH',
-        title: '해외 고객 두 명을 기준으로 세웠다',
-        body: [
-          'Sophie Martin과 Clara Jensen, 두 페르소나를 정의하고 그 기준으로 정보 구조를 검증했습니다. 한복을 이미 아는 사람과 처음 보는 사람은 같은 메뉴를 다르게 읽습니다.',
-        ],
-      },
-      {
-        type: 'shot',
-        src: '',
-        flat: true,
-        label: 'TYPE SYSTEM / v1',
-        caption: 'Netlify에 배포한 타이포 토큰 페이지 — 팀이 항상 같은 기준을 보게 한 장치',
-      },
-      {
-        type: 'note',
-        label: 'TYPOGRAPHY',
-        title: '두 버전을 만들고 v1을 팀 표준으로 채택했다',
-        body: [
-          'Trirong · Montserrat · Pretendard 조합으로 10개 토큰, 11단계 사이즈 스케일을 정의했습니다.',
-          '결정을 Figma 안에만 두지 않고 토큰 페이지를 Netlify에 배포해, 팀 누구나 같은 주소에서 같은 기준을 확인할 수 있게 했습니다.',
-        ],
-      },
-      {
-        type: 'steps',
-        label: 'HANDOFF',
-        title: '결정이 구현까지 새지 않게',
-        items: [
-          'Figma Dev Mode의 annotation을 핸드오프의 기준 문서로 삼았습니다.',
-          'annotation과 comment의 용도를 분리하는 운영 규칙을 만들어, 확정된 결정과 진행 중인 논의가 한자리에 섞이지 않게 했습니다.',
-          'DL(Design Log) 번호 체계를 도입해 디자인 결정과 그 근거를 나중에도 되짚을 수 있게 남겼습니다.',
-        ],
-      },
-      {
-        type: 'duo',
-        items: [
-          { src: '', flat: true, label: 'DEV MODE', caption: 'annotation 기준 핸드오프 화면' },
-          { src: '', flat: true, label: 'DESIGN LOG', caption: 'DL 번호로 추적되는 결정 기록' },
-        ],
-      },
+      { type: 'shot', src: '/cases/tchaikim-home.jpg', caption: '홈 — 두 서브 브랜드를 좌우로 나눈 첫 화면' },
+      { type: 'shot', src: '', flat: true, caption: '컬렉션 화면' },
+      { type: 'shot', src: '', flat: true, caption: 'Netlify에 배포한 타이포 토큰 페이지' },
+      { type: 'shot', src: '', flat: true, caption: 'Figma Dev Mode annotation 기준 핸드오프' },
     ],
   },
 
@@ -110,19 +69,12 @@ export const CASES = {
       { label: 'ROLE', body: 'UX/UI · FRONTEND' },
       {
         label: 'PROJECT',
-        body: [
-          '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 하나를 찾으러 들어왔다가 옆으로 새는 경험을 구조로 설계하고 있습니다.',
-        ],
+        body: ['관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 설계와 구현을 함께 진행하고 있습니다.'],
       },
     ],
     visit: [],
     stream: [
-      {
-        type: 'note',
-        label: 'STATUS',
-        title: '진행 중인 프로젝트입니다',
-        body: ['설계와 구현을 함께 진행하고 있습니다. 완료되는 대로 과정을 정리해 올립니다.'],
-      },
+      { type: 'shot', src: '', flat: true, caption: '작업 중인 화면' },
     ],
   },
 
@@ -138,14 +90,11 @@ export const CASES = {
         body: ['꼭 필요한 사람에게 가장 빠른 길을 내주는 것이 목표였던 사용성 개선 프로젝트입니다.'],
       },
     ],
-    visit: [],
+    visit: [
+      { label: 'DECK (PDF)', href: '' },
+    ],
     stream: [
-      {
-        type: 'note',
-        label: 'STATUS',
-        title: '정리 중입니다',
-        body: ['화면과 근거를 정리해 곧 채웁니다.'],
-      },
+      { type: 'shot', src: '', flat: true, caption: '개선 화면' },
     ],
   },
 
@@ -163,12 +112,8 @@ export const CASES = {
     ],
     visit: [],
     stream: [
-      {
-        type: 'note',
-        label: 'STATUS',
-        title: '진행 중인 프로젝트입니다',
-        body: ['IA와 주요 화면을 설계하는 단계입니다.'],
-      },
+      { type: 'shot', src: '/cases/walga-screens.jpg', caption: '홈 — 오늘의 사건과 투표 결과 화면' },
+      { type: 'shot', src: '/cases/walga-demo.jpg', caption: '시연용 프로토타입 — 계정과 로그인 상태를 바꿔가며 온보딩부터 볼 수 있다' },
     ],
   },
 };

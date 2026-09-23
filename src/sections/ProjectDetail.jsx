@@ -1,53 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
+import { attachSmoothScroll } from '../lib/smooth';
 import './detail.css';
 
-/** 이미지 한 장. src 가 비면 촬영 대기 슬롯으로 그린다. */
-function Shot({ src, label, caption, flat, half }) {
+/**
+ * 이미지 한 장. src 가 비면 자리만 잡는다.
+ * caption 은 화면에 그리지 않는다 — alt 로만 쓴다. 왼쪽 열엔 글자가 없다.
+ */
+function Shot({ src, caption, flat, half, hero }) {
   return (
-    <figure className={`shot ${half ? 'shot--half' : ''} ${flat ? 'is-flat' : ''} ${src ? '' : 'is-pending'}`}>
-      {label && <p className="shot__label sys">{label}</p>}
+    <figure className={`shot ${half ? 'shot--half' : ''} ${flat ? 'is-flat' : ''} ${hero ? 'shot--hero' : ''}`}>
       {src
-        ? <img src={src} alt={caption || label || ''} loading="lazy" />
-        : <span className="shot__slot sys" aria-hidden="true">CAPTURE PENDING</span>}
-      {caption && <figcaption>{caption}</figcaption>}
+        ? <img src={src} alt={caption || ''} loading="lazy" />
+        : <span className="shot__slot" role="img" aria-label={caption || '준비 중인 이미지'} />}
     </figure>
   );
 }
 
-function Blk({ block }) {
+function Blk({ block, hero }) {
   switch (block.type) {
     case 'shot':
-      return <Shot {...block} />;
+      return <Shot {...block} hero={hero} />;
     case 'duo':
       return (
         <div className="duo">
           {block.items.map((it, i) => <Shot key={i} {...it} half />)}
         </div>
-      );
-    case 'note':
-      return (
-        <section className="note">
-          {block.label && <p className="note__label sys">{block.label}</p>}
-          {block.title && <h3 className="note__title">{block.title}</h3>}
-          {block.body.map((t, i) => <p key={i} className="note__p">{t}</p>)}
-        </section>
-      );
-    case 'steps':
-      return (
-        <section className="note">
-          {block.label && <p className="note__label sys">{block.label}</p>}
-          {block.title && <h3 className="note__title">{block.title}</h3>}
-          <ol className="steps">
-            {block.items.map((t, i) => (
-              <li key={i}>
-                <span className="steps__no sys">{String(i + 1).padStart(2, '0')}</span>
-                <span>{t}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
       );
     default:
       return null;
@@ -57,8 +36,9 @@ function Blk({ block }) {
 /**
  * PROJECT DETAIL
  *
- * 왼쪽은 작업물이 흐르고, 오른쪽 팩트 패널은 따라붙은 채 고정된다.
- * 읽는 구간에서는 컨셉 효과보다 작업을 보는 일이 먼저다.
+ * 한쪽은 이미지만, 다른 쪽은 글만. 섞지 않는다.
+ *   왼쪽  — 작업물이 끝까지 이미지로만 흐른다
+ *   오른쪽 — 제목과 팩트. 따라붙은 채 고정된다.
  */
 export default function ProjectDetail({ spec, onClose, onSwitch }) {
   const scrollRef = useRef(null);
@@ -73,7 +53,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     if (spec) {
       setRenderSpec(spec);
       setRevealed(false);
-      revealTimer = window.setTimeout(() => setRevealed(true), 720);
+      revealTimer = window.setTimeout(() => setRevealed(true), 620);
     } else {
       setRevealed(false);
       clearTimer = window.setTimeout(() => setRenderSpec(null), 760);
@@ -83,6 +63,8 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
       window.clearTimeout(clearTimer);
     };
   }, [spec]);
+
+  const links = useMemo(() => (data?.visit || []).filter((v) => v.href), [data]);
 
   const next = useMemo(() => {
     if (!renderSpec) return null;
@@ -107,6 +89,12 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     if (spec && scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [spec?.id]);
 
+  // 상세 스크롤에 관성을 준다. 휠 한 칸이 그대로 한 칸 점프하지 않는다.
+  useEffect(() => {
+    if (!spec) return undefined;
+    return attachSmoothScroll(scrollRef.current, { tau: 0.2 });
+  }, [spec]);
+
   return (
     <article
       className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''}`}
@@ -122,23 +110,15 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
           <div className="detail__scroll" ref={scrollRef}>
             <div className="detail__grid">
-              {/* 왼쪽 — 작업물이 흐른다 */}
+              {/* 왼쪽 — 이미지만 */}
               <div className="detail__stream">
-                {data.stream.map((b, i) => <Blk key={i} block={b} />)}
-
-                <button type="button" className="detail__next" onClick={() => onSwitch(next.id)}>
-                  <span className="sys">NEXT SPECIMEN</span>
-                  <em>{next.no} / {next.ko}</em>
-                </button>
+                {/* 첫 장은 정확히 한 화면. 해상도가 달라도 잘리거나 넘치지 않는다. */}
+                {data.stream.map((b, i) => <Blk key={i} block={b} hero={i === 0} />)}
               </div>
 
-              {/* 가운데 — 지금 보고 있는 표본 */}
-              <div className="detail__chip" aria-hidden="true">
-                <span className="sys">{renderSpec.ko}</span>
-              </div>
-
-              {/* 오른쪽 — 팩트. 스크롤하지 않는다. */}
+              {/* 오른쪽 — 제목과 팩트. 고정. */}
               <aside className="detail__panel">
+                <p className="detail__no sys">{renderSpec.no}</p>
                 <h2 className="detail__title">{renderSpec.ko}</h2>
                 <p className="detail__kicker sys">{data.kicker}</p>
 
@@ -151,22 +131,28 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                   </div>
                 ))}
 
-                {data.visit?.length > 0 && (
+                {/* 주소가 아직 없는 링크는 내보내지 않는다 */}
+                {links.length > 0 && (
                   <div className="prow">
                     <p className="prow__label sys">VISIT</p>
                     <p className="prow__links">
-                      {data.visit.map((v) => (
-                        <a key={v.href} className="sys" href={v.href} target="_blank" rel="noreferrer">
-                          [{v.label}]
+                      {links.map((v) => (
+                        <a key={v.label} className="sys" href={v.href} target="_blank" rel="noreferrer">
+                          {v.label}
                         </a>
                       ))}
                     </p>
                   </div>
                 )}
 
-                <button type="button" className="detail__close sys" onClick={onClose}>
-                  RE-SOLIDIFY / ESC
-                </button>
+                <div className="detail__foot">
+                  <button type="button" className="sys" onClick={() => onSwitch(next.id)}>
+                    NEXT — {next.no} {next.ko}
+                  </button>
+                  <button type="button" className="sys" onClick={onClose}>
+                    RE-SOLIDIFY / ESC
+                  </button>
+                </div>
               </aside>
             </div>
           </div>

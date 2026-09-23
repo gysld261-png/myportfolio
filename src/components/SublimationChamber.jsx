@@ -48,6 +48,73 @@ function fbm(x, y, octaves = 4) {
   return sum / norm;
 }
 
+/* ── 안개 ──
+   그라디언트 한 장은 아무리 블러해도 "하얀 덩어리"로 읽힌다.
+   연기로 보이려면 결(노이즈)이 있어야 하고, 그 결이 흘러야 한다.
+   fBm 두 층을 서로 다른 속도로 흘려서 카메라 앞 평면에 그린다.
+   CO2 는 공기보다 무거우므로 아래쪽이 짙고 위로 갈수록 옅다. */
+const FOG_VERT = `
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+
+const FOG_FRAG = `
+precision highp float;
+varying vec2 vUv;
+uniform float uTime;
+uniform float uProgress;
+
+float h21(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), u.x),
+             mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float s = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    s += a * vnoise(p);
+    p = p * 2.07 + 11.3;
+    a *= 0.5;
+  }
+  return s;
+}
+
+void main() {
+  float t = uTime;
+  float d = uProgress;
+
+  /* 두 층 — 큰 덩어리는 느리게, 잔결은 빠르게. 같은 속도면 벽지처럼 보인다. */
+  vec2 p1 = vec2(vUv.x * 2.4, vUv.y * 1.6) + vec2(t * 0.019, -t * 0.011);
+  vec2 p2 = vec2(vUv.x * 5.6, vUv.y * 3.6) + vec2(-t * 0.034, -t * 0.021);
+  float n = fbm(p1) * 0.66 + fbm(p2) * 0.34;
+
+  /* 바닥에서 차오른다 — 위로 솟구치지 않는다 */
+  float floorMask = smoothstep(1.06, 0.06, vUv.y);
+  /* 가장자리를 흐려 평면의 네모 경계를 지운다 */
+  float edge = smoothstep(0.0, 0.2, vUv.x) * smoothstep(1.0, 0.8, vUv.x);
+
+  /* 진행에 따라 임계값이 내려가며 안개가 번진다 */
+  float density = smoothstep(0.64 - d * 0.5, 0.97 - d * 0.44, n);
+  density *= floorMask * edge;
+  density = clamp(density * (0.42 + d * 1.45), 0.0, 1.0);
+
+  /* 마지막 구간에서만 화면 전체를 덮는다 (ABOUT 으로 넘어가는 순간) */
+  density = max(density, smoothstep(0.84, 1.0, d) * 0.95);
+
+  vec3 col = mix(vec3(0.70, 0.76, 0.79), vec3(0.94, 0.97, 0.98), n);
+  gl_FragColor = vec4(col, density * 0.9);
+}
+`;
+
 /* ── 균열 ──
    화면을 길게 가로지르도록 대각선으로 놓는다.
    n = (cos θ, sin θ) 방향 좌표를 a, 균열이 달리는 방향 좌표를 b 라 하면
@@ -74,7 +141,7 @@ const edgeAt = (py) => -2.1 + (fbm(py * 0.155 + 7.3, 2.1, 4) - 0.5) * 7.4 + Math
  * PlaneGeometry 를 쓰지 않는 이유: 파쇄면 실루엣을 만들려면 경계 밖 삼각형을 아예 빼야 한다.
  * (z 를 뒤로 밀어 숨기는 방식은 결국 면이 렌더되어 '벽'처럼 보인다)
  */
-function buildSurface({ width = 34, height = 30, segX = 104, segY = 92 }) {
+function buildSurface({ width = 34, height = 30, segX = 150, segY = 132 }) {
   const cols = segX + 1;
   const rows = segY + 1;
   const originX = -8;
@@ -253,6 +320,9 @@ export default function SublimationChamber({ onReadout, exitProgress = 0, introE
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 200);
     const camTarget = new THREE.Vector3(0.4, -0.1, 0);
+    /* 승화가 시작되기 전의 기준 시점. 확대는 여기서 얼음 쪽으로 수렴한다. */
+    const baseTarget = new THREE.Vector3(0.4, -0.1, 0);
+    const baseEye = new THREE.Vector3(0, 0, 9);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
@@ -276,15 +346,39 @@ export default function SublimationChamber({ onReadout, exitProgress = 0, introE
       roughness: 0.7,
       metalness: 0.0,
       bumpMap: frostMap,
-      bumpScale: 0.14,
+      /* 면을 각지게(flatShading) 두면 가까이 갈수록 폴리곤이 그대로 드러나 복셀 지형처럼 보인다.
+         부드러운 노멀 + 강한 범프로 바꾸면 결은 남고 각진 덩어리 느낌만 사라진다.
+         각진 결정 느낌으로 되돌리려면 flatShading 을 true 로, bumpScale 을 0.14 로. */
+      bumpScale: 0.46,
       roughnessMap: frostMap,
-      flatShading: true,
+      flatShading: false,
       transparent: true,
       opacity: introEntrance ? 0 : 1,
       side: THREE.DoubleSide,
     });
     const surface = new THREE.Mesh(geometry, material);
     group.add(surface);
+
+    /* 안개 — 카메라에 붙여 항상 화면을 정확히 덮는다. 확대해도 같이 따라온다. */
+    const fogUniforms = {
+      uTime: { value: 0 },
+      uProgress: { value: 0 },
+    };
+    const fogMaterial = new THREE.ShaderMaterial({
+      vertexShader: FOG_VERT,
+      fragmentShader: FOG_FRAG,
+      uniforms: fogUniforms,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      fog: false,
+    });
+    const fogPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), fogMaterial);
+    fogPlane.position.z = -1;      // 카메라 바로 앞
+    fogPlane.renderOrder = 999;    // 항상 마지막에
+    fogPlane.frustumCulled = false;
+    camera.add(fogPlane);
+    scene.add(camera);             // 카메라의 자식이 렌더되려면 씬에 들어가야 한다
 
     /* ── 조명 — 이 씬의 주인공. 마우스는 여기에만 연결된다. ── */
     scene.add(new THREE.HemisphereLight(0x8ea7b0, 0x05080a, 0.2));
@@ -364,6 +458,10 @@ export default function SublimationChamber({ onReadout, exitProgress = 0, introE
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
 
+      /* z=-1 평면이 화면을 꽉 채우도록 fov 로부터 크기를 구한다 */
+      const fh = 2 * Math.tan((camera.fov * Math.PI) / 360) * 1;
+      fogPlane.scale.set(fh * camera.aspect * 1.08, fh * 1.08, 1);
+
       mobile = w < 760;
       if (mobile) {
         /* 모바일: 표면을 아래쪽으로 내려 타이포 공간을 비운다 */
@@ -372,11 +470,15 @@ export default function SublimationChamber({ onReadout, exitProgress = 0, introE
         /* z 축으로 90° 가까이 돌리면 파쇄면 실루엣이 수평선이 된다 */
         group.rotation.set(-0.02, 0.16, -1.28);
         camTarget.set(0, -0.55, 0);
+        baseTarget.set(0, -0.55, 0);
+        baseEye.set(0, 0, 11.2);
       } else {
         camera.position.set(0, 0, 9);
         group.position.set(2.05, -1.15, 0.1);
         group.rotation.set(-0.05, 0.22, -0.11);
         camTarget.set(0.4, -0.1, 0);
+        baseTarget.set(0.4, -0.1, 0);
+        baseEye.set(0, 0, 9);
       }
       camera.lookAt(camTarget);
     }
@@ -433,16 +535,37 @@ export default function SublimationChamber({ onReadout, exitProgress = 0, introE
       coreMaterial.opacity = entrance * (0.5 + heat * 0.26) * pulse * (1 - exit * 0.3);
       haloMaterial.opacity = entrance * (0.13 + heat * 0.1) * pulse * (1 - exit * 0.3);
 
-      /* 카메라 — 회전하지 않고 표면을 아주 느리게 횡단한다 */
+      /* 카메라 — 평소엔 표면을 느리게 횡단하고,
+         스크롤이 시작되면 물러나지 않고 얼음 쪽으로 파고든다.
+         화면이 내려가는 게 아니라 얼음이 커지면서 다가오는 것으로 읽혀야 한다. */
+      const dolly = exit * exit * (3 - 2 * exit);   // smoothstep
       if (!reduced) {
-        const baseZ = mobile ? 11.2 : 9;
-        camera.position.x = Math.sin(t * 0.000055) * 0.62;
-        camera.position.y = Math.sin(t * 0.00004 + 1.1) * 0.24 + exit * 0.5;
-        camera.position.z = baseZ - exit * 0.9;
-        camera.lookAt(camTarget);
+        /* 시선을 얼음 덩어리로 수렴시킨다 — 화면 오른쪽에 있던 얼음이
+           확대되면서 한가운데로 온다. 옆으로 날아가지 않는다. */
+        const gx = group.position.x;
+        const gy = group.position.y + 0.55;
+        const tx = baseTarget.x + (gx - baseTarget.x) * dolly;
+        const ty = baseTarget.y + (gy - baseTarget.y) * dolly;
+
+        camera.position.x =
+          Math.sin(t * 0.000055) * 0.62 * (1 - dolly) + (gx - baseEye.x) * dolly;
+        camera.position.y =
+          Math.sin(t * 0.00004 + 1.1) * 0.24 * (1 - dolly) + (gy - baseEye.y) * dolly;
+        camera.position.z = baseEye.z - dolly * (baseEye.z - 5.35);
+        camera.lookAt(tx, ty, 0);
       }
 
-      material.opacity = entrance * (1 - exit * 0.55);
+      /* 안개 — 드라이아이스는 가만히 둬도 조금씩 김이 난다. 최소치를 준다. */
+      fogUniforms.uTime.value = t * 0.001;
+      fogUniforms.uProgress.value = Math.max(0.07, exit);
+
+      if (scene.fog) {
+        scene.fog.near = 10.5 - dolly * 7.4;
+        scene.fog.far = 34 - dolly * 22.0;
+      }
+
+      /* 얼음은 끝까지 버티다가 마지막 구간에서만 안개에 먹힌다 */
+      material.opacity = entrance * (1 - clamp01((exit - 0.62) / 0.38) * 0.92);
       material.roughness = 0.7 + heat * 0.08;
 
       /* 가루 — 천천히 흘러내리며 좌우로 흔들린다 */
@@ -502,6 +625,9 @@ export default function SublimationChamber({ onReadout, exitProgress = 0, introE
       frostMap.dispose();
       moteGeometry.dispose();
       moteMaterial.dispose();
+      camera.remove(fogPlane);
+      fogPlane.geometry.dispose();
+      fogMaterial.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
