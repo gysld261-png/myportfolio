@@ -1,0 +1,47 @@
+.reaction {
+  position: fixed; inset: 0; z-index: 90; isolation: isolate;
+  color: #e5e9e8; --reaction-out: 1; --reaction-cover: 0;
+}
+.reaction__canvas { display: block; width: 100%; height: 100%; opacity: var(--reaction-out); cursor: grab; touch-action: none; }
+.reaction__canvas[data-dragging="true"] { cursor: grabbing; }
+.reaction__canvas:focus-visible { outline: 1px solid #647275; outline-offset: -7px; }
+.reaction__veil { position: absolute; inset: 0; background: #cdd3d2; pointer-events: none; opacity: calc(var(--reaction-cover) * var(--reaction-out)); }
+.reaction__top {
+  position: absolute; top: max(26px, env(safe-area-inset-top));
+  left: clamp(22px, 5.5vw, 104px); right: clamp(22px, 5.5vw, 104px);
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
+  opacity: var(--reaction-out); pointer-events: none;
+}
+.reaction__identity { font: 400 10px var(--display); letter-spacing: .13em; color: #a3afb2; }
+.reaction button { color: inherit; background: transparent; cursor: pointer; }
+.reaction button:disabled { cursor: default; }
+.reaction__top button { pointer-events: auto; padding: 10px 0; border: 0; font: 400 11px var(--kr); color: #bdc5c5; }
+.reaction__top button span { margin-left: 12px; }
+.reaction button:focus-visible, .reaction input:focus-visible { outline: 1px solid #afc2c8; outline-offset: 6px; }
+.reaction__controls { position: absolute; bottom: max(55px, 7svh); left: 50%; transform: translateX(-50%); text-align: center; transition: opacity 300ms ease; }
+.reaction__controls.is-running { opacity: 0; pointer-events: none; }
+.reaction__controls p { margin: 0 0 16px; font: 400 10px var(--kr); color: #859297; letter-spacing: .04em; }
+.reaction__actions { display: flex; align-items: center; gap: 14px; }
+.reaction__drop { min-width: 154px; height: 45px; border: 1px solid #77898d66; border-radius: 2px; font: 400 12px var(--kr); letter-spacing: .02em; transition: border-color 180ms, background 180ms; }
+.reaction__drop span { margin-left: 26px; color: #a8b5b6; }
+.reaction__drop:hover { border-color: #b5c2c6aa; background: #d4e1e609; }
+.reaction__orbit { width: 36px; height: 44px; border: 0; font: 300 18px var(--display); color: #829094 !important; }
+.reaction__orbit:hover { color: #e1e8e7 !important; }
+.reaction__reset { padding: 12px; margin-top: 2px; font: 400 9px var(--kr); color: #77858a !important; border: 0; }
+.reaction__cancel { position: absolute; bottom: max(28px, env(safe-area-inset-bottom)); left: clamp(22px, 5.5vw, 104px); padding: 8px 0; border: 0; font-size: 11px; opacity: var(--reaction-out); }
+.reaction__cancel span { margin-left: 15px; font: 9px var(--display); color: #8e9da0; }
+.reaction__study { position: absolute; bottom: 22px; right: 24px; display: flex; gap: 10px; align-items: center; background: #101619; padding: 10px; border: 1px solid #53666c; font-size: 11px; }
+.reaction__study input { width: 64px; margin-left: 8px; color: white; background: #233039; border: 0; padding: 5px; }
+.reaction__study button { border: 1px solid #53666c; padding: 5px 9px; }
+.portfolio__stage.is-reacting { pointer-events: none; opacity: 0; transform: translateY(-12svh); transition: opacity 420ms ease, transform 640ms cubic-bezier(.22,.7,.3,1); }
+@media(max-width: 620px) {
+  .reaction__top { top: max(18px, env(safe-area-inset-top)); }
+  .reaction__identity { font-size: 9px; letter-spacing: .09em; }
+  .reaction__top button { font-size: 10px; }
+  .reaction__top button span { margin-left: 7px; }
+  .reaction__controls { bottom: max(73px, 10svh); }
+  .reaction__study { bottom: 65px; right: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reaction__controls, .portfolio__stage.is-reacting { transition: none; }
+}

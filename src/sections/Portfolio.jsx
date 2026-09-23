@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createField } from '../lib/field';
+import { ENTRY } from '../lib/portfolioMotion';
 import { SPECIMENS, FIELD_LAYOUT, byId } from '../data/specimens';
 import StateReadout from '../components/StateReadout';
 import ProjectDetail from './ProjectDetail';
 import './portfolio.css';
-
-/* 깨지는 걸 보고, 그 틈으로 들어가고, 그 다음에 상세다. CSS 의 field-plunge 와 맞춰 둔다. */
-const ENTRY_MS = 1180;
+const study=import.meta.env.DEV && new URLSearchParams(window.location.search).has('field-study');
+const loadField=()=>import('../lib/portfolioScene');
 
 const hashId = () => {
   const m = window.location.hash.match(/^#\/project\/([\w-]+)$/);
@@ -25,10 +24,13 @@ export default function Portfolio() {
   const [mode, setMode] = useState('field');
   const [activeIndex, setActiveIndex] = useState(0);
   const [selected, setSelected] = useState(hashId);
-  const [hud, setHud] = useState({ state: 'SOLID', temp: 'LOW', tempValue: 0 });
-  /* 깨진 얼음 안으로 밀고 들어가는 중 — { id, x, y } 는 깨진 지점이다 */
-  const [entering, setEntering] = useState(null);
-  const entryTimer = useRef(0);
+  const hud = { state: 'SOLID', temp: 'LOW', tempValue: 0 };
+  const returnTarget = useRef(selected);
+  const [reaction, setReaction] = useState(null);
+  const reactionLock = useRef(false);
+  const skipRef = useRef(null);
+  const [studyTime,setStudyTime]=useState(0);
+  const currentState=useRef({selected,reaction,activeIndex});currentState.current={selected,reaction,activeIndex};
 
   const sectionRef = useRef(null);
   const listSceneRef = useRef(null);
@@ -37,81 +39,144 @@ export default function Portfolio() {
   const visibleSpecimens = SPECIMENS;
   const visibleLayout = FIELD_LAYOUT;
 
-  /* 선택해도 배치는 건드리지 않는다.
-     표본이 제자리로 돌아왔다가 가운데로 날아오면, 깨진 것이 없던 일이 된다.
-     깨진 자리 그대로 두고 화면이 그리로 들어간다. */
+  // Keep the specimens in place when returning from a project.
   const fieldLayout = visibleLayout;
 
   const activeSpec = visibleSpecimens[activeIndex] || visibleSpecimens[0];
 
+  const restoreFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (!returnTarget.current) return;
+      sectionRef.current?.querySelector(`[data-project="${returnTarget.current}"]`)?.focus({ preventScroll: true });
+    });
+  }, []);
+
   const select = useCallback((id) => {
-    if (id) setMode('field');
+    if (id) {
+      returnTarget.current = id;
+      setActiveIndex(SPECIMENS.findIndex(s => s.id === id));
+    }
     setSelected(id);
-    // 상세가 열리면 레이아웃이 바뀌므로 섹션을 다시 뷰포트에 맞춘다
-    if (id) sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (!id) restoreFocus();
     const target = id ? `#/project/${id}` : '#/portfolio';
     if (window.location.hash !== target) {
       window.history.pushState(null, '', target);
     }
+  }, [restoreFocus]);
+
+  const clearReaction = useCallback(() => {
+    reactionLock.current = false;
+    setReaction(null);
   }, []);
 
-  /* 얼음이 깨지는 걸 다 보여준 다음에 상세를 연다.
-     field 는 깨진 지점을 알려주고, 언제 넘어갈지는 여기서 정한다. */
-  const beginEntry = useCallback((id, point) => {
-    if (entryTimer.current) return;
-    setEntering({ id, x: point?.x ?? 0, y: point?.y ?? 0 });
-    entryTimer.current = window.setTimeout(() => {
-      entryTimer.current = 0;
-      select(id);
-    }, ENTRY_MS);
-  }, [select]);
+  const cancelReaction = useCallback(() => {
+    if(currentState.current.selected){fieldRef.current?.finish();return;}
+    fieldRef.current?.cancelEntry();
+    clearReaction();
+    restoreFocus();
+  }, [clearReaction, restoreFocus]);
 
-  useEffect(() => () => { if (entryTimer.current) window.clearTimeout(entryTimer.current); }, []);
+  // Every specimen travels inside the same persistent 3D field.
+  const beginEntry = useCallback((id) => {
+    if (reactionLock.current || !byId(id)) return;
+    returnTarget.current = id;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      select(id);
+      return;
+    }
+    if (mode === 'field' && fieldRef.current?.startEntry(id)) {
+      reactionLock.current = true;
+      setReaction({ id });
+      setStudyTime(0);
+    } else {
+      select(id);
+    }
+  }, [select, mode]);
+
+  // Warm the case image while the field itself prepares its four textured meshes.
+  useEffect(() => {
+    const image = new Image();
+    image.src = '/cases/tchaikim-home.jpg';
+  }, []);
 
   // 뒤로가기로 상세를 닫을 수 있어야 한다
   useEffect(() => {
-    const onPop = () => setSelected(hashId());
+    const onPop = () => {
+      fieldRef.current?.cancelEntry();
+      clearReaction();
+      const id = hashId();
+      setSelected(id);
+      if (id) {
+        returnTarget.current = id;
+        setActiveIndex(SPECIMENS.findIndex(s => s.id === id));
+      } else restoreFocus();
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
+  }, [clearReaction, restoreFocus]);
 
-  /* 닫고 나오면 깨졌던 덩어리가 다시 붙고 화면도 물러난다 */
+  // Escape cancels an unfinished entry without triggering App's main shortcut.
   useEffect(() => {
-    if (selected) return;
-    if (entryTimer.current) { window.clearTimeout(entryTimer.current); entryTimer.current = 0; }
-    setEntering(null);
-    fieldRef.current?.resetBursts();
-  }, [selected]);
+    if (!reaction) return undefined;
+    const nav=document.querySelector('.nav'),previousInert=nav?.inert;
+    if(nav)nav.inert=true;
+    const onKey = (event) => {
+      if(event.key==='Tab') { event.preventDefault();skipRef.current?.focus({preventScroll:true});return; }
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      cancelReaction();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => {window.removeEventListener('keydown', onKey, true);if(nav)nav.inert=previousInert;};
+  }, [reaction, cancelReaction]);
 
   useEffect(() => {
     if (mode !== 'field') return undefined;
     const items = fieldLayout.map((l) => ({ ...l, spec: byId(l.id) }));
-    const field = createField(canvasRef.current, {
-      items,
-      spatial: true,
-      interactive: true,
-      onState: setHud,
-      onSelect: beginEntry,
+    let field,disposed=false;
+    loadField().then(({createPortfolioScene})=>{
+      if(disposed)return;
+      field=createPortfolioScene(canvasRef.current, {
+        items,
+        onSelect: beginEntry,
+        onCovered: select,
+        onFinish: clearReaction,
+        onUnavailable: id => { if(id)select(id);clearReaction(); },
+        study,
+      });
+      fieldRef.current=field;
+      sectionRef.current?.classList.remove('has-field-fallback');
+      const state=currentState.current;
+      field.setFocus(state.selected?-1:state.activeIndex);
+      field.setPaused(Boolean(state.selected&&!state.reaction));
+    }).catch(error=>{
+      console.warn('3D field unavailable; retaining project navigation.',error);
+      sectionRef.current?.classList.add('has-field-fallback');
     });
-    fieldRef.current = field;
-    return () => { field.destroy(); fieldRef.current = null; };
-  }, [fieldLayout, mode, beginEntry]);
+    return () => { disposed=true;field?.destroy();fieldRef.current=null; };
+  }, [fieldLayout, mode, beginEntry, select, clearReaction]);
 
   useEffect(() => {
     if (mode === 'field') fieldRef.current?.setFocus(selected ? -1 : activeIndex);
   }, [activeIndex, mode, selected]);
+
+  useEffect(() => {
+    if(!selected&&!reaction)fieldRef.current?.reset();
+    else fieldRef.current?.setPaused(Boolean(selected&&!reaction));
+  }, [selected, reaction, mode]);
 
   const moveActive = useCallback((direction) => {
     setActiveIndex((current) => Math.max(0, Math.min(visibleSpecimens.length - 1, current + direction)));
   }, [visibleSpecimens.length]);
 
   const handleWheel = useCallback((event) => {
-    if (selected || entering || Math.abs(event.deltaY) < 12) return;
+    if (selected || reactionLock.current || Math.abs(event.deltaY) < 12) return;
     const now = performance.now();
     if (now - wheelLock.current < 360) return;
     wheelLock.current = now;
     moveActive(event.deltaY > 0 ? 1 : -1);
-  }, [entering, moveActive, selected]);
+  }, [moveActive, selected]);
 
   const handleListPointerMove = useCallback((event) => {
     if (mode !== 'list' || !listSceneRef.current) return;
@@ -134,7 +199,8 @@ export default function Portfolio() {
 
   useEffect(() => {
     const handleKey = (event) => {
-      if (selected || entering) return;
+      if (selected || reactionLock.current) return;
+      if (event.target.closest('button, a, input, textarea, select')) return;
       if (['ArrowDown', 'PageDown'].includes(event.key)) {
         event.preventDefault();
         moveActive(1);
@@ -143,37 +209,42 @@ export default function Portfolio() {
         event.preventDefault();
         moveActive(-1);
       }
-      if (event.key === 'Enter' && activeSpec) select(activeSpec.id);
+      if (event.key === 'Enter' && activeSpec) {
+        event.preventDefault();
+        beginEntry(activeSpec.id);
+      }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [activeSpec, entering, moveActive, select, selected]);
+  }, [activeSpec, moveActive, select, selected, mode, beginEntry]);
 
   return (
-    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''}`}>
+    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''} ${reaction ? 'has-journey' : ''}`}>
       <div
-        className={`portfolio__stage portfolio__stage--${mode} ${entering ? 'is-entering' : ''}`}
-        style={entering ? { '--zx': `${entering.x}px`, '--zy': `${entering.y}px` } : undefined}
+        className={`portfolio__stage portfolio__stage--${mode} ${reaction ? 'is-reacting' : ''}`}
+        inert={selected || reaction ? '' : undefined}
+        aria-hidden={selected ? true : undefined}
         onWheel={handleWheel}
         onPointerMove={handleListPointerMove}
         onPointerLeave={resetListPointer}
       >
         {mode === 'field' ? (
           <>
-            <canvas ref={canvasRef} className="field-canvas" />
+            <canvas ref={canvasRef} className="field-canvas" aria-hidden="true" />
             {/* hover 없이도 키보드로 같은 정보에 도달해야 한다 */}
-            <ul className="portfolio__a11y">
+            <ul className="portfolio__specimens">
               {fieldLayout.map((l, i) => {
                 const s = byId(l.id);
                 return (
                   <li key={s.id}>
                     <button
                       type="button"
+                      data-project={s.id}
                       onFocus={() => fieldRef.current?.setFocus(i)}
                       onBlur={() => fieldRef.current?.setFocus(-1)}
-                      onClick={() => select(s.id)}
+                      onClick={() => beginEntry(s.id)}
                     >
-                      {s.no} {s.ko} — {s.role} {s.year}
+                      <span className="specimen__number">{s.no}</span><span>{s.ko}</span><span className="specimen__arrow" aria-hidden="true">↗</span>
                     </button>
                   </li>
                 );
@@ -204,10 +275,11 @@ export default function Portfolio() {
                 <li key={s.id}>
                   <button
                     type="button"
+                    data-project={s.id}
                     className={`plist__row ${index === activeIndex ? 'is-active' : ''} ${selected === s.id ? 'is-selected' : ''}`}
                     onMouseEnter={() => setActiveIndex(index)}
                     onFocus={() => setActiveIndex(index)}
-                    onClick={() => index === activeIndex ? select(s.id) : setActiveIndex(index)}
+                    onClick={() => beginEntry(s.id)}
                   >
                     <span className="plist__no sys">{s.no}</span>
                     <span className="plist__name">{s.ko}</span>
@@ -261,6 +333,14 @@ export default function Portfolio() {
         onClose={() => select(null)}
         onSwitch={select}
       />
+      {reaction && <div className="portfolio__journey">
+        <span role="status" className="journey__status">{byId(reaction.id).ko} 프로젝트로 이동 중</span>
+        <button ref={skipRef} className="journey__skip" type="button" onClick={()=>fieldRef.current?.finish()}>프로젝트 바로 보기</button>
+      </div>}
+      {study && reaction && <div className="field-study">
+        <label>시간 <input aria-label="장면 시간" type="number" min="0" max={ENTRY.end} step=".1" value={studyTime} onChange={e=>{const t=Number(e.target.value)||0;setStudyTime(t);fieldRef.current?.seek(t);}}/></label>
+        <button type="button" onClick={()=>fieldRef.current?.resume()}>재생</button>
+      </div>}
     </section>
   );
 }

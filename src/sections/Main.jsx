@@ -3,7 +3,7 @@ import Ticks from '../components/Ticks';
 import FrostEdge from '../components/FrostEdge';
 import './main.css';
 
-const SublimationChamber = lazy(() => import('../components/SublimationChamber'));
+const IceCubeHero = lazy(() => import('../components/IceCubeHero'));
 
 /**
  * MAIN — SUBLIMATION CHAMBER
@@ -21,6 +21,7 @@ const SublimationChamber = lazy(() => import('../components/SublimationChamber')
 const CLAIM = ['흩어진 결정을', '팀이 함께 쓰는', '기준으로 만듭니다'];
 
 export default function Main({ onScrollCue, introEntrance = false, transitionProgress = 0, rewinding = false }) {
+  const [cubeReady, setCubeReady] = useState(false);
   const [readout, setReadout] = useState({
     mass: 100,
     heat: 0,
@@ -34,7 +35,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
   return (
     <section
-      className={`screen main ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
+      className={`screen main ${cubeReady ? 'is-cube-ready' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
       id="main"
       style={{
         '--exit': transitionProgress,
@@ -50,11 +51,12 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
     >
       <Ticks />
 
-      <Suspense fallback={<div className="chamber chamber--loading" />}>
-        <SublimationChamber
-          introEntrance={introEntrance}
+      <Suspense fallback={<div className="ice-cube-hero ice-cube-hero--loading" />}>
+        <IceCubeHero
+          initialEntrance={introEntrance}
           exitProgress={transitionProgress}
           onReadout={updateReadout}
+          onReady={setCubeReady}
         />
       </Suspense>
 
@@ -92,7 +94,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
         <dl className="instrument__grid sys">
           <div>
             <dt>STATE</dt>
-            <dd>{sublimating ? 'SUBLIMATING' : 'SOLID'}</dd>
+            <dd>{sublimating || readout.heat > 0.16 ? 'SUBLIMATING' : 'SOLID'}</dd>
           </div>
           <div>
             <dt>TEMP</dt>
@@ -113,7 +115,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       </div>
 
       <p className="main__hint sys" aria-hidden="true">
-        MOVE TO ANGLE THE LIGHT · SCROLL TO ENTER THE FISSURE
+        MOVE TO EXPLORE · DRAG TO TURN · SCROLL TO ENTER
       </p>
 
       <div

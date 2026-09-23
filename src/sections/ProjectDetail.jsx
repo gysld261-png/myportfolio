@@ -64,24 +64,28 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
   const data = renderSpec ? getCase(renderSpec.id) : null;
+  const projectHero = renderSpec?.id === 'tchaikim' ? '/cases/tchaikim-home.jpg' : null;
 
   // 닫힐 때 내용을 즉시 지우지 않는다. 정보층이 얼음 안으로 흡수된 뒤 정리한다.
   useEffect(() => {
-    let revealTimer;
     let clearTimer;
     if (spec) {
       setRenderSpec(spec);
-      setRevealed(false);
-      revealTimer = window.setTimeout(() => setRevealed(true), 420);
+      setRevealed(true);
     } else {
       setRevealed(false);
-      clearTimer = window.setTimeout(() => setRenderSpec(null), 760);
+      clearTimer = window.setTimeout(() => setRenderSpec(null), 440);
     }
     return () => {
-      window.clearTimeout(revealTimer);
       window.clearTimeout(clearTimer);
     };
   }, [spec]);
+
+  useEffect(() => {
+    if (!spec || renderSpec?.id !== spec.id) return undefined;
+    const frame = requestAnimationFrame(() => scrollRef.current?.querySelector('.dhero__title')?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [spec, renderSpec]);
 
   const links = useMemo(() => (data?.visit || []).filter((v) => v.href), [data]);
 
@@ -94,10 +98,11 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
   /* concept 자리표가 없으면 리듬 맨 끝에 붙인다 — 글이 사라지는 일은 없게 */
   const blocks = useMemo(() => {
     if (!data) return [];
-    const has = data.blocks.some((b) => b.type === 'concept');
+    const content = projectHero ? data.blocks.filter(b => b.src !== projectHero) : data.blocks;
+    const has = content.some((b) => b.type === 'concept');
     const hasText = (data.concept || []).length > 0;
-    return has || !hasText ? data.blocks : [...data.blocks, { type: 'concept' }];
-  }, [data]);
+    return has || !hasText ? content : [...content, { type: 'concept' }];
+  }, [data, projectHero]);
 
   // onClose 는 부모에서 매 렌더 새로 만들어진다. Field 의 HUD 가 매 프레임 갱신되므로
   // 이걸 의존성에 넣으면 스크롤 위치가 계속 0 으로 되돌아간다. ref 로 고정한다.
@@ -106,9 +111,9 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
   useEffect(() => {
     if (!spec) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') closeRef.current(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeRef.current(); } };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [spec]);
 
   // 프로젝트가 바뀔 때만 맨 위로 올린다
@@ -129,6 +134,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
     <article
       className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''}`}
       aria-hidden={!spec}
+      inert={!spec ? '' : undefined}
       style={renderSpec ? { '--pc': renderSpec.color } : undefined}
     >
       {renderSpec && data && (
@@ -145,10 +151,10 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
           <div className="detail__scroll" ref={scrollRef}>
             {/* ── 히어로 — 표본 하나, 좌우 끝에 제목과 연도 ── */}
-            <header className="dhero">
-              <h2 className="dhero__title">{renderSpec.ko}</h2>
+            <header className={`dhero ${projectHero ? 'dhero--project' : ''}`}>
+              <h2 className="dhero__title" tabIndex={-1}>{renderSpec.ko}</h2>
               <div className="dhero__plate">
-                <img src={renderSpec.imageCut || renderSpec.image} alt="" />
+                <img src={projectHero || renderSpec.imageCut || renderSpec.image} alt={projectHero ? '차이킴 웹사이트 디자인' : ''} />
               </div>
               <p className="dhero__year sys">YEAR — {data.year}</p>
             </header>

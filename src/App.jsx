@@ -6,6 +6,7 @@ import About from './sections/About';
 import Portfolio from './sections/Portfolio';
 import Contact from './sections/Contact';
 import SplashCursor from './components/SplashCursor';
+import SmokePassage from './components/SmokePassage';
 import { approach, clamp, prefersReduced } from './lib/smooth';
 
 const routeFromLocation = () => {
@@ -42,6 +43,12 @@ export default function App() {
   const [intro, setIntro] = useState(initialView.current === 'main' ? 'active' : 'done');
   const [mainExit, setMainExit] = useState(0);
   const [rewinding, setRewinding] = useState(false);
+  /* 'ice' — MAIN 에서 얼음을 통과해 ABOUT 에 도착했다. 탭으로 들어올 땐 없다.
+     다음 이동 전까지 유지한다 — 연기가 걷힌 뒤 떼면 ABOUT 의 등장 애니메이션이
+     기본값(fog-clear)으로 바뀌면서 한 번 더 재생돼 화면이 두 번 번쩍인다. */
+  const [arrival, setArrival] = useState(null);
+  /* 연기 막(SmokePassage)이 떠 있는 동안만 true */
+  const [passage, setPassage] = useState(false);
 
   const exitTarget = useRef(0);     // 휠이 미는 값
   const exitValue = useRef(0);      // 화면에 실제로 그려지는 값
@@ -54,7 +61,7 @@ export default function App() {
    * rewind: MAIN 으로 되돌아갈 때 승화를 거꾸로 재생한다.
    * 진행도를 1 에서 시작해 0 으로 풀면 안개가 걷히고 얼음이 다시 굳는다.
    */
-  const go = useCallback((id, { replace = false, rewind = false } = {}) => {
+  const go = useCallback((id, { replace = false, rewind = false, via = null } = {}) => {
     if (id === 'contact') {
       setContactOpen(true);
       return;
@@ -63,6 +70,8 @@ export default function App() {
 
     setContactOpen(false);
     setCurrent(id);
+    setArrival(id === 'about' && via === 'ice' ? 'ice' : null);
+    setPassage(id === 'about' && via === 'ice');
     backAccum.current = 0;
     if (id === 'main' && rewind) {
       exitValue.current = 1;
@@ -128,10 +137,11 @@ export default function App() {
       // 연기가 화면을 다 덮은 뒤에 ABOUT 이 그 자리에 나타난다.
       // 목표가 1 일 때만 — 되감는 중에 1 을 지나며 다시 넘어가면 무한 왕복이 된다.
       if (next >= 0.975 && exitTarget.current >= 0.999 && !exitTimer.current) {
+        // 하얗게 덮인 채 오래 멈춰 있으면 끊긴 것처럼 느껴진다 — 짧게 머물고 바로 통과한다
         exitTimer.current = window.setTimeout(() => {
           exitTimer.current = 0;
-          go('about');
-        }, 620);
+          go('about', { via: 'ice' });
+        }, 280);
       } else if (next < 0.9 && exitTimer.current) {
         window.clearTimeout(exitTimer.current);
         exitTimer.current = 0;
@@ -154,6 +164,8 @@ export default function App() {
       exitTarget.current = 0;
       exitValue.current = 0;
       setMainExit(0);
+      setArrival(null);
+      setPassage(false);
       setCurrent(routeFromLocation());
     };
     window.addEventListener('popstate', onPop);
@@ -237,7 +249,7 @@ export default function App() {
 
   return (
     <div
-      className={`app-shell app-shell--${current} app-shell--intro-${intro}`}
+      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''}`}
       onWheel={onWheel}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -257,6 +269,11 @@ export default function App() {
         {current === 'about' && <About onGoMain={() => go('main', { rewind: true })} />}
         {current === 'portfolio' && <Portfolio />}
       </main>
+
+      {/* 연기 통과 — MAIN 의 마지막 연기 화면을 이어받아 연기 밖으로 빠져나온다 */}
+      {passage && current === 'about' && (
+        <SmokePassage onDone={() => setPassage(false)} />
+      )}
 
       {/* ── 커서 유체 — MAIN 에서만 ──
            연기는 어두운 배경에 빛을 더하는 방식이라, 밝은 글자의 대비를 만들어 주는

@@ -21,6 +21,22 @@
     radial-gradient(70% 60% at 78% 46%, rgba(175, 194, 200, 0.05), transparent 70%);
 }
 
+/* Live cube. HTML content stays semantic; its title is also rendered behind the glass. */
+.ice-cube-hero {
+  position: absolute;
+  inset: var(--nav-h) 0 0;
+  z-index: 2;
+  overflow: hidden;
+  touch-action: pan-y;
+  cursor: grab;
+  /* 끝까지 남는다 — 마지막 화면의 연기 결이 곧 ABOUT 전환(SmokePassage)의 첫 화면이다 */
+}
+.ice-cube-hero canvas { display: block; width: 100%; height: 100%; }
+.ice-cube-hero:active { cursor: grabbing; }
+.ice-cube-hero--unavailable { visibility: hidden; }
+.ice-cube-hero--loading { background: radial-gradient(ellipse at 63% 48%, rgba(175, 194, 200, 0.06), transparent 38%); }
+.main.is-cube-ready .main__claim { opacity: 0 !important; }
+
 /* ── 성에 — 가장자리에서만 자란다. 중앙 타이포 영역은 비워 둔다. ── */
 .frost {
   position: absolute;
@@ -370,8 +386,10 @@
   inset: 0;
   z-index: 6;
   pointer-events: none;
+  /* 평평한 흰 막으로 끝까지 덮으면 연기가 아니라 '하얀 화면'이 된다.
+     캔버스의 연기 결이 비치도록 옅게만 얹어 밝기를 맞춘다. */
   background: rgba(226, 235, 238, 0.96);
-  opacity: calc(max(0, var(--fog, 0) - 0.86) / 0.14);
+  opacity: calc(max(0, var(--fog, 0) - 0.86) / 0.14 * 0.35);
 }
 
 /* 계기와 안내는 연기보다 먼저 빠진다 */

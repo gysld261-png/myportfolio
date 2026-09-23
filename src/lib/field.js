@@ -181,6 +181,8 @@ export function createField(canvas, options) {
   }));
   let temp = 0;
   let focusedIndex = -1;
+  let hiddenSpecimen = null;
+  let paused = false;
 
   // ── 각 오브젝트는 자기만의 상태를 갖는다 ──
   const state = items.map(() => ({
@@ -373,6 +375,7 @@ export function createField(canvas, options) {
     pointer.y = -9999;
   }
   function onDown(ev) {
+    onMove(ev);
     const hit = nearest();
     if (hit < 0) return;
     const st = state[hit];
@@ -393,6 +396,11 @@ export function createField(canvas, options) {
 
   function onUp(ev) {
     if (drag.i < 0) return;
+    if (ev.type === 'pointercancel') {
+      drag.i = -1;
+      canvas.style.cursor = '';
+      return;
+    }
     const st = state[drag.i];
     const id = items[drag.i].spec.id;
     const thrown = drag.moved > 7;
@@ -407,10 +415,13 @@ export function createField(canvas, options) {
       /* 거의 안 움직였으면 클릭이다.
          얼음에 금이 가고 천천히 벌어진다. 화면은 그 틈으로 밀고 들어간다.
          언제 상세로 넘어갈지는 바깥이 정하므로, 여기선 깨진 지점만 넘긴다. */
-      shock(pointer.x, pointer.y, 1);
-      st.burstAt = performance.now();
-      st.throwHeat = 1;
-      if (onSelect) onSelect(id, { x: st.box.cx + st.ox, y: st.box.cy + st.oy });
+      const box = st.renderBox || { ...st.box, cx: st.box.cx + st.ox, cy: st.box.cy + st.oy };
+      const fracture = onSelect?.(id, { x: box.cx, y: box.cy, width: box.w, height: box.h });
+      if (fracture !== false) {
+        shock(pointer.x, pointer.y, 1);
+        st.burstAt = performance.now();
+        st.throwHeat = 1;
+      }
     }
     drag.i = -1;
     canvas.style.cursor = '';
@@ -422,7 +433,7 @@ export function createField(canvas, options) {
     let best = -1;
     let bestD = Infinity;
     state.forEach((st, i) => {
-      if (!st.box) return;
+      if (!st.box || items[i].spec.id === hiddenSpecimen) return;
       const box = st.renderBox || st.box;
       const d = Math.max(
         0,
@@ -439,6 +450,7 @@ export function createField(canvas, options) {
   // ── 루프 ──
   function frame(now) {
     if (disposed) return;
+    raf = 0;
     ctx.clearRect(0, 0, W, H);
     fogCtx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
     const labelQueue = [];
@@ -567,7 +579,7 @@ export function createField(canvas, options) {
 
     items.forEach((item, idx) => {
       const st = state[idx];
-      if (!st.box) return;
+      if (!st.box || item.spec.id === hiddenSpecimen) return;
       const spec = item.spec;
       const depth = st.depth ?? 0.5;
       const fieldAlpha = item.dimmed ? 0.36 : 1;
@@ -1123,7 +1135,7 @@ export function createField(canvas, options) {
       });
     }
 
-    raf = requestAnimationFrame(frame);
+    if (!paused) raf = requestAnimationFrame(frame);
   }
 
   // ── 시작 ──
@@ -1143,6 +1155,18 @@ export function createField(canvas, options) {
 
   return {
     setFocus,
+    setHidden(id) { hiddenSpecimen = id; },
+    setPaused(value) {
+      paused = value;
+      if (!paused && !raf) { lastFrameAt = 0; raf = requestAnimationFrame(frame); }
+    },
+    getAnchor(id) {
+      const index = items.findIndex(item => item.spec.id === id);
+      const st = state[index];
+      if (!st?.box) return undefined;
+      const b = st.renderBox || { ...st.box, cx: st.box.cx + st.ox, cy: st.box.cy + st.oy };
+      return { x: b.cx, y: b.cy, width: b.w, height: b.h };
+    },
     resize,
     settings: S,
     /* 상세를 닫고 돌아오면 깨졌던 덩어리가 다시 붙어 있어야 한다 */

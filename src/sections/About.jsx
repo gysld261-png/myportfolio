@@ -154,9 +154,20 @@ export default function About({ onGoMain }) {
   }, [phase]);
 
   const release = useCallback(() => {
+    // 충격파 클래스가 남아 있으면 키워드의 응결(about-condense) 애니메이션을 덮어써서
+    // 돌아왔을 때 전부 opacity 0 인 빈 화면이 된다
+    fieldRef.current?.classList.remove('is-shocked');
     setPicked(null);
     setPhase(null);
   }, []);
+
+  // 굳은 상태에서 설명 바깥 아무 곳이나 누르면 다시 흩어져 필드로 돌아간다.
+  // 버튼 하나(← SUBLIMATE)만으로는 돌아가는 길을 못 찾는다.
+  const onSectionClick = useCallback((event) => {
+    if (!picked) return;
+    if (event.target.closest('.about__deposit, .about__back')) return;
+    release();
+  }, [picked, release]);
 
   // 굳은 상태에서 ESC 는 MAIN 이 아니라 필드로 돌아간다
   useEffect(() => {
@@ -176,6 +187,7 @@ export default function About({ onGoMain }) {
       ref={sectionRef}
       className={`screen about ${picked ? 'is-deposited' : ''} ${phase ? `is-${phase}` : ''}`}
       aria-label="About me"
+      onClick={onSectionClick}
       style={(() => {
         if (!picked) return { '--sx': '0%', '--sy': '0%', '--sc': 1 };
         const a = anchorOf(picked);
@@ -216,7 +228,8 @@ export default function About({ onGoMain }) {
             className={`about__kw about__kw--${keyword.kind} ${picked?.t === keyword.t ? 'is-picked' : ''}`}
             data-x={keyword.x}
             data-y={keyword.y}
-            onClick={() => pick(keyword)}
+            // 이미 굳은 상태면 키워드를 눌러도 새로 고르지 않고, 바깥 클릭처럼 필드로 돌아간다
+            onClick={() => { if (!picked) pick(keyword); }}
             aria-label={`${keyword.t} 설명 보기`}
             style={{
               left: `${keyword.x}%`,
@@ -267,7 +280,7 @@ export default function About({ onGoMain }) {
 
       <button type="button" className="about__back sys" onClick={onGoMain}>← MAIN</button>
       <p className="about__instruction sys">
-        {picked ? 'ESC TO SUBLIMATE' : 'MOVE TO APPLY HEAT · CLICK TO DEPOSIT'}
+        {picked ? 'CLICK ANYWHERE · ESC TO SUBLIMATE' : 'MOVE TO APPLY HEAT · CLICK TO DEPOSIT'}
       </p>
     </section>
   );
