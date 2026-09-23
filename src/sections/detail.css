@@ -77,9 +77,9 @@
 .detail.is-revealed .detail__pills { opacity: 1; }
 .detail__pills button {
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  padding: 7px 15px;
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  padding: 10px 20px;
   border-radius: 999px;
   border: 1px solid rgba(175, 194, 200, 0.2);
   background: rgba(11, 13, 14, 0.6);
@@ -108,9 +108,9 @@
 .dhero__title {
   margin: 0;
   font-family: var(--mono);
-  font-size: clamp(10px, 0.95vw, 13px);
-  font-weight: 400;
-  letter-spacing: 0.16em;
+  font-size: clamp(12px, 1.1vw, 15px);
+  font-weight: 500;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text);
   justify-self: start;
@@ -158,14 +158,19 @@
   padding: 0 var(--dg) clamp(70px, 9vw, 150px);
 }
 .dmeta__col { min-width: 0; }
+/* 레벨 1 — 라벨. 제일 작고 제일 얇다. 읽으라고 있는 게 아니라 구획을 나누는 표시다. */
 .dmeta__label {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
+  font-weight: 400;
   color: var(--muted);
   opacity: 0.55;
 }
+/* 레벨 2 — 값. 라벨보다 크고 두껍다. 역할과 분류가 여기서 읽힌다. */
 .dmeta__value {
-  margin: 0 0 4px;
-  font-size: clamp(13px, 1.05vw, 15px);
+  margin: 0 0 5px;
+  font-family: var(--display);
+  font-size: clamp(15px, 1.15vw, 17px);
+  font-weight: 500;
   line-height: 1.5;
   color: var(--text);
 }
@@ -182,7 +187,10 @@
   text-decoration: none;
   transition: color 260ms var(--ease);
 }
-/* K95 의 불릿 — 링크가 목록이 아니라 신호로 보이게 한다 */
+/* 마커 — 링크가 목록이 아니라 신호로 보이게 한다.
+   K95 는 동그라미지만 거기 격자는 원근으로 휘어 있다.
+   이 화면의 격자는 반듯하므로 네모가 그 직각과 같은 말을 한다.
+   SPECIMEN · FIELD · DL 같은 실험실 어휘와도 네모가 붙는다. */
 .dmeta__links a::before {
   content: '';
   position: absolute;
@@ -190,22 +198,69 @@
   top: 50%;
   width: 5px;
   height: 5px;
-  margin-top: -2px;
+  margin-top: -2.5px;
+  background: var(--pc, var(--frost));
+  transition:
+    filter 360ms var(--ease),
+    opacity 360ms var(--ease),
+    transform 360ms var(--ease);
+}
+/* 5px 에서는 실루엣이 안 보인다. 보이는 건 변화다.
+   그래서 호버에 커지는 대신 승화를 건다 — 가장자리가 풀리고 흐려진다. */
+.dmeta__links a:hover::before {
+  filter: blur(1.6px);
+  opacity: 0.58;
+  transform: translateY(1.5px) scale(1.55);
+}
+
+/* 풀린 자리에서 연기가 한 줄 나온다.
+   기체가 된 CO2 는 공기보다 무거우므로 위가 아니라 아래로 간다. */
+.dmeta__links a::after {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
   border-radius: 50%;
   background: var(--pc, var(--frost));
-  transition: transform 300ms var(--ease);
+  opacity: 0;
+  filter: blur(3px);
+  pointer-events: none;
 }
+.dmeta__links a:hover::after {
+  animation: link-sublimate 1500ms var(--ease) infinite;
+}
+@keyframes link-sublimate {
+  0% { opacity: 0; transform: translateY(0) scale(0.55); }
+  26% { opacity: 0.44; }
+  100% { opacity: 0; transform: translateY(12px) scale(1.5); }
+}
+
 .dmeta__links a:hover { color: var(--text); }
-.dmeta__links a:hover::before { transform: scale(1.7); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dmeta__links a:hover::after { animation: none; }
+  .dmeta__links a:hover::before { filter: none; opacity: 1; transform: none; }
+}
 
 .dmeta__info { min-width: 0; }
+/* 레벨 3 — INFO. 이 페이지에서 제일 크다.
+   행간을 1.34 로 조인 건 K95 를 실측한 결과다(글자 37px 에 줄간격 57px ≈ 1.2).
+   한글은 라틴보다 속공간이 커서 같은 값이면 답답하므로 조금 풀어 준다.
+   크기 차이는 1.3 배뿐인데 덩어리가 훨씬 커 보이는 건 이 타이트한 행간 때문이다. */
 .dmeta__body {
   margin: 0;
-  font-size: clamp(13px, 1.05vw, 15px);
-  line-height: 1.75;
+  font-family: var(--display);
+  font-size: clamp(18px, 1.5vw, 22px);
+  font-weight: 500;
+  line-height: 1.38;
+  letter-spacing: -0.005em;
   color: var(--text);
-  opacity: 0.86;
-  max-width: 62ch;
+  opacity: 0.92;
+  /* ch 는 라틴 기준이라 한글 섞인 글에선 실제보다 좁게 잡힌다. em 으로 건다. */
+  max-width: 27em;
 }
 
 /* ── 리듬 ──
@@ -276,12 +331,17 @@
   padding: clamp(60px, 8vw, 130px) 0 clamp(50px, 6vw, 100px);
 }
 .dconcept__body { min-width: 0; }
+/* 레벨 2 — CONCEPT 는 INFO 보다 작다.
+   INFO 는 붙잡는 글이고 CONCEPT 는 읽을 사람만 읽는 글이라 위계가 다르다.
+   K95 도 CONCEPT 를 AWARDS 줄과 같은 크기로 둔다. */
 .dconcept__body p {
-  margin: 0 0 1.1em;
-  font-size: clamp(13px, 1.05vw, 15px);
-  line-height: 1.8;
+  margin: 0 0 1.25em;
+  font-family: var(--display);
+  font-size: clamp(14px, 1.05vw, 16px);
+  font-weight: 400;
+  line-height: 1.75;
   color: var(--text);
-  opacity: 0.86;
+  opacity: 0.82;
 }
 .dconcept__body p:last-child { margin-bottom: 0; }
 

@@ -104,8 +104,10 @@ export const CASES = {
     info: 'AI 판정과 배심원 투표로 사건의 시비를 가리는 커뮤니티 서비스입니다. PM으로 정보 구조와 홈 화면 설계를 맡고, 화면까지 함께 만들고 있습니다.',
     concept: [],
     visit: [
-      { label: 'VIEW SITE', href: '' },
-      { label: 'GITHUB', href: '' },
+      /* 사이트의 canonical 은 /home/ 이다. 온보딩부터 보여줄지 본 화면으로 바로 보낼지는 선택. */
+      { label: 'VIEW SITE', href: 'https://walgawal-bot.vercel.app/onboarding' },
+      /* 기획서 나오면 public/ 에 넣고 '/walga-deck.pdf' 로 채우면 그때 버튼이 나온다 */
+      { label: 'DECK (PDF)', href: '' },
     ],
     blocks: [
       { type: 'full', src: '/cases/walga-screens.jpg', alt: '홈 — 오늘의 사건과 투표 결과 화면' },

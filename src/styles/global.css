@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css');
 @import './tokens.css';
 
@@ -12,7 +12,7 @@ body {
   color: var(--text);
   font-family: var(--kr);
   font-variation-settings: 'wght' 400;
-  font-size: 14px;
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
   /* 한국어는 단어 중간에서 끊지 않는다. */
@@ -53,8 +53,8 @@ body {
 /* ── 시스템 정보 타이포 — 10~12px, 넓은 자간 ── */
 .sys {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  font-size: 11.5px;
+  letter-spacing: 0.15em;
   color: var(--muted);
   text-transform: uppercase;
 }
@@ -77,8 +77,8 @@ body {
 .nav__mark {
   font-family: var(--display);
   font-weight: 600;
-  font-size: 15px;
-  letter-spacing: 0.14em;
+  font-size: 16px;
+  letter-spacing: 0.13em;
   color: var(--text);
   background: none;
   border: 0;
@@ -94,8 +94,8 @@ body {
 }
 .nav__link {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.13em;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   color: var(--muted);
   background: none;
   border: 0;
@@ -109,8 +109,8 @@ body {
 
 .nav__contact {
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.13em;
+  font-size: 12px;
+  letter-spacing: 0.12em;
   color: var(--muted);
   background: none;
   border: 0;
@@ -120,6 +120,52 @@ body {
 }
 .nav__contact:hover,
 .nav__contact[aria-current='page'] { color: var(--text); border-bottom-color: var(--frost); }
+
+
+/* ── 롤 ──
+   호버하면 글자가 위로 빠지고 같은 글자가 아래에서 올라온다.
+
+   여기서 한 번 틀렸던 것: translateY 의 % 는 "부모 높이"가 아니라 "자기 높이" 기준이다.
+   패딩 있는 버튼에 바로 걸면 글자가 제 높이(한 줄)만큼만 움직여서
+   패딩 영역에 두 벌이 같이 보인다. 그래서 잘라내는 상자를 글자 딱 한 줄로 따로 둔다.
+
+     <button class="roll" >          호버를 판정하는 바깥 (패딩은 여기)
+       <span class="roll__in" data-label="NEXT">   잘라내는 상자 (패딩 없음)
+         <span>NEXT</span>
+       </span>
+     </button>
+
+   두 번째 벌은 ::after 의 content 로만 띄운다 — DOM 에 같은 글자를 두 번 넣으면
+   스크린리더가 두 번 읽는다. */
+.roll { position: relative; }
+.roll .roll__in {
+  display: inline-grid;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+.roll .roll__in > span,
+.roll .roll__in::after {
+  grid-area: 1 / 1;
+  display: block;
+  white-space: nowrap;
+  transition: transform 400ms var(--ease);
+  will-change: transform;
+}
+.roll .roll__in::after {
+  content: attr(data-label);
+  transform: translateY(105%);
+}
+.roll:hover .roll__in > span,
+.roll:focus-visible .roll__in > span { transform: translateY(-105%); }
+.roll:hover .roll__in::after,
+.roll:focus-visible .roll__in::after { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .roll .roll__in > span,
+  .roll .roll__in::after { transition: none; }
+  .roll:hover .roll__in > span { transform: none; }
+  .roll:hover .roll__in::after { transform: translateY(105%); }
+}
 
 /* ── 화면 공통 ── */
 .screen {

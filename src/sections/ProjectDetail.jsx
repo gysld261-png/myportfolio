@@ -133,8 +133,12 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
       {renderSpec && data && (
         <>
           <nav className="detail__pills" aria-label="상세 탐색">
-            <button type="button" onClick={onClose}>/ RETURN</button>
-            <button type="button" onClick={() => onSwitch(next.id)}>NEXT</button>
+            <button type="button" className="roll" onClick={onClose}>
+              <span className="roll__in" data-label="/ RETURN"><span>/ RETURN</span></span>
+            </button>
+            <button type="button" className="roll" onClick={() => onSwitch(next.id)}>
+              <span className="roll__in" data-label="NEXT"><span>NEXT</span></span>
+            </button>
           </nav>
 
           <div className="detail__scroll" ref={scrollRef}>
@@ -198,8 +202,8 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                 <img src={next.imageCut || next.image} alt="" />
                 <span className="dnext__name">{next.ko}</span>
               </button>
-              <button type="button" className="sys dnext__go" onClick={() => onSwitch(next.id)}>
-                NEXT PROJECT →
+              <button type="button" className="sys dnext__go roll" onClick={() => onSwitch(next.id)}>
+                <span className="roll__in" data-label="NEXT PROJECT →"><span>NEXT PROJECT →</span></span>
               </button>
             </footer>
           </div>
