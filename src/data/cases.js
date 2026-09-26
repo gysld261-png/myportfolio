@@ -44,38 +44,39 @@ export const CASES = {
      02 TCHAIKIM
      ───────────────────────────────────────────────────────── */
   tchaikim: {
-    year: '2025',
-    categories: ['WEB DESIGN', 'DESIGN SYSTEM'],
-    role: ['Design System', 'Handoff', 'Documentation'],
-    info: '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. 저는 디자인 시스템과 개발 핸드오프를 맡아, 타이포 토큰을 정의해 배포하고 Dev Mode annotation 기준의 핸드오프 워크플로와 DL 기록 체계를 만들었습니다.',
-    concept: [
-      '성격이 다른 두 서브 브랜드를 한 사이트 안에서 어떻게 가를지가 먼저였습니다. 화면을 그리기 전에 구조를 정하고, 그 구조를 팀이 매번 다시 협의하지 않도록 토큰으로 굳혔습니다.',
-      '타이포 스케일을 11단계로 쪼갠 이유는 하나입니다. 그래야 고르는 일이 판단이 아니라 선택이 됩니다. 결정의 근거는 DL 번호로 남겨서, 구현 단계에서도 무엇을 왜 정했는지 되짚을 수 있게 했습니다.',
-    ],
+    layout: 'boards',
+    hero: {
+      src: '/cases/tchaikim/hero-mockup.webp',
+      alt: '차이킴 Shop 원통 갤러리와 메인 화면을 담은 노트북 목업',
+      width: 3840,
+      height: 2400,
+    },
+    year: '2026',
+    categories: ['UX/UI DESIGN', 'FRONTEND', 'DESIGN SYSTEM'],
+    role: ['UI Design', 'Frontend', 'Design System'],
+    info: '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 DL 기록 체계로 팀의 디자인 시스템과 핸드오프 기준을 만들었습니다.',
+    concept: [],
     visit: [
       { label: 'VIEW SITE', href: 'https://gysld261-png.github.io/tchaikimm/pages/main/index.html' },
       { label: 'DECK (PDF)', href: '' },   // public/ 에 넣고 '/tchaikim-deck.pdf'
       { label: 'GITHUB', href: 'https://github.com/gysld261-png/tchaikimm' },
     ],
+    /* 케이스 스터디 보드 — 배포 사이트를 1920px로 캡처해 목업과 주석을 얹은 롱이미지를 섹션별로 잘랐다.
+       2x(2880px) WebP. 기존 스크롤 녹화(tchaikim-scroll.webm)와 tchaikim-home.jpg 는 다른 화면에서 쓰이니 남겨 둔다. */
     blocks: [
-      /* 실제 사이트를 1440×900 으로 끝까지 스크롤한 녹화 (30초). PC 목업 화면 안에서 재생된다. */
-      { type: 'device', video: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg', alt: '메인 페이지를 처음부터 끝까지 스크롤하는 화면' },
-      { type: 'full', src: '/cases/tchaikim-home.jpg', alt: '홈 — 두 서브 브랜드를 좌우로 나눈 첫 화면' },
-      { type: 'concept' },
-      { type: 'duo', items: [
-        { src: '', alt: '컬렉션 목록' },
-        { src: '', alt: '컬렉션 상세' },
-      ] },
-      { type: 'full', src: '', alt: 'Netlify에 배포한 타이포 토큰 페이지' },
-      { type: 'split', items: [
-        { src: '', alt: '타이포 스케일 11단계' },
-        { src: '', alt: 'Dev Mode annotation 기준 핸드오프' },
-      ] },
-      { type: 'trio', items: [
-        { src: '', alt: '모바일 홈' },
-        { src: '', alt: '모바일 컬렉션' },
-        { src: '', alt: '모바일 상세' },
-      ] },
+      { type: 'full', src: '/cases/tchaikim/boards/01-cover.webp', width: 2880, height: 1520, alt: '차이킴 — 낯선 한복을, 입어보고 싶은 옷으로' },
+      { type: 'full', src: '/cases/tchaikim/boards/02-problem.webp', width: 2880, height: 2180, alt: '문제 — 설문 14명 중 두 브랜드 구조를 알아본 응답자 0%, 스크롤 CTA 미인식 43%, 구매 망설임 1위는 착용컷 부재' },
+      { type: 'full', src: '/cases/tchaikim/boards/03-principles.webp', width: 2880, height: 1670, alt: '설계 원칙 — 착용컷 우선, 용어를 이야기로, 두 브랜드의 연결, 결정은 필요한 곳에서' },
+      { type: 'full', src: '/cases/tchaikim/boards/04-flow.webp', width: 2880, height: 980, alt: '사용자 흐름 — Sarah Jenkins와 Mei Ling Lee, Shop에서 갈라지는 두 개의 길' },
+      { type: 'full', src: '/cases/tchaikim/boards/05-shop-hero.webp', width: 2880, height: 1334, alt: 'Shop 히어로 — Three.js 원통 갤러리와 카테고리' },
+      { type: 'full', src: '/cases/tchaikim/boards/06-garment-story.webp', width: 2880, height: 1474, alt: 'Garment Story — 원형 오빗으로 배자, 철릭, 거들, 사폭바지를 순환' },
+      { type: 'full', src: '/cases/tchaikim/boards/07-product-card.webp', width: 2880, height: 2534, alt: '상품 카드 — 기본은 착용컷, 호버하면 원단 디테일' },
+      { type: 'full', src: '/cases/tchaikim/boards/08-crosslink.webp', width: 2880, height: 1296, alt: '크로스링크 — Shop 배너에서 맞춤 브랜드로 가는 두 번째 출구' },
+      { type: 'full', src: '/cases/tchaikim/boards/09-main-motif.webp', width: 2880, height: 2576, alt: '메인 모티프 — 철릭을 옷깃, 소매, 몸판, 치마로 나눠 읽기' },
+      { type: 'full', src: '/cases/tchaikim/boards/10-main-brands.webp', width: 2880, height: 2578, alt: '메인 브랜드 — 카드 스택으로 두 브랜드를 번갈아 보여주기' },
+      { type: 'full', src: '/cases/tchaikim/boards/11-main-collection.webp', width: 2880, height: 2530, alt: '메인 컬렉션 — 이미지 터널과 두 브랜드 컬렉션 링크' },
+      { type: 'full', src: '/cases/tchaikim/boards/12-responsive.webp', width: 2880, height: 2242, alt: '반응형 — 모바일 모티프, 브랜드, 컬렉션 화면' },
+      { type: 'full', src: '/cases/tchaikim/boards/13-overview.webp', width: 2880, height: 1802, alt: '전체 페이지 개요' },
     ],
   },
 
