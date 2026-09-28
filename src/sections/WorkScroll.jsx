@@ -6,60 +6,46 @@ import './work.css';
 /**
  * PORTFOLIO — SCROLL
  *
- * 프로젝트마다 이름, 번호, 드라이아이스 표본이 한 덩어리로 묶여 끝없이 흘러간다.
- * 이름이나 표본을 가리키면 표본이 승화하듯 사라지고 뒤에서 큰 미리보기가 열린다.
- * 누르면 그 미리보기가 화면 전체로 열리며 프로젝트로 들어간다.
+ * 세 프로젝트가 각각 한 화면을 차지한다.
+ * 얼음에 머물면 옆에 미리보기가 열리고, 누르면 얼음 내부로 진입한다.
  * 뒤에는 드라이아이스 파편이 깊이별로 다른 속도로 떠다닌다.
  */
 
-/* 덩어리 배치 — x 는 덩어리의 왼쪽 위치(vw), lines 는 [글자, 덩어리 안 들여쓰기(em)].
-   덩어리끼리는 좌우로 엇갈리고, 덩어리 안의 줄은 바짝 붙는다. */
-const BLOCKS = {
-  odit: { x: 34, lines: [['ODIT', 0]] },
-  tchaikim: { x: 9, lines: [['TCHAI', 0], ['KIM', 0.9]] },
-  nuri: { x: 30, lines: [['문화누리', 0], ['카드', 0.55]] },
-  walga: { x: 12, lines: [['왈가', 0], ['왈봇', 0.7]] },
-};
-
-/* 원래 FIELD 에 있던 네 개의 드라이아이스 표본 — 이제 각 이름 덩어리에 붙어 다닌다 */
+/* 3D 블록의 DOM 앵커 — 실제 표본은 단일 WebGL 캔버스에서 이 위치를 따라간다. */
 const SPECIMEN = {
-  odit: { src: '/specimens/odit-cut.png', w: 24, x: 62, y: -6 },
-  tchaikim: { src: '/specimens/tchaikim-cut.png', w: 20, x: 70, y: -2 },
-  nuri: { src: '/specimens/nuri-cut.png', w: 20, x: 74, y: 8 },
-  walga: { src: '/specimens/walga-cut.png', w: 27, x: 58, y: 4 },
+  odit: { w: 34, x: 25, y: -3, ratio: 1.18 },
+  tchaikim: { w: 29, x: 28, y: 0, ratio: 0.82 },
+  walga: { w: 36, x: 24, y: 2, ratio: 1.12 },
 };
 
 /* 가운데 창에 비치는 화면. 화면 자료가 없는 프로젝트는 표본 사진으로 둔다. */
 const PREVIEW = {
   odit: { kind: 'image', src: '/cases/odit-preview.jpg' },
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
-  nuri: { kind: 'image', src: '/specimens/nuri.png', note: 'CASE STUDY IN PREPARATION' },
   walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
 };
 
-const SETS = 3;
-const LAUNCH_MS = 820;
+const SETS = 1;
+const LAUNCH_MS = 1050;
+const PREVIEW_DELAY = 620;
 
 /* 알갱이 전환 — 노이즈 값이 문턱보다 큰 픽셀만 남긴다. 밀도 d 가 0 이면 아무것도, 1 이면 전부 보인다.
    실측: 문턱 0.74 에서 약 1%, 0.44 에서 약 65%, 0.2 이하면 전부 남는다. */
 const GRAIN_SLOPE = 36;
 const grainIntercept = (density) => -(0.74 - 0.54 * density) * GRAIN_SLOPE;
-const TEXT_GRAIN = 0.46; // 가리킨 이름은 점이 절반쯤만 남아 이미지 위로 자글자글하게 비친다
-
-/** 글자를 한 자씩 나눈다 — 스크롤로 들어올 때 차례로 올라온다 */
-const chars = (text, offset = 0) => [...text].map((char, c) => (
-  <span className="work-ch" key={c} style={{ '--c': c + offset }}>{char}</span>
-));
 
 export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, paused }) {
   const rootRef = useRef(null);
   const trackRef = useRef(null);
   const driftHostRef = useRef(null);
+  const iceHostRef = useRef(null);
+  const iceFieldRef = useRef(null);
   const videoRef = useRef(null);
   const [hoverIndex, setHoverIndex] = useState(null);
+  const [previewIndex, setPreviewIndex] = useState(null);
   const [launching, setLaunching] = useState(null);
 
-  const scroll = useRef({ current: 0, target: 0, setHeight: 1, centers: [], ready: false });
+  const scroll = useRef({ current: 0, target: 0, setHeight: 1, centers: [], ready: false, snapAt: 0 });
   const activeRef = useRef(activeIndex);
   activeRef.current = activeIndex;
   const onActiveRef = useRef(onActiveChange);
@@ -67,17 +53,26 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   const hoverRef = useRef(null);
+  const previewRef = useRef(null);
+  previewRef.current = previewIndex;
   const launchingRef = useRef(null);
   const pointer = useRef({ x: 0, y: 0, inside: false, dirty: false });
   const windowRef = useRef(null);
   const imgGrainRef = useRef(null);
   const imgNoiseRef = useRef(null);
-  const textGrainRef = useRef(null);
-  const textNoiseRef = useRef(null);
-  const grain = useRef({ img: 0, text: 0, textIndex: null });
+  const grain = useRef({ img: 0 });
 
-  // 미리보기는 가리킬 때만 열린다
-  const shown = hoverIndex;
+  // 얼음을 충분히 본 뒤 오른쪽에 미리보기가 열린다.
+  const shown = previewIndex;
+
+  useEffect(() => {
+    if (hoverIndex === null || launching !== null) {
+      setPreviewIndex(null);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setPreviewIndex(hoverIndex), PREVIEW_DELAY);
+    return () => window.clearTimeout(timer);
+  }, [hoverIndex, launching]);
 
   // 첫 세트의 높이와 각 이름의 세로 중심을 잰다
   const measure = useCallback(() => {
@@ -89,10 +84,35 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     s.setHeight = firstSet.offsetHeight || 1;
     s.centers = [...firstSet.querySelectorAll('.work-row')].map((row) => row.offsetTop + row.offsetHeight / 2);
     if (!s.ready) {
-      s.current = s.target = s.centers[activeRef.current] - root.clientHeight / 2;
+      const max = Math.max(0, s.setHeight - root.clientHeight);
+      s.current = s.target = clamp(s.centers[activeRef.current] - root.clientHeight / 2, 0, max);
       s.ready = true;
     }
   }, []);
+
+  // 네 표본은 렌더러 하나를 공유한다. 무한 스크롤의 복제 행은 DOM 앵커로만 사용한다.
+  useEffect(() => {
+    let cancelled = false;
+    let field = null;
+    import('../lib/workIceScene').then(({ createWorkIceField }) => (
+      createWorkIceField(iceHostRef.current, rootRef.current, specs.map((spec) => spec.id))
+    )).then((created) => {
+      if (cancelled) {
+        created.dispose();
+        return;
+      }
+      field = created;
+      iceFieldRef.current = created;
+      created.setPaused(pausedRef.current);
+    }).catch(() => {
+      // WebGL을 만들 수 없는 환경에서도 텍스트 탐색과 상세 진입은 그대로 동작한다.
+    });
+    return () => {
+      cancelled = true;
+      iceFieldRef.current = null;
+      field?.dispose();
+    };
+  }, [specs]);
 
   // 루프 — 스크롤 값, 속도, 가운데 이름, 파편
   useEffect(() => {
@@ -114,37 +134,60 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       drift.setPaused(pausedRef.current);
+      iceFieldRef.current?.setPaused(pausedRef.current);
       if (pausedRef.current || !s.ready) return;
       const prev = s.current;
-      s.current = reduced ? s.target : approach(s.current, s.target, dt, 0.11);
+      // Igloo처럼 휠 입력을 연속적인 타임라인 값으로 쌓는다. 목표점에 바로 점프하지 않고
+      // 약 1초 동안 따라가므로 얼음의 퇴장과 다음 얼음의 진입을 눈으로 볼 수 있다.
+      s.current = reduced ? s.target : approach(s.current, s.target, dt, 0.36);
       velocity = approach(velocity, clamp((s.current - prev) / Math.max(dt, 0.001) / 2600, -1, 1), dt, 0.08);
 
-      const H = s.setHeight;
-      const offset = ((s.current % H) + H) % H;
-      track.style.transform = `translate3d(0, ${-(offset + H)}px, 0)`;
+      // 휠을 놓으면 가장 가까운 관찰 지점으로 아주 늦게 정렬한다. 입력 중에는 절대
+      // 프로젝트 단위로 강제 점프하지 않아 트랙패드의 작은 움직임도 그대로 보인다.
+      if (!reduced && s.snapAt && now >= s.snapAt && Math.abs(s.target - s.current) < root.clientHeight * 0.2) {
+        let nearest = 0;
+        let nearestDistance = Infinity;
+        const targetCenter = s.target + root.clientHeight / 2;
+        s.centers.forEach((value, index) => {
+          const distance = Math.abs(value - targetCenter);
+          if (distance < nearestDistance) { nearest = index; nearestDistance = distance; }
+        });
+        s.target = clamp(s.centers[nearest] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
+        s.snapAt = 0;
+      }
+
+      const max = Math.max(0, s.setHeight - root.clientHeight);
+      s.target = clamp(s.target, 0, max);
+      s.current = clamp(s.current, 0, max);
+      track.style.transform = `translate3d(0, ${-s.current}px, 0)`;
       root.style.setProperty('--sv', velocity.toFixed(4));
+      iceFieldRef.current?.setVelocity(velocity);
+      iceFieldRef.current?.setInteraction(hoverRef.current, launchingRef.current);
 
       // 화면 가운데에 가장 가까운 이름
-      const center = offset + root.clientHeight / 2;
+      const center = s.current + root.clientHeight / 2;
       let best = 0;
       let bestDistance = Infinity;
       s.centers.forEach((c, i) => {
-        const d = Math.min(Math.abs(c - center), Math.abs(c + H - center), Math.abs(c - H - center));
+        const d = Math.abs(c - center);
         if (d < bestDistance) { bestDistance = d; best = i; }
       });
       if (best !== activeRef.current) onActiveRef.current(best);
+
+      // 레퍼런스처럼 라벨은 표본보다 먼저 흐려지고 중앙 부근에서만 또렷해진다.
+      track.querySelectorAll('.work-row').forEach((row, index) => {
+        const local = Math.abs((s.centers[index] - center) / Math.max(1, root.clientHeight));
+        row.style.setProperty('--focus', (1 - clamp((local - 0.18) / 0.52, 0, 1)).toFixed(3));
+      });
 
       drift.setScroll(s.current, velocity);
 
       // 알갱이 — 이미지는 점이 모이며 나타나고, 가리킨 이름은 점으로 흩어진다
       const g = grain.current;
-      const hovered = hoverRef.current;
+      const hovered = previewRef.current;
       const launchingNow = launchingRef.current !== null;
       const imgTarget = hovered !== null || launchingNow ? 1 : 0;
       g.img = reduced ? imgTarget : approach(g.img, imgTarget, dt, imgTarget ? 0.2 : 0.09);
-      if (hovered !== null) g.textIndex = hovered;
-      const textTarget = hovered !== null && !launchingNow ? 1 : 0;
-      g.text = reduced ? textTarget : approach(g.text, textTarget, dt, 0.14);
       const jitter = Math.floor(now / 70) % 97; // 바뀌는 동안 점이 살아서 끓어오르게
       const win = windowRef.current;
       if (win) {
@@ -154,15 +197,6 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         imgGrainRef.current?.setAttribute('intercept', grainIntercept(g.img).toFixed(3));
         if (!settledImg) imgNoiseRef.current?.setAttribute('seed', String(jitter));
       }
-      const textDensity = 1 - (1 - TEXT_GRAIN) * g.text;
-      textGrainRef.current?.setAttribute('intercept', grainIntercept(textDensity).toFixed(3));
-      if (g.text > 0.004 && g.text < 0.99) textNoiseRef.current?.setAttribute('seed', String(jitter));
-      track.querySelectorAll('.work-row').forEach((row) => {
-        const on = g.text > 0.004 && Number(row.dataset.index) === g.textIndex;
-        const want = on ? 'url(#work-grain-text)' : '';
-        if (row.style.filter !== want) row.style.filter = want;
-      });
-
       // 호버는 글자 위에 있는지로만 판단한다. 글자가 마우스 밑으로 흘러가도 바뀌어야 해서
       // pointerenter 대신 매 프레임(움직임이 있을 때만) 직접 확인한다.
       const p = pointer.current;
@@ -180,9 +214,14 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
 
     const onWheel = (event) => {
       if (pausedRef.current) return;
+      if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? root.clientHeight : 1;
-      s.target += event.deltaY * unit;
+      const raw = event.deltaY * unit;
+      const delta = clamp(raw, -root.clientHeight * 0.72, root.clientHeight * 0.72);
+      s.target = clamp(s.target + delta * 1.12, 0, Math.max(0, s.setHeight - root.clientHeight));
+      s.snapAt = performance.now() + 260;
+      pointer.current.dirty = true;
     };
     let touchY = null;
     const onPointerDown = (event) => { if (event.pointerType !== 'mouse') touchY = event.clientY; };
@@ -190,11 +229,27 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       if (event.pointerType === 'mouse') Object.assign(pointer.current, { x: event.clientX, y: event.clientY, inside: true, dirty: true });
       const bounds = root.getBoundingClientRect();
       drift.setPointer((event.clientX - bounds.left) / bounds.width - 0.5, (event.clientY - bounds.top) / bounds.height - 0.5);
+      iceFieldRef.current?.setPointer((event.clientX - bounds.left) / bounds.width - 0.5, (event.clientY - bounds.top) / bounds.height - 0.5);
       if (touchY === null) return;
-      s.target += (touchY - event.clientY) * 1.6;
+      s.target = clamp(s.target + (touchY - event.clientY) * 1.6, 0, Math.max(0, s.setHeight - root.clientHeight));
+      s.snapAt = 0;
       touchY = event.clientY;
     };
-    const onPointerUp = () => { touchY = null; };
+    const onPointerUp = () => {
+      if (touchY !== null && s.centers.length) {
+        let nearest = 0;
+        let distance = Infinity;
+        const center = s.target + root.clientHeight / 2;
+        s.centers.forEach((value, index) => {
+          const nextDistance = Math.abs(value - center);
+          if (nextDistance < distance) { nearest = index; distance = nextDistance; }
+        });
+        activeRef.current = nearest;
+        onActiveRef.current(nearest);
+        s.target = clamp(s.centers[nearest] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
+      }
+      touchY = null;
+    };
     const onPointerLeave = () => Object.assign(pointer.current, { inside: false, dirty: true });
     root.addEventListener('pointerleave', onPointerLeave);
     root.addEventListener('wheel', onWheel, { passive: false });
@@ -229,18 +284,25 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     return () => io.disconnect();
   }, []);
 
-  // 이름 하나만큼 위아래로
+  // 한 번에 정확히 한 프로젝트 장면씩 이동한다.
   const step = useCallback((direction) => {
     const s = scroll.current;
     const root = rootRef.current;
     if (!s.ready || !root) return;
-    const H = s.setHeight;
-    const center = ((((s.target + root.clientHeight / 2) % H) + H) % H);
-    const candidates = s.centers.flatMap((c) => [c - H, c, c + H]).sort((a, b) => a - b);
-    const next = direction > 0
-      ? candidates.find((c) => c > center + 4)
-      : [...candidates].reverse().find((c) => c < center - 4);
-    if (next !== undefined) s.target += next - center;
+    const next = clamp(activeRef.current + direction, 0, s.centers.length - 1);
+    activeRef.current = next;
+    onActiveRef.current(next);
+    s.target = clamp(s.centers[next] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
+  }, []);
+
+  const goTo = useCallback((index) => {
+    const s = scroll.current;
+    const root = rootRef.current;
+    if (!s.ready || !root) return;
+    const next = clamp(index, 0, s.centers.length - 1);
+    activeRef.current = next;
+    onActiveRef.current(next);
+    s.target = clamp(s.centers[next] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
   }, []);
 
   const launch = useCallback((index) => {
@@ -260,6 +322,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       launchingRef.current = null;
       hoverRef.current = null;
       setHoverIndex(null);
+      setPreviewIndex(null);
       pointer.current.dirty = true;
     }
   }, [paused]);
@@ -293,9 +356,10 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   return (
     <div
       ref={rootRef}
-      className={`work ${launching !== null ? 'is-launching' : ''} ${hoverIndex !== null ? 'is-hovering' : ''}`}
+      className={`work ${launching !== null ? 'is-launching' : ''} ${hoverIndex !== null ? 'is-hovering' : ''} ${previewIndex !== null ? 'is-previewing' : ''}`}
     >
       <div ref={driftHostRef} className="work__drift" aria-hidden="true" />
+      <div ref={iceHostRef} className="work__ice-field" aria-hidden="true" />
 
       <svg className="work__filters" aria-hidden="true" focusable="false">
         <filter id="work-grain-img" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
@@ -303,14 +367,6 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
           <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="field" />
           <feComponentTransfer in="field" result="mask">
             <feFuncA ref={imgGrainRef} type="linear" slope={GRAIN_SLOPE} intercept={grainIntercept(0)} />
-          </feComponentTransfer>
-          <feComposite in="SourceGraphic" in2="mask" operator="in" />
-        </filter>
-        <filter id="work-grain-text" x="-5%" y="-10%" width="110%" height="120%" colorInterpolationFilters="sRGB">
-          <feTurbulence ref={textNoiseRef} type="fractalNoise" baseFrequency="0.85" numOctaves="1" seed="5" result="noise" />
-          <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="field" />
-          <feComponentTransfer in="field" result="mask">
-            <feFuncA ref={textGrainRef} type="linear" slope={GRAIN_SLOPE} intercept={grainIntercept(1)} />
           </feComponentTransfer>
           <feComposite in="SourceGraphic" in2="mask" operator="in" />
         </filter>
@@ -336,45 +392,52 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         <p className="work__caption">{previewSpec.ko} /<br />{previewSpec.role.replace(' + ', ', ')}</p>
       </div>
 
+      <div className="work__depth" aria-label={`프로젝트 ${activeIndex + 1} / ${specs.length}`}>
+        <span className="work__depth-label sys">DEPTH</span>
+        <ol>
+          {specs.map((spec, index) => (
+            <li key={spec.id} className={index === activeIndex ? 'is-active' : ''}>
+              <button type="button" onClick={() => goTo(index)} aria-label={`${spec.ko}로 이동`}>0</button>
+            </li>
+          ))}
+        </ol>
+        <strong className="sys">{String(activeIndex + 1).padStart(2, '0')} / {String(specs.length).padStart(2, '0')}</strong>
+      </div>
+
       <div className="work__viewport">
         <div ref={trackRef} className="work__track">
           {Array.from({ length: SETS }, (_, set) => (
-            <ul key={set} className="work__set" aria-hidden={set !== 1 ? true : undefined}>
+            <ul key={set} className="work__set">
               {specs.map((spec, index) => (
                 <li key={spec.id}>
                   <button
                     type="button"
-                    data-project={set === 1 ? spec.id : undefined}
-                    tabIndex={set === 1 ? 0 : -1}
-                    className={`work-row work-row--${spec.id} ${index === shown ? 'is-shown' : ''}`}
+                    data-project={spec.id}
+                    tabIndex={0}
+                    className={`work-row work-row--${spec.id} ${index === hoverIndex ? 'is-shown' : ''}`}
                     data-index={index}
                     onFocus={() => { if (launching === null) setHoverIndex(index); }}
                     onBlur={() => { if (launching === null) setHoverIndex(null); }}
                     onClick={() => launch(index)}
                     aria-label={`${spec.no} ${spec.ko} 프로젝트 보기`}
                   >
-                    <span className="work-row__block" style={{ '--x': `${BLOCKS[spec.id].x}vw` }}>
-                      <img
+                    <span className="work-row__block">
+                      <span
                         className="work-row__specimen work-hit"
-                        src={SPECIMEN[spec.id].src}
-                        alt=""
-                        draggable="false"
                         aria-hidden="true"
-                        style={{ '--sw': `${SPECIMEN[spec.id].w}vw`, '--sx': `${SPECIMEN[spec.id].x}%`, '--sy': `${SPECIMEN[spec.id].y}%` }}
+                        data-ice-anchor={spec.id}
+                        style={{
+                          '--sw': `${SPECIMEN[spec.id].w}vw`,
+                          '--sx': `${SPECIMEN[spec.id].x}%`,
+                          '--sy': `${SPECIMEN[spec.id].y}%`,
+                          '--sar': SPECIMEN[spec.id].ratio,
+                        }}
                       />
                       <span className="work-row__meta sys" aria-hidden="true" style={{ '--c': 0 }}>
                         <span>{spec.no} / {String(specs.length).padStart(2, '0')}</span>
                         <span>{spec.role}</span>
                         <span>{spec.year}</span>
                       </span>
-                      {BLOCKS[spec.id].lines.map(([text, indent], lineIndex, all) => (
-                        <span key={text} className="work-row__line work-hit" style={{ '--indent': `${indent}em`, '--l': lineIndex }} aria-hidden="true">
-                          {chars(text)}
-                          {lineIndex === all.length - 1 && (
-                            <span className="work-ch" style={{ '--c': text.length }}><i className="work-row__dot" /></span>
-                          )}
-                        </span>
-                      ))}
                     </span>
                   </button>
                 </li>
@@ -383,6 +446,8 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
           ))}
         </div>
       </div>
+
+      <div className="work__ice-entry" aria-hidden="true"><i /><i /></div>
 
       <p className="work__foot" aria-hidden="true">
         Selected work 2025 / 2026.<br />UX/UI design and frontend.

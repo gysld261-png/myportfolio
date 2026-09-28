@@ -3,7 +3,7 @@ import Ticks from '../components/Ticks';
 import FrostEdge from '../components/FrostEdge';
 import './main.css';
 
-const IceCubeHero = lazy(() => import('../components/IceCubeHero'));
+const PhotoIceHero = lazy(() => import('../components/PhotoIceHero'));
 
 /**
  * MAIN — SUBLIMATION CHAMBER
@@ -40,7 +40,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
   return (
     <section
-      className={`screen main ${cubeReady ? 'is-cube-ready' : ''} ${claimSettled ? 'is-claim-settled' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
+      className={`screen main main--photo ${cubeReady ? 'is-cube-ready' : ''} ${claimSettled ? 'is-claim-settled' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
       id="main"
       style={{
         '--exit': transitionProgress,
@@ -57,12 +57,11 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       <Ticks />
 
       <Suspense fallback={<div className="ice-cube-hero ice-cube-hero--loading" />}>
-        <IceCubeHero
+        <PhotoIceHero
           initialEntrance={introEntrance}
           exitProgress={transitionProgress}
           onReadout={updateReadout}
           onReady={setCubeReady}
-          showTitle={claimSettled}
         />
       </Suspense>
 
@@ -136,7 +135,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       </div>
 
       <p className="main__hint sys" aria-hidden="true">
-        DRAG TO ROTATE
+        MOVE TO OBSERVE
       </p>
 
       <div

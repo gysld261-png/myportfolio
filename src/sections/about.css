@@ -141,6 +141,27 @@
 
 .about:not(.about--map) .about-node:not(.is-selected) { opacity: .05; filter: blur(2px); pointer-events: none; }
 .about-node.is-selected { color: #f4fcff; text-shadow: 0 0 24px rgba(200, 231, 240, .7); }
+.about-node.is-visited::before {
+  background: var(--frost);
+  border-color: var(--frost);
+  box-shadow: 0 0 12px rgba(185, 220, 230, .75), 0 0 30px rgba(185, 220, 230, .24);
+}
+.about-node.is-visited::after {
+  transform: translate(-50%, -50%) scale(.72);
+  opacity: .12;
+}
+.about-node__visited {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 40px);
+  transform: translateX(-50%);
+  color: var(--frost);
+  font-style: normal;
+  font-size: 7px;
+  letter-spacing: .16em;
+  opacity: .58;
+}
+.about-node--identity .about-node__visited { top: calc(50% + 53px); }
 
 .about-route path {
   fill: none;

@@ -1,5 +1,5 @@
 /**
- * DRY ICE SPECIMEN 01–04
+ * DRY ICE SPECIMEN 01–03
  *
  * 모든 오브젝트는 같은 Dry Ice Family 안에서 네 변수만 달라진다.
  *   Shape / Density / Fragment / Surface  (+ hover 시 Sublimation)
@@ -13,8 +13,34 @@
 
 export const SPECIMENS = [
   {
-    id: 'odit',
+    id: 'walga',
     no: '01',
+    ko: '왈가왈봇',
+    tag: 'CLUSTER',
+    image: '/specimens/walga.png',
+    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
+       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
+    imageCut: '/specimens/walga-cut.png',
+    // 상단 우측의 먼지처럼 작은 일곱 번째 파편은 crop 밖으로 제외한다.
+    imageRect: [0.08, 0.16, 0.84, 0.68],
+    imageOpacity: 0.84,
+    fieldDepth: 0.36,
+    vb: [110, 78],
+    polys: [
+      [[3, 27], [8, 16], [20, 7], [35, 6], [47, 13], [52, 25], [49, 40], [40, 53], [25, 58], [11, 53], [4, 42]],
+      [[59, 19], [69, 9], [84, 7], [99, 14], [107, 27], [108, 41], [101, 53], [89, 61], [72, 58], [61, 49], [56, 35]],
+      [[41, 58], [48, 50], [59, 47], [70, 54], [73, 65], [68, 74], [55, 78], [44, 73], [38, 66]],
+    ],
+    origin: 'cluster',
+    color: '#B8823A',
+    role: 'UX/UI + FRONTEND',
+    year: '2026',
+    lead: '모두가 한 마디씩 보태는 판정.',
+    residue: '조각들이 살짝 벌어진 채 남는다',
+  },
+  {
+    id: 'odit',
+    no: '02',
     ko: 'ODIT',
     tag: 'CONNECTED',
     image: '/specimens/odit.png',
@@ -42,7 +68,7 @@ export const SPECIMENS = [
   },
   {
     id: 'tchaikim',
-    no: '02',
+    no: '03',
     ko: 'TCHAIKIM',
     tag: 'REFINED',
     image: '/specimens/tchaikim.png',
@@ -66,58 +92,6 @@ export const SPECIMENS = [
     year: '2025',
     lead: '한복의 선을 글로벌 웹의 언어로 옮긴다.',
     residue: '실루엣 그대로, 밀도만 낮아진다',
-  },
-  {
-    id: 'nuri',
-    no: '03',
-    ko: '문화누리카드',
-    tag: 'COMPACT',
-    image: '/specimens/nuri.png',
-    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
-       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
-    imageCut: '/specimens/nuri-cut.png',
-    imageRect: [0.065, 0.035, 0.86, 0.92],
-    imageOpacity: 0.8,
-    fieldDepth: 0.38,
-    vb: [105, 72],
-    polys: [[
-      [4, 44], [9, 32], [20, 23], [36, 16], [56, 11], [76, 12],
-      [92, 18], [101, 28], [102, 41], [96, 53], [83, 61], [64, 65],
-      [43, 65], [25, 62], [12, 55],
-    ]],
-    origin: 'point',
-    originPoint: [10, 48],
-    color: '#2F7D62',
-    role: 'UX/UI',
-    year: '2025',
-    lead: '꼭 필요한 사람에게, 가장 빠른 길로.',
-    residue: '덩어리는 그대로, 시작점만 패인다',
-  },
-  {
-    id: 'walga',
-    no: '04',
-    ko: '왈가왈봇',
-    tag: 'CLUSTER',
-    image: '/specimens/walga.png',
-    /* HTML <img> 용 — 배경을 알파로 잘라낸 판본.
-       캔버스는 원본에서 알파와 깊이 밴드를 직접 만들므로 image 를 그대로 쓴다. */
-    imageCut: '/specimens/walga-cut.png',
-    // 상단 우측의 먼지처럼 작은 일곱 번째 파편은 crop 밖으로 제외한다.
-    imageRect: [0.08, 0.16, 0.84, 0.68],
-    imageOpacity: 0.84,
-    fieldDepth: 0.36,
-    vb: [110, 78],
-    polys: [
-      [[3, 27], [8, 16], [20, 7], [35, 6], [47, 13], [52, 25], [49, 40], [40, 53], [25, 58], [11, 53], [4, 42]],
-      [[59, 19], [69, 9], [84, 7], [99, 14], [107, 27], [108, 41], [101, 53], [89, 61], [72, 58], [61, 49], [56, 35]],
-      [[41, 58], [48, 50], [59, 47], [70, 54], [73, 65], [68, 74], [55, 78], [44, 73], [38, 66]],
-    ],
-    origin: 'cluster',
-    color: '#B8823A',
-    role: 'UX/UI + FRONTEND',
-    year: '2026',
-    lead: '모두가 한 마디씩 보태는 판정.',
-    residue: '조각들이 살짝 벌어진 채 남는다',
   },
 ];
 
@@ -152,6 +126,6 @@ export const HYOMIN = {
 export const FIELD_LAYOUT = [
   { id: 'odit', cx: 0.255, cy: 0.315, w: 0.22, z: 0.72, rx: -0.16, ry: 0.30, rz: -0.025 },
   { id: 'tchaikim', cx: 0.82, cy: 0.285, w: 0.07, z: 0.62, rx: -0.17, ry: -0.22, rz: 0.025 },
-  { id: 'nuri', cx: 0.20, cy: 0.785, w: 0.15, z: 0.48, rx: -0.20, ry: 0.42, rz: 0.012 },
   { id: 'walga', cx: 0.655, cy: 0.64, w: 0.32, z: 0.82, rx: -0.16, ry: -0.28, rz: -0.018 },
 ];
+

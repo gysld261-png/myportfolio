@@ -11,7 +11,6 @@ import './portfolio.css';
 const PRISM_FACES = {
   odit: { kind: 'image', src: '/cases/odit-preview.jpg' }, // odit-web 홈·이야기 상세·연결 화면 캡처
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
-  nuri: { kind: 'card', card: { title: '문화누리카드', meta: '03 / UX/UI / 2025', note: 'CASE STUDY IN PREPARATION' } },
   walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
 };
 

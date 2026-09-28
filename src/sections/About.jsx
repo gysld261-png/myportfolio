@@ -128,6 +128,7 @@ function ProjectEvidence({ ids, onOpenProject }) {
 export default function About({ onGoMain, onOpenProject }) {
   const [selected, setSelected] = useState(null);
   const [phase, setPhase] = useState('map');
+  const [visited, setVisited] = useState(() => new Set());
   const chamber = useMemo(() => CHAMBERS.find((item) => item.id === selected) || null, [selected]);
 
   const enter = useCallback((id) => {
@@ -147,7 +148,14 @@ export default function About({ onGoMain, onOpenProject }) {
       return () => window.clearTimeout(timer);
     }
     if (phase === 'impact') {
-      const timer = window.setTimeout(() => setPhase('reveal'), 460);
+      const timer = window.setTimeout(() => {
+        setVisited((current) => {
+          const next = new Set(current);
+          if (selected) next.add(selected);
+          return next;
+        });
+        setPhase('reveal');
+      }, 460);
       return () => window.clearTimeout(timer);
     }
     if (phase === 'return') {
@@ -158,7 +166,7 @@ export default function About({ onGoMain, onOpenProject }) {
       return () => window.clearTimeout(timer);
     }
     return undefined;
-  }, [phase]);
+  }, [phase, selected]);
 
   useEffect(() => {
     if (!chamber) return undefined;
@@ -201,7 +209,7 @@ export default function About({ onGoMain, onOpenProject }) {
           <button
             type="button"
             key={item.id}
-            className={`about-node about-node--${item.type} ${selected === item.id ? 'is-selected' : ''}`}
+            className={`about-node about-node--${item.type} ${selected === item.id ? 'is-selected' : ''} ${visited.has(item.id) ? 'is-visited' : ''}`}
             style={{ left: `${item.map.x}vw`, top: `${item.map.y}vh` }}
             onClick={() => enter(item.id)}
             aria-label={`${item.label} 관찰실로 이동`}
@@ -209,6 +217,7 @@ export default function About({ onGoMain, onOpenProject }) {
             <span className="about-node__index sys">{item.no}</span>
             <strong>{item.label}</strong>
             <i aria-hidden="true" />
+            {visited.has(item.id) && <em className="about-node__visited sys" aria-hidden="true">OBSERVED</em>}
           </button>
         ))}
 
@@ -253,7 +262,7 @@ export default function About({ onGoMain, onOpenProject }) {
       <div className="about-hud" aria-hidden="true">
         <span className="sys">CHAMBER {chamber?.no || '--'} / 05</span>
         <i />
-        <span className="sys">DEPTH {phase === 'map' ? '000' : phase === 'travel' ? '072' : '100'}</span>
+        <span className="sys">OBSERVED {String(visited.size).padStart(2, '0')} / 05</span>
       </div>
 
       <button type="button" className="about-back sys" onClick={onGoMain}>← MAIN</button>

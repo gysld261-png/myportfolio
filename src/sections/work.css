@@ -1,8 +1,8 @@
 /* ── SCROLL — 이름·번호·표본이 한 덩어리로 흐르고, 가리키면 큰 미리보기가 열린다 ── */
 .work {
   --sv: 0;
-  --preview-w: min(50vw, 820px);
-  --preview-h: min(calc(var(--preview-w) * 0.62), 54vh);
+  --preview-w: min(34vw, 560px);
+  --preview-h: min(calc(var(--preview-w) * 0.64), 43vh);
   --preview-ease: cubic-bezier(0.76, 0, 0.24, 1);
   position: absolute;
   inset: 0;
@@ -21,22 +21,35 @@
 .work__drift canvas { display: block; width: 100%; height: 100%; }
 .work.is-hovering .work__drift { opacity: 0.35; }
 
+/* 사진 대신 쓰는 단일 WebGL 표본 레이어. 위치와 클릭 영역은 각 행의 투명 앵커가 맡는다. */
+.work__ice-field {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  transition: opacity 520ms var(--ease), filter 700ms var(--ease);
+}
+.work__ice-field canvas { display: block; width: 100%; height: 100%; }
+.work.is-launching .work__ice-field { z-index: 4; }
+
 /* ── 큰 미리보기 ── */
 .work__preview {
   position: absolute;
-  z-index: 1;
+  z-index: 2;
   inset: 0;
   pointer-events: none;
 }
 .work__window {
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 76%;
   width: var(--preview-w);
   height: var(--preview-h);
   overflow: hidden;
-  border-radius: clamp(28px, 4.4vw, 76px);
-  background: #121516;
+  border-radius: clamp(14px, 1.5vw, 26px);
+  /* 이미지가 점으로 모이기 전 잠깐 보이던 불투명 사각형을 없앤다. */
+  background: transparent;
   /* 나타나고 사라지는 건 점 필터(#work-grain-img)가 맡는다 — 여기선 살짝 다가오기만 한다 */
   visibility: hidden;
   transform: translate(-50%, -50%) scale(0.94);
@@ -46,8 +59,7 @@
     height 820ms var(--preview-ease),
     border-radius 820ms var(--preview-ease);
 }
-.work.is-hovering .work__window,
-.work.is-launching .work__window {
+.work.is-previewing .work__window {
   transform: translate(-50%, -50%) scale(1);
 }
 .work__filters {
@@ -75,7 +87,6 @@
   object-position: 50% 0;
   display: block;
 }
-.work__media--nuri img { object-position: 50% 50%; }
 .work__media-note {
   position: absolute;
   left: 50%;
@@ -89,7 +100,7 @@
   --badge: clamp(56px, 4.8vw, 84px);
   position: absolute;
   top: calc(50% - var(--badge) * 0.5);
-  left: calc(50% + var(--preview-w) * 0.5 - var(--badge) * 1.6);
+  left: calc(76% + var(--preview-w) * 0.5 - var(--badge) * 1.35);
   display: grid;
   place-items: center;
   width: var(--badge);
@@ -104,7 +115,7 @@
   transform: scale(0.6);
   transition: opacity 320ms var(--ease), transform 520ms var(--preview-ease);
 }
-.work.is-hovering .work__badge {
+.work.is-previewing .work__badge {
   opacity: 1;
   transform: scale(1);
   transition-delay: 120ms;
@@ -112,7 +123,7 @@
 .work__caption {
   position: absolute;
   top: calc(50% + var(--preview-h) * 0.5 + 22px);
-  left: calc(50% - var(--preview-w) * 0.5);
+  left: calc(76% - var(--preview-w) * 0.5);
   margin: 0;
   color: var(--text);
   font-size: clamp(15px, 1.2vw, 21px);
@@ -121,17 +132,17 @@
   transform: translateY(8px);
   transition: opacity 320ms var(--ease), transform 520ms var(--ease);
 }
-.work.is-hovering .work__caption {
+.work.is-previewing .work__caption {
   opacity: 1;
   transform: none;
   transition-delay: 160ms;
 }
 
-/* 누르면 미리보기가 화면 전체로 열린다 */
+/* 클릭 전환은 미리보기가 아니라 얼음 자체가 화면을 채운다. */
 .work.is-launching .work__window {
-  width: 100%;
-  height: 100%;
-  border-radius: 0;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.9);
+  transition-duration: 260ms;
 }
 .work.is-launching .work__badge,
 .work.is-launching .work__caption { opacity: 0; transition-delay: 0ms; }
@@ -140,7 +151,7 @@
 .work__viewport {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 3;
   overflow: hidden;
   mix-blend-mode: difference;
   transition: opacity 520ms var(--ease), filter 520ms var(--ease);
@@ -160,8 +171,8 @@
   position: relative;
   display: block;
   width: 100%;
-  /* 덩어리 사이는 넉넉하게, 덩어리 안은 바짝 */
-  padding: 17vh 0;
+  height: 100svh;
+  padding: 0;
   background: none;
   border: 0;
   text-align: left;
@@ -175,13 +186,8 @@
   position: relative;
   isolation: isolate;
   display: block;
-  width: max-content;
-  margin-left: var(--x);
-  font-family: var(--display);
-  font-size: clamp(76px, 11.5vw, 210px);
-  font-weight: 600;
-  line-height: 0.84;
-  letter-spacing: -0.06em;
+  width: 100%;
+  height: 100%;
 }
 .work-row__line {
   display: block;
@@ -190,6 +196,11 @@
   white-space: nowrap;
   pointer-events: auto;
   transition: transform 620ms var(--ease);
+}
+.work-row__line--spacer {
+  /* 얼음 위치와 행 높이는 유지하되, 프로젝트명은 얼음 속 로고에만 보인다. */
+  visibility: hidden;
+  pointer-events: none;
 }
 .work-row__dot {
   display: inline-block;
@@ -200,6 +211,10 @@
   background: currentColor;
 }
 .work-row__meta {
+  position: absolute;
+  z-index: 1;
+  left: 22%;
+  top: 27%;
   display: flex;
   gap: 1.2em;
   margin: 0 0 1.1em 0.1em;
@@ -207,6 +222,7 @@
   letter-spacing: 0.12em;
   line-height: 1;
   color: rgba(241, 242, 239, 0.62);
+  filter: blur(calc((1 - var(--focus, 0)) * 5px));
 }
 
 /* 드라이아이스 표본 — 이름 뒤에 겹쳐 붙어 떠다닌다 */
@@ -216,30 +232,22 @@
   left: var(--sx);
   top: calc(50% + var(--sy));
   width: var(--sw);
+  aspect-ratio: var(--sar, 1);
   max-width: none;
   pointer-events: auto;
-  opacity: 0.92;
+  opacity: 0;
   transform: translateY(-50%) rotate(calc(var(--sv) * 14deg));
-  filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.5));
-  animation: work-specimen-float 7s ease-in-out infinite alternate;
-  transition: opacity 520ms var(--ease), filter 700ms var(--ease), scale 700ms var(--preview-ease);
-}
-.work-row--tchaikim .work-row__specimen { animation-delay: -2s; }
-.work-row--nuri .work-row__specimen { animation-delay: -4s; }
-.work-row--walga .work-row__specimen { animation-delay: -5.5s; }
-@keyframes work-specimen-float {
-  from { translate: 0 -10px; }
-  to { translate: 0 12px; }
+  filter: none;
+  animation: none;
+  transition: none;
 }
 
 /* 가리키면 — 표본은 승화하듯 흐려지고, 이름도 모두 비켜서 미리보기만 남는다.
    글자는 투명해질 뿐 자리에 남아 있어서 계속 가리키고 누를 수 있다. */
 .work.is-hovering .work-row__specimen {
   opacity: 0;
-  filter: blur(18px) drop-shadow(0 30px 40px rgba(0, 0, 0, 0.5));
-  scale: 1.15;
 }
-.work.is-hovering .work-row:not(.is-shown) { opacity: 0; }
+.work.is-launching .work-row:not(.is-shown) { opacity: 0; }
 
 /* ── 스크롤로 들어올 때 — 글자가 한 자씩 줄 아래에서 튀어 올라온다 ── */
 .work-row__line {
@@ -267,18 +275,12 @@
   transition: opacity 0s linear 0.4s, translate 0s linear 0.4s;
 }
 .work-row[data-in] .work-row__meta {
-  opacity: 1;
+  opacity: var(--focus, 1);
   translate: 0 0;
-  transition: opacity 700ms var(--ease) 280ms, translate 900ms var(--ease) 280ms;
+  transition: opacity 360ms linear, translate 900ms var(--ease) 280ms, filter 360ms linear;
 }
 .work-row__specimen { visibility: hidden; }
-.work-row[data-in] .work-row__specimen { visibility: visible; animation: work-specimen-float 7s ease-in-out infinite alternate, work-specimen-in 1400ms var(--ease) 200ms both; }
-@keyframes work-specimen-in {
-  from { opacity: 0; filter: blur(16px) drop-shadow(0 30px 40px rgba(0, 0, 0, 0.5)); scale: 0.86; }
-}
-.work-row[data-in].work-row--tchaikim .work-row__specimen { animation-delay: -2s, 200ms; }
-.work-row[data-in].work-row--nuri .work-row__specimen { animation-delay: -4s, 200ms; }
-.work-row[data-in].work-row--walga .work-row__specimen { animation-delay: -5.5s, 200ms; }
+.work-row[data-in] .work-row__specimen { visibility: visible; }
 @media (prefers-reduced-motion: reduce) {
   .work-ch, .work-row[data-in] .work-ch { transform: none; transition: none; }
   .work-row__meta { opacity: 1; translate: none; }
@@ -322,6 +324,61 @@
   transform-origin: top;
   animation: work-scroll-hint 1.8s var(--ease) infinite;
 }
+
+/* 왼쪽 깊이 인덱스 — 세 장면의 현재 위치 */
+.work__depth {
+  position: absolute;
+  z-index: 5;
+  left: var(--gutter);
+  top: 50%;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  gap: 12px 18px;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+.work__depth-label { align-self: start; padding-top: 5px; writing-mode: vertical-rl; transform: rotate(180deg); }
+.work__depth ol { display: flex; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; }
+.work__depth li { display: flex; align-items: center; }
+.work__depth li:not(:last-child)::after { content: ''; width: clamp(18px, 2vw, 34px); height: 1px; background: rgba(175, 194, 200, .24); }
+.work__depth button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(175, 194, 200, .35);
+  border-radius: 50%;
+  background: rgba(11, 13, 14, .76);
+  color: rgba(175, 194, 200, .48);
+  font: 400 9px var(--mono);
+  cursor: pointer;
+  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease;
+}
+.work__depth li.is-active button { color: #f1fbfe; border-color: var(--frost); box-shadow: 0 0 18px rgba(185, 220, 230, .45); }
+.work__depth strong { grid-column: 2; font-weight: 400; color: var(--frost); }
+
+/* 클릭하면 선택한 얼음이 확대된 뒤 냉기가 시야를 덮는다. */
+.work__ice-entry {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 50%, rgba(210, 226, 232, .08), rgba(13, 17, 19, .94) 76%);
+}
+.work__ice-entry i {
+  position: absolute;
+  inset: -25%;
+  background: radial-gradient(ellipse at 50% 55%, rgba(225, 237, 241, .72), transparent 55%);
+  filter: blur(34px);
+  transform: scale(.55);
+}
+.work__ice-entry i:last-child { transform: scale(.42) rotate(18deg); opacity: .55; }
+.work.is-launching .work__ice-entry { animation: work-enter-fog 1050ms ease both; }
+.work.is-launching .work__ice-entry i { animation: work-enter-cloud 1050ms cubic-bezier(.2,.72,.18,1) both; }
+@keyframes work-enter-fog { 0%, 48% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes work-enter-cloud { from { transform: scale(.5); opacity: 0; } to { transform: scale(1.28); opacity: .86; } }
 @keyframes work-scroll-hint {
   0% { transform: scaleY(0); }
   50% { transform: scaleY(1); transform-origin: top; }
@@ -334,18 +391,20 @@
 .work.is-launching .work__scroll { opacity: 0; }
 
 @media (max-width: 860px) {
-  .work { --preview-w: 92vw; --preview-h: 58vw; }
-  .work-row { padding-block: 11vh; }
-  .work-row__block {
-    font-size: clamp(56px, 17vw, 120px);
-    margin-left: calc(var(--x) * 0.35 + 20px);
-  }
-  .work-row__specimen { width: calc(var(--sw) * 1.9); left: calc(var(--sx) * 0.6); }
+  .work { --preview-w: 42vw; --preview-h: 30vw; }
+  .work__window { left: 73%; top: 72%; }
+  .work__badge { left: calc(73% + var(--preview-w) * .5 - var(--badge) * 1.15); top: calc(72% - var(--badge) * .5); }
+  .work__caption { left: calc(73% - var(--preview-w) * .5); top: calc(72% + var(--preview-h) * .5 + 12px); }
+  .work-row__specimen { width: calc(var(--sw) * 1.55); left: calc(var(--sx) * .72); }
+  .work-row__meta { left: 16%; top: 24%; max-width: 64vw; flex-wrap: wrap; }
+  .work__depth { left: 18px; top: auto; bottom: 34px; transform: none; }
+  .work__depth-label { display: none; }
+  .work__depth strong { grid-column: 1; }
   .work__foot { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .work-row { transform: none; }
-  .work-row__specimen { animation: none; }
+  .work__ice-field { transition: none; }
   .work__window, .work__media { transition: none; }
 }
