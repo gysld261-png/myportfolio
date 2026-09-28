@@ -55,6 +55,14 @@ export const CASES = {
     categories: ['UX/UI DESIGN', 'FRONTEND', 'DESIGN SYSTEM'],
     role: ['UI Design', 'Frontend', 'Design System'],
     info: '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 DL 기록 체계로 팀의 디자인 시스템과 핸드오프 기준을 만들었습니다.',
+    teamSize: 4,
+    ownership: [
+      { label: 'DEVELOPMENT', level: 'LEAD', scope: 'Shop과 메인 핵심 섹션 구현' },
+      { label: 'TEAM OPERATION', level: 'LEAD', scope: '개발 팀장으로 구현 기준과 진행 조율' },
+      { label: 'UI DESIGN', level: 'CORE', scope: 'Shop·모티프·브랜드·컬렉션 설계' },
+      { label: 'DESIGN SYSTEM', level: 'CORE', scope: '타이포 토큰·DL 기록·핸드오프 기준' },
+      { label: 'UX', level: 'SUPPORT', scope: '설문 해석과 사용자 흐름 설계 지원' },
+    ],
     concept: [],
     visit: [
       { label: 'VIEW SITE', href: 'https://gysld261-png.github.io/tchaikimm/pages/main/index.html' },

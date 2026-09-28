@@ -241,6 +241,26 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                 <p className="dmeta__label sys">(INFO)</p>
                 <p className="dmeta__body">{data.info}</p>
               </div>
+
+              {data.ownership?.length > 0 && (
+                <section className="downership" aria-labelledby={`${renderSpec.id}-ownership`}>
+                  <header className="downership__head">
+                    <p id={`${renderSpec.id}-ownership`} className="dmeta__label sys">SCOPE &amp; OWNERSHIP</p>
+                    <p className="downership__team sys">TEAM PROJECT · {String(data.teamSize).padStart(2, '0')} MEMBERS</p>
+                  </header>
+                  <ol className="downership__list">
+                    {data.ownership.map((item, index) => (
+                      <li key={item.label} className="downership__item" data-level={item.level.toLowerCase()}>
+                        <span className="downership__number sys">{String(index + 1).padStart(2, '0')}</span>
+                        <p className="downership__discipline">{item.label}</p>
+                        <strong className="downership__level">{item.level}</strong>
+                        <p className="downership__scope">{item.scope}</p>
+                        <span className="downership__signal" aria-hidden="true" />
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
             </section>
 
             {/* ── 리듬 ── */}
