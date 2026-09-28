@@ -11,7 +11,7 @@ const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const damp = (from, to, speed, dt) => THREE.MathUtils.damp(from, to, speed, dt);
 
 // 무게 있는 물체처럼 목표를 살짝 지나쳤다가 돌아오는 스프링. (위치, 속도) 쌍을 갱신한다.
-const spring = (s, target, stiffness, damping, dt) => {
+export const spring = (s, target, stiffness, damping, dt) => {
   s.v += ((target - s.x) * stiffness - s.v * damping) * dt;
   s.x += s.v * dt;
 };
@@ -19,11 +19,8 @@ const spring = (s, target, stiffness, damping, dt) => {
 /* ── 손자국(trail) ──
    화면 크기의 작은 텍스처에 마우스가 지나간 자리와 방향을 쌓고, 매 프레임 조금씩 흘려보내며 옅어지게 한다.
    얼음 셰이더가 이 텍스처로 법선을 밀어, 만진 자리의 굴절이 번졌다가 천천히 아문다.
-   RG = 문지른 방향, B = 세기 */
-const TRAIL = {
-  uTrail: { value: null },
-  uTrailRes: { value: new THREE.Vector2(1, 1) },
-};
+   RG = 문지른 방향, B = 세기.
+   렌더러(WebGL 컨텍스트)마다 따로 만든다 — 텍스처는 컨텍스트끼리 나눠 쓸 수 없다. */
 
 const TRAIL_FRAGMENT = /* glsl */ `
   uniform sampler2D uPrev;
@@ -53,7 +50,12 @@ const TRAIL_FRAGMENT = /* glsl */ `
   }
 `;
 
-function createTrail(renderer) {
+export function createTrail(renderer, { life = 1.4 } = {}) {
+  // 얼음 셰이더가 읽는 쪽. 재질을 만들 때 이 객체를 넘긴다.
+  const sample = {
+    uTrail: { value: null },
+    uTrailRes: { value: new THREE.Vector2(1, 1) },
+  };
   const options = { type: THREE.HalfFloatType, format: THREE.RGBAFormat, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
   let read = new THREE.WebGLRenderTarget(4, 4, options);
   let write = new THREE.WebGLRenderTarget(4, 4, options);
@@ -83,10 +85,11 @@ function createTrail(renderer) {
     });
     renderer.setRenderTarget(null);
   };
-  TRAIL.uTrail.value = read.texture;
+  sample.uTrail.value = read.texture;
 
   return {
     uniforms: material.uniforms,
+    sample,
     resize(width, height) {
       // 번짐은 부드러워야 해서 화면의 1/4 해상도면 충분하다
       const w = Math.max(4, Math.round(width / 4));
@@ -94,6 +97,7 @@ function createTrail(renderer) {
       read.setSize(w, h);
       write.setSize(w, h);
       material.uniforms.uAspect.value = width / height;
+      renderer.getDrawingBufferSize(sample.uTrailRes.value);
       const previous = renderer.getClearColor(new THREE.Color());
       const alpha = renderer.getClearAlpha();
       renderer.setClearColor(0x000000, 0);
@@ -102,8 +106,8 @@ function createTrail(renderer) {
     },
     step(dt) {
       material.uniforms.uPrev.value = read.texture;
-      // 프레임률과 상관없이 같은 속도로 아물게 한다 (약 1.4초 뒤 거의 사라짐)
-      material.uniforms.uDecay.value = Math.pow(0.1, dt / 1.4);
+      // 프레임률과 상관없이 같은 속도로 아물게 한다 (life 초 뒤 거의 사라짐)
+      material.uniforms.uDecay.value = Math.pow(0.1, dt / life);
       material.uniforms.uDt.value = dt;
       const previousTarget = renderer.getRenderTarget();
       const autoClear = renderer.autoClear;
@@ -113,14 +117,14 @@ function createTrail(renderer) {
       renderer.setRenderTarget(previousTarget);
       renderer.autoClear = autoClear;
       [read, write] = [write, read];
-      TRAIL.uTrail.value = read.texture;
+      sample.uTrail.value = read.texture;
     },
     dispose() {
       read.dispose();
       write.dispose();
       material.dispose();
       quad.geometry.dispose();
-      TRAIL.uTrail.value = null;
+      sample.uTrail.value = null;
     },
   };
 }
@@ -156,7 +160,7 @@ const PROJECTS = {
   },
 };
 
-function seeded(seed) {
+export function seeded(seed) {
   let value = seed >>> 0;
   return () => {
     value = (value * 1664525 + 1013904223) >>> 0;
@@ -221,7 +225,7 @@ function createTextLogo(text, targetWidth) {
   };
 }
 
-function createSparkles(seed) {
+export function createSparkles(seed) {
   const count = 18;
   const rand = seeded(seed + 91);
   const positions = new Float32Array(count * 3);
@@ -376,7 +380,7 @@ function createScanMesh(shape, seed) {
 export const LAUNCH_DURATION = 2600;
 
 // 얼음 두께 대비 빛이 흐려지는 거리(표본 단위). 작을수록 속이 짙은 청회색, 클수록 맑다.
-const ICE_ATTENUATION = 1.15;
+export const ICE_ATTENUATION = 1.15;
 
 const ExplodeShader = {
   uniforms: {
@@ -467,7 +471,7 @@ const ExplodeShader = {
 };
 
 /* ── 연기: 드라이아이스처럼 얼음 밑동에서 옅은 김이 흘러내리며 퍼진다 ── */
-function createSmokeTexture() {
+export function createSmokeTexture() {
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
@@ -510,7 +514,8 @@ function createSmokeTexture() {
   return texture;
 }
 
-function createSmoke(shape, seed, texture) {
+// count·strength·spread 로 김의 양을 늘린다 (메인 첫 화면은 포트폴리오보다 훨씬 많이 낸다)
+export function createSmoke(shape, seed, texture, { count = 16, strength = 1, spread = 1 } = {}) {
   const [w, h] = shape;
   const rand = seeded(seed + 55);
   const group = new THREE.Group();
@@ -530,7 +535,7 @@ function createSmoke(shape, seed, texture) {
 
   // 평소: 밑동에서 흘러내리는 김
   const puffs = [];
-  for (let i = 0; i < 16; i += 1) {
+  for (let i = 0; i < count; i += 1) {
     const { sprite, material } = makeSprite();
     sprite.renderOrder = 1;
     puffs.push({
@@ -540,13 +545,13 @@ function createSmoke(shape, seed, texture) {
       age: rand() * 8,
       seed: rand(),
       // 밑동 가장자리에서 출발
-      x0: (rand() - 0.5) * w * 0.75,
+      x0: (rand() - 0.5) * w * 0.75 * spread,
       y0: -h * (0.28 + rand() * 0.14),
-      vx: (rand() - 0.5) * 0.09,
+      vx: (rand() - 0.5) * 0.09 * spread,
       vy: -(0.05 + rand() * 0.07),
       spin: (rand() - 0.5) * 0.25,
       size0: 0.35 + rand() * 0.3,
-      size1: 1.1 + rand() * 0.8,
+      size1: (1.1 + rand() * 0.8) * spread,
     });
   }
 
@@ -589,7 +594,7 @@ function createSmoke(shape, seed, texture) {
         puff.sprite.scale.set(size * 1.25, size, 1);
         puff.material.rotation = puff.spin * puff.age + puff.seed * 6;
         const envelope = THREE.MathUtils.smoothstep(t, 0, 0.18) * (1 - THREE.MathUtils.smoothstep(t, 0.55, 1));
-        puff.material.opacity = envelope * 0.3 * fade * (1 + burst * 1.2);
+        puff.material.opacity = envelope * 0.3 * strength * fade * (1 + burst * 1.2);
       });
       wraps.forEach((wrap) => {
         const grow = burst;
@@ -617,7 +622,7 @@ function createSmoke(shape, seed, texture) {
    얼음의 투명함은 "뒤에 있는 것이 휘어져 보이는 것"에서 나온다. 그런데 페이지 배경은 캔버스 밖 DOM 이라
    얼음이 굴절시킬 대상이 없어 속이 탁한 회색이 됐다. 얼음 뒤에 안개 낀 빛판을 두되,
    굴절(투과) 패스에서만 그리고 실제 화면에는 색을 쓰지 않아 페이지에서는 보이지 않게 한다. */
-function createBackdropTexture() {
+export function createBackdropTexture() {
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
@@ -646,7 +651,7 @@ function createBackdropTexture() {
   return texture;
 }
 
-function createBackdrop(texture) {
+export function createBackdrop(texture) {
   const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
   mesh.onBeforeRender = (renderer) => {
@@ -672,7 +677,7 @@ const INTERIOR_NOISE = `
   }
 `;
 
-function createInterior(shape, seed) {
+export function createInterior(shape, seed) {
   const [w, h, d] = shape;
   const rand = seeded(seed + 1301);
   const group = new THREE.Group();
@@ -830,7 +835,7 @@ function setLogoOpacity(item, value) {
   item.logoHandle.object.visible = value > 0.004;
 }
 
-function createGlowTexture() {
+export function createGlowTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
   const context = canvas.getContext('2d');
@@ -934,17 +939,17 @@ function createFlatLogo(src, targetWidth) {
   });
 }
 
-async function makeSpecimen(id) {
-  const config = PROJECTS[id];
-  const group = new THREE.Group();
-  group.name = `work-ice-${id}`;
-
-  const geometry = createIceShard({
-    width: config.shape[0],
-    height: config.shape[1],
-    depth: config.shape[2],
-    seed: config.seed,
-  });
+/* 표본 얼음 재질 — 포트폴리오 얼음과 메인 첫 화면 얼음이 같은 재질을 쓴다.
+   sample: createTrail(...).sample. 반환한 재질의 userData.ice 로 서리·승화 정도를 조절한다.
+     uFrost    0~1  표면 서리 (문지르면 닦인다)
+     uTouchFog 0~1  문지른 자리가 입김처럼 흐려지는 정도
+     uDissolve 0~1  승화로 사라진 정도 */
+export function createWorkIceMaterial(sample) {
+  const uniforms = {
+    uFrost: { value: 0 },
+    uTouchFog: { value: 1 },
+    uDissolve: { value: 0 },
+  };
   const material = icePhysical();
   material.transparent = true;
   material.opacity = 0;
@@ -968,24 +973,63 @@ async function makeSpecimen(id) {
   const baseCompile = material.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
     baseCompile(shader, renderer);
-    shader.uniforms.uTrail = TRAIL.uTrail;
-    shader.uniforms.uTrailRes = TRAIL.uTrailRes;
+    shader.uniforms.uTrail = sample.uTrail;
+    shader.uniforms.uTrailRes = sample.uTrailRes;
+    Object.assign(shader.uniforms, uniforms);
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D uTrail;\nuniform vec2 uTrailRes;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uTrail;\nuniform vec2 uTrailRes;\nuniform float uFrost;\nuniform float uTouchFog;\nuniform float uDissolve;')
       .replace('roughnessFactor = mix(roughnessFactor, 0.62, frost * 0.85);', 'roughnessFactor = mix(roughnessFactor, 0.34, frost * 0.4);')
       .replace('float h = iceRelief(vIcePos) * 0.028;', 'float h = (iceNoise(vIcePos * 17.0) * 0.6 + iceNoise(vIcePos * 36.0) * 0.4) * 0.018;')
       .replace('normal = normalize(abs(det) * normal - g);\n}', `normal = normalize(abs(det) * normal - g);
 }
+float iceFrostCover = 0.0;
 {
   // 손자국: 문지른 방향으로 법선을 밀어 굴절을 번지게 하고, 그 자리를 입김처럼 살짝 흐리게 한다
   vec4 trail = texture2D(uTrail, gl_FragCoord.xy / uTrailRes);
   float touch = clamp(trail.b, 0.0, 1.0);
   float ripple = iceNoise(vIcePos * 24.0 + vec3(trail.rg * 3.0, 0.0)) - 0.5;
   normal = normalize(normal + vec3(trail.rg * 0.55 + ripple * touch * 0.35, 0.0));
-  roughnessFactor = mix(roughnessFactor, 0.38, touch * 0.55);
+  roughnessFactor = mix(roughnessFactor, 0.38, touch * 0.55 * uTouchFog);
+  // 서리: 얼룩덜룩하게 덮여 있다가, 문지른 자리만 닦여 맑아진다(손자국이 옅어지면 다시 언다)
+  if (uFrost > 0.001) {
+    float pattern = iceNoise(vIcePos * 5.0) * 0.55 + iceNoise(vIcePos * 13.0) * 0.3 + iceNoise(vIcePos * 41.0) * 0.15;
+    float wiped = smoothstep(0.03, 0.4, touch);
+    iceFrostCover = uFrost * smoothstep(0.2, 0.55, pattern + uFrost * 0.3) * (1.0 - wiped);
+    vec3 grain = vec3(iceNoise(vIcePos * 70.0), iceNoise(vIcePos * 70.0 + 7.0), 0.0) - 0.5;
+    normal = normalize(normal + grain * iceFrostCover * 0.6);
+    roughnessFactor = mix(roughnessFactor, 0.8, iceFrostCover);
+  }
+}`)
+      .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+{
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(0.86, 0.9, 0.92), iceFrostCover * 0.28);
+  gl_FragColor.a = max(gl_FragColor.a, iceFrostCover * 0.4 * opacity);
+  // 승화: 가장자리와 얇은 곳부터 얼룩지며 사라진다
+  if (uDissolve > 0.001) {
+    float n = iceNoise(vIcePos * 3.2) * 0.65 + iceNoise(vIcePos * 9.0) * 0.35;
+    float edge = clamp(length(vIcePos) / 1.25, 0.0, 1.0);
+    float keep = n * 0.6 + (1.0 - edge) * 0.4;
+    gl_FragColor.a *= smoothstep(uDissolve - 0.12, uDissolve + 0.02, keep);
+  }
 }`);
   };
-  material.customProgramCacheKey = () => 'work-ice-v3';
+  material.customProgramCacheKey = () => 'work-ice-v4';
+  material.userData.ice = uniforms;
+  return material;
+}
+
+async function makeSpecimen(id, sample) {
+  const config = PROJECTS[id];
+  const group = new THREE.Group();
+  group.name = `work-ice-${id}`;
+
+  const geometry = createIceShard({
+    width: config.shape[0],
+    height: config.shape[1],
+    depth: config.shape[2],
+    seed: config.seed,
+  });
+  const material = createWorkIceMaterial(sample);
   const ice = new THREE.Mesh(geometry, material);
   ice.renderOrder = 2;
   group.add(ice);
@@ -1118,7 +1162,8 @@ export async function createWorkIceField(host, root, ids) {
   scene.add(rim);
   scene.add(new THREE.HemisphereLight(0xe2e7e9, 0x1c1f21, 0.62));
 
-  const specimens = await Promise.all(ids.map(makeSpecimen));
+  const trail = createTrail(renderer);
+  const specimens = await Promise.all(ids.map((id) => makeSpecimen(id, trail.sample)));
   specimens.forEach((item) => {
     scene.add(item.group);
     item.touching = false;
@@ -1159,7 +1204,6 @@ export async function createWorkIceField(host, root, ids) {
     pointerAt: 0,
     velocity: 0,
   };
-  const trail = createTrail(renderer);
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   let width = 1;
@@ -1185,7 +1229,6 @@ export async function createWorkIceField(host, root, ids) {
     camera.bottom = -height / 2;
     camera.updateProjectionMatrix();
     trail.resize(width, height);
-    renderer.getDrawingBufferSize(TRAIL.uTrailRes.value);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(root);

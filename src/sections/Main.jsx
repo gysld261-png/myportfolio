@@ -1,9 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import Ticks from '../components/Ticks';
 import FrostEdge from '../components/FrostEdge';
+import SmokeVeil from '../components/SmokeVeil';
 import './main.css';
 
-const PhotoIceHero = lazy(() => import('../components/PhotoIceHero'));
+const HeroIce = lazy(() => import('../components/HeroIce'));
 
 /**
  * MAIN — SUBLIMATION CHAMBER
@@ -18,7 +19,8 @@ const PhotoIceHero = lazy(() => import('../components/PhotoIceHero'));
  */
 /* 히어로 문장. 이름은 이미 상단 nav 에 있다 — 한 화면에 두 번 쓰지 않는다.
    신입 포폴에서 가운데를 차지해야 하는 건 이름이 아니라 "뭘 하는 사람인가" 다. */
-const CLAIM = ['차분한 인상,', '멈추지 않는 생각'];
+// 드라이아이스 — 고체인데 가만히 있지 않는다. 뒷줄은 기울여 '멈추지 않음'을 글자 모양으로도 보여 준다.
+const CLAIM = ['Solid,', 'but never still.'];
 
 export default function Main({ onScrollCue, introEntrance = false, transitionProgress = 0, rewinding = false }) {
   const [cubeReady, setCubeReady] = useState(false);
@@ -40,7 +42,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
   return (
     <section
-      className={`screen main main--photo ${cubeReady ? 'is-cube-ready' : ''} ${claimSettled ? 'is-claim-settled' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
+      className={`screen main main--ice ${cubeReady ? 'is-cube-ready' : ''} ${claimSettled ? 'is-claim-settled' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
       id="main"
       style={{
         '--exit': transitionProgress,
@@ -57,7 +59,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       <Ticks />
 
       <Suspense fallback={<div className="ice-cube-hero ice-cube-hero--loading" />}>
-        <PhotoIceHero
+        <HeroIce
           initialEntrance={introEntrance}
           exitProgress={transitionProgress}
           onReadout={updateReadout}
@@ -67,7 +69,8 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
       <FrostEdge paused={sublimating} />
 
-      {/* 얼음이 커지는 동안 그 자리에서 연기가 차올라 화면을 덮는다 */}
+      {/* 얼음이 김으로 풀리는 동안 그 자리에서 연기가 차올라 화면을 덮는다 */}
+      <SmokeVeil progress={transitionProgress} />
       <div className="main__vapor" aria-hidden="true" />
 
       {/* ── 정보층 — 어떤 상태에서도 가려지지 않는다 ── */}
@@ -135,7 +138,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       </div>
 
       <p className="main__hint sys" aria-hidden="true">
-        MOVE TO OBSERVE
+        RUB TO CLEAR THE FROST
       </p>
 
       <div

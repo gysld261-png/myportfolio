@@ -477,7 +477,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       <div className="work__ice-entry" aria-hidden="true"><i /><i /></div>
 
       <p className="work__foot" aria-hidden="true">
-        Selected work 2025 / 2026.<br />UX/UI design and frontend.
+        Selected work 2026.<br />UX/UI design and frontend.
       </p>
       <p className="work__scroll sys" aria-hidden="true"><i />SCROLL</p>
     </div>
