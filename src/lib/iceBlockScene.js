@@ -47,13 +47,28 @@ function makeNoise(rand) {
 }
 
 /** 깨진 얼음 덩어리 */
-export function createIceChunk({ width = 1.5, height = 1.9, depth = 1.25, seed = 7 } = {}) {
+export function createIceChunk({ width = 1.5, height = 1.9, depth = 1.25, seed = 7, segments = [40, 52, 34], jitter = 0 } = {}) {
   const rand = seeded(seed);
   const noise = makeNoise(rand);
-  let geometry = new THREE.BoxGeometry(width, height, depth, 40, 52, 34);
+  let geometry = new THREE.BoxGeometry(width, height, depth, ...segments);
   geometry.deleteAttribute('normal');
   geometry.deleteAttribute('uv');
   geometry = mergeVertices(geometry);
+
+  // 같은 씨앗·같은 변형을 성긴 격자에 적용하면 같은 얼음 표면 위의 삼각망이 된다(호버 스캔용).
+  // 격자가 모눈종이처럼 보이지 않게 꼭짓점을 면을 따라서만 흔든다. 모양용 난수와는 따로 쓴다.
+  if (jitter > 0) {
+    const jr = seeded(seed + 997);
+    const half = [width / 2, height / 2, depth / 2];
+    const p = geometry.attributes.position;
+    for (let i = 0; i < p.count; i += 1) {
+      for (let axis = 0; axis < 3; axis += 1) {
+        const value = p.getComponent(i, axis);
+        if (Math.abs(Math.abs(value) - half[axis]) < 1e-5) continue;
+        p.setComponent(i, axis, value + (jr() - 0.5) * jitter);
+      }
+    }
+  }
 
   // 깎인 면 — 모서리 근처에 기울어진 평면을 두고 그 바깥은 평면 위로 눌러 붙인다
   const cuts = [];
@@ -88,6 +103,109 @@ export function createIceChunk({ width = 1.5, height = 1.9, depth = 1.25, seed =
     }
     pos.setXYZ(i, v.x, v.y, v.z);
   }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/**
+ * 쪼개진 얼음 조각 — 작업 목록(WorkScroll)의 표본.
+ *
+ * 녹은 덩어리처럼 전체를 비틀던 createIceChunk 와 달리
+ *   1) 비스듬한 평면 여러 장으로 깎아 큰 벽개면과 날카로운 모서리를 만들고
+ *   2) 면이 만나는 모서리 근처만 안쪽으로 부스러뜨린다.
+ * 같은 씨앗이면 격자 밀도가 달라도 같은 모양이 나와서, 호버 스캔망이 표면을 그대로 덮는다.
+ */
+export function createIceShard({ width = 1.3, height = 1.9, depth = 1.1, seed = 7, segments, jitter = 0, flat = false } = {}) {
+  const rand = seeded(seed);
+  const noise = makeNoise(rand);
+  const seg = segments || [Math.round(width * 30), Math.round(height * 30), Math.round(depth * 30)];
+  let geometry = new THREE.BoxGeometry(width, height, depth, ...seg);
+  geometry.deleteAttribute('normal');
+  geometry.deleteAttribute('uv');
+  geometry = mergeVertices(geometry);
+
+  const half = [width / 2, height / 2, depth / 2];
+  if (jitter > 0) {
+    const jr = seeded(seed + 997);
+    const p = geometry.attributes.position;
+    for (let i = 0; i < p.count; i += 1) {
+      for (let axis = 0; axis < 3; axis += 1) {
+        const value = p.getComponent(i, axis);
+        if (Math.abs(Math.abs(value) - half[axis]) < 1e-5) continue;
+        p.setComponent(i, axis, value + (jr() - 0.5) * jitter);
+      }
+    }
+  }
+
+  // 벽개면 — 레퍼런스처럼 위아래가 뾰족한 육각 결정 윤곽을 만든다.
+  //   머리·밑동: 둘레를 돌아가며 비스듬히 세 장씩 깎아 뾰족하게
+  //   옆면: 거의 수직인 네 장으로 단면을 다각형으로
+  //   나머지: 두 장 더 깎아 면 크기를 제각각으로
+  // 면이 많으면 모서리마다 부스러져 감자처럼 둥글어진다. 큰 면이 보이도록 장수를 아낀다.
+  const cuts = [];
+  const addCut = (dir, ratio) => {
+    dir.normalize();
+    const extent = Math.abs(dir.x) * half[0] + Math.abs(dir.y) * half[1] + Math.abs(dir.z) * half[2];
+    cuts.push({ n: dir, d: extent * ratio });
+  };
+  for (const end of [1, -1]) {
+    const turn = rand() * Math.PI * 2;
+    for (let k = 0; k < 3; k += 1) {
+      const angle = turn + (k / 3) * Math.PI * 2 + (rand() - 0.5) * 0.6;
+      const steep = 0.7 + rand() * 0.4;
+      addCut(new THREE.Vector3(Math.cos(angle) * steep, end, Math.sin(angle) * steep), 0.56 + rand() * 0.08);
+    }
+  }
+  const sideTurn = rand() * Math.PI * 2;
+  for (let k = 0; k < 4; k += 1) {
+    const angle = sideTurn + (k / 4) * Math.PI * 2 + (rand() - 0.5) * 0.5;
+    addCut(new THREE.Vector3(Math.cos(angle), (rand() - 0.5) * 0.3, Math.sin(angle)), 0.74 + rand() * 0.12);
+  }
+  for (let k = 0; k < 2; k += 1) {
+    addCut(new THREE.Vector3(rand() - 0.5, (rand() - 0.5) * 1.2, rand() - 0.5), 0.78 + rand() * 0.12);
+  }
+  // 모서리 판정에는 원래 상자의 여섯 면도 함께 쓴다.
+  const planes = [...cuts];
+  for (let axis = 0; axis < 3; axis += 1) {
+    for (const sign of [-1, 1]) {
+      const n = new THREE.Vector3();
+      n.setComponent(axis, sign);
+      planes.push({ n, d: half[axis] });
+    }
+  }
+
+  const pos = geometry.attributes.position;
+  const v = new THREE.Vector3();
+  const radial = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i += 1) {
+    v.fromBufferAttribute(pos, i);
+    radial.copy(v).normalize();
+    // 1) 면이 기계로 자른 평면처럼 보이지 않을 만큼만 아주 약하게 비튼다
+    v.addScaledVector(radial, noise(v.x * 1.3 + 3, v.y * 1.3, v.z * 1.3) * 0.04);
+    // 2) 벽개면으로 깎는다
+    for (const cut of cuts) {
+      const over = v.dot(cut.n) - cut.d;
+      if (over > 0) v.addScaledVector(cut.n, -over);
+    }
+    // 3) 두 면이 만나는 곳(두 번째로 가까운 면까지도 가까운 곳)만 안쪽으로 부스러뜨린다
+    let d1 = Infinity;
+    let d2 = Infinity;
+    for (const plane of planes) {
+      const distance = Math.abs(plane.d - v.dot(plane.n));
+      if (distance < d1) { d2 = d1; d1 = distance; } else if (distance < d2) d2 = distance;
+    }
+    const edge = 1 - THREE.MathUtils.smoothstep(d2, 0, 0.09);
+    if (edge > 0) {
+      radial.copy(v).normalize();
+      const chip = (0.5 + 0.5 * noise(v.x * 7.3 + 5, v.y * 7.3, v.z * 7.3)) * 0.09
+        + Math.abs(noise(v.x * 19 + 2, v.y * 19, v.z * 19)) * 0.05;
+      v.addScaledVector(radial, -chip * edge);
+    }
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  // 격자가 촘촘해 부드러운 법선으로도 면 경계는 충분히 날카롭다. 삼각형마다 법선을 따로 두면(flat)
+  // 부스러진 곳의 작은 면들이 설탕 가루처럼 반짝여서 기본값은 끈다.
+  if (flat) geometry = geometry.toNonIndexed();
   geometry.computeVertexNormals();
   return geometry;
 }

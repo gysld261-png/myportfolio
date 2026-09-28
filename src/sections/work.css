@@ -156,10 +156,22 @@
   mix-blend-mode: difference;
   transition: opacity 520ms var(--ease), filter 520ms var(--ease);
 }
-.work.is-launching .work__viewport {
-  opacity: 0;
-  filter: blur(8px);
-  pointer-events: none;
+/* 클릭한 표본의 라벨은 남아서 글리치로 깨지다 사라진다. 나머지는 바로 숨긴다. */
+.work.is-launching .work__viewport { pointer-events: none; }
+.work.is-launching .work-row.is-shown .work-row__meta {
+  filter: none;
+  animation: work-meta-glitch 1500ms linear forwards;
+}
+@keyframes work-meta-glitch {
+  /* Igloo: 처음엔 제자리에서 RGB 로 갈라지다가, 얼음이 흩어질 때 바깥(왼쪽 위)으로 번지며 날아간다. */
+  0%   { opacity: 1; translate: 0 0; scale: 1 1; text-shadow: none; filter: none; }
+  14%  { translate: -2px 0; text-shadow: 2px 0 rgba(255, 60, 90, .8), -2px 0 rgba(60, 220, 255, .8); }
+  22%  { translate: 2px 0; text-shadow: -3px 0 rgba(255, 60, 90, .8), 3px 0 rgba(60, 220, 255, .8); clip-path: inset(0 0 45% 0); }
+  30%  { translate: 0 0; clip-path: none; }
+  44%  { opacity: 1; translate: -6px -2px; scale: 1.08 1; text-shadow: 5px 0 rgba(255, 60, 90, .9), -5px 0 rgba(60, 220, 255, .9); filter: blur(.4px); }
+  62%  { opacity: .85; translate: -18px -8px; scale: 1.25 1; text-shadow: 10px 2px rgba(255, 80, 60, .8), -10px -2px rgba(60, 200, 255, .8); filter: blur(1.2px); }
+  80%  { opacity: .45; translate: -34px -15px; scale: 1.45 1; text-shadow: 16px 3px rgba(255, 120, 40, .6), -16px -3px rgba(70, 160, 255, .6); filter: blur(2.4px); }
+  100% { opacity: 0; translate: -48px -22px; scale: 1.6 1; text-shadow: none; filter: blur(4px); }
 }
 .work__track { will-change: transform; }
 .work__set {
@@ -231,7 +243,8 @@
   z-index: -1;
   left: var(--sx);
   top: calc(50% + var(--sy));
-  width: var(--sw);
+  /* 레퍼런스처럼 화면 높이 기준(약 58%)으로 크기를 잡는다. 폭은 파편 비율(--sar = 폭/높이)로 따라온다. */
+  width: min(calc(58svh * var(--sar, 1)), 44vw);
   aspect-ratio: var(--sar, 1);
   max-width: none;
   pointer-events: auto;
@@ -375,8 +388,6 @@
   transform: scale(.55);
 }
 .work__ice-entry i:last-child { transform: scale(.42) rotate(18deg); opacity: .55; }
-.work.is-launching .work__ice-entry { animation: work-enter-fog 1050ms ease both; }
-.work.is-launching .work__ice-entry i { animation: work-enter-cloud 1050ms cubic-bezier(.2,.72,.18,1) both; }
 @keyframes work-enter-fog { 0%, 48% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes work-enter-cloud { from { transform: scale(.5); opacity: 0; } to { transform: scale(1.28); opacity: .86; } }
 @keyframes work-scroll-hint {

@@ -28,8 +28,27 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  /* Reveal with the field dissolve, without a second waiting phase. */
-  transition-delay: 0s, 0s;
+  /* 연기에 덮인 화면 위로 상세가 천천히 떠오른다. */
+  transition: opacity 600ms var(--ease), visibility 0s linear 0s;
+}
+/* 얼음 속 상세 화면(포털) — 얼음 모양의 부드러운 창 안에서만 보이고, 얼음 크기에 맞춘 미니어처로 시작한다.
+   변수는 workIceScene 이 매 프레임 넣는다. 전환이 끝나면 창이 화면 밖까지 넓어지고 크기가 1 이 되어,
+   포털이 풀려도 화면이 한 픽셀도 튀지 않는다. */
+.detail.is-portal {
+  z-index: 2;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  transition: none;
+  -webkit-mask-image: radial-gradient(ellipse var(--portal-rx, 0px) var(--portal-ry, 0px) at var(--portal-x, 50%) var(--portal-y, 50%), #000 58%, transparent 100%);
+  mask-image: radial-gradient(ellipse var(--portal-rx, 0px) var(--portal-ry, 0px) at var(--portal-x, 50%) var(--portal-y, 50%), #000 58%, transparent 100%);
+}
+.detail.is-portal > *,
+.detail.is-portal.is-revealed .detail__scroll {
+  opacity: var(--portal-o, 0);
+  transform: scale(var(--portal-s, 0.3));
+  transform-origin: var(--portal-x, 50%) var(--portal-y, 50%);
+  filter: blur(var(--portal-blur, 6px));
 }
 
 /* 스크롤한 이미지가 nav 와 알약 아래로 사라진다 */
@@ -47,8 +66,52 @@
   );
 }
 
+/* 얼음이 녹고 남은 표본 — 로고를 흐릿하고 크게, 스크롤과 상관없이 배경에 남긴다.
+   얼음 속으로 들어온 직후처럼 크고 흐리게 시작해 제자리로 가라앉는다. */
+.detail__ghost {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+}
+.detail__ghost::before {
+  content: '';
+  position: absolute;
+  width: 110vmax;
+  height: 110vmax;
+  background: radial-gradient(circle, rgba(120, 140, 152, 0.1), rgba(120, 140, 152, 0.03) 34%, transparent 62%);
+}
+.detail__ghost img {
+  position: relative;
+  width: min(74vw, 1100px);
+  max-height: 62svh;
+  object-fit: contain;
+  opacity: 0;
+  filter: brightness(0) invert(1) blur(1.5px);
+}
+.detail.is-revealed .detail__ghost img {
+  animation:
+    detail-ghost-in 1500ms cubic-bezier(0.2, 0.7, 0.2, 1) forwards,
+    detail-ghost-float 11s ease-in-out 1500ms infinite alternate;
+}
+@keyframes detail-ghost-in {
+  from { opacity: 0; transform: scale(1.22); filter: brightness(0) invert(1) blur(16px); }
+  to   { opacity: 0.075; transform: scale(1); filter: brightness(0) invert(1) blur(1.5px); }
+}
+@keyframes detail-ghost-float {
+  from { translate: 0 -10px; }
+  to   { translate: 0 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail.is-revealed .detail__ghost img { animation: none; opacity: 0.075; }
+}
+
 .detail__scroll {
   position: absolute;
+  z-index: 1;
   inset: 0;
   overflow-y: auto;
   overflow-x: hidden;

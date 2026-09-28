@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createWorkDrift } from '../lib/workDriftScene';
 import { approach, clamp, prefersReduced } from '../lib/smooth';
+import ScrambleText from '../components/ScrambleText';
 import './work.css';
 
 /**
@@ -12,10 +13,11 @@ import './work.css';
  */
 
 /* 3D 블록의 DOM 앵커 — 실제 표본은 단일 WebGL 캔버스에서 이 위치를 따라간다. */
+/* 세로로 긴 파편이라 폭은 줄여 화면 높이의 절반 남짓에 들게 한다. ratio 는 클릭 영역의 폭/높이. */
 const SPECIMEN = {
-  odit: { w: 34, x: 25, y: -3, ratio: 1.18 },
-  tchaikim: { w: 29, x: 28, y: 0, ratio: 0.82 },
-  walga: { w: 36, x: 24, y: 2, ratio: 1.12 },
+  odit: { w: 17, x: 34, y: -3, ratio: 0.72 },
+  tchaikim: { w: 15.5, x: 35, y: 0, ratio: 0.62 },
+  walga: { w: 17.5, x: 34, y: 2, ratio: 0.76 },
 };
 
 /* 가운데 창에 비치는 화면. 화면 자료가 없는 프로젝트는 표본 사진으로 둔다. */
@@ -26,7 +28,9 @@ const PREVIEW = {
 };
 
 const SETS = 1;
-const LAUNCH_MS = 1050;
+// workIceScene 의 LAUNCH_DURATION 과 같아야 한다. 얼음 쪽은 지연 로딩이라 여기서 따로 둔다.
+// 얼음 속으로 천천히 들어간 뒤(약 2.6초) 상세 화면으로 넘어간다.
+const LAUNCH_MS = 2600;
 const PREVIEW_DELAY = 620;
 
 /* 알갱이 전환 — 노이즈 값이 문턱보다 큰 픽셀만 남긴다. 밀도 d 가 0 이면 아무것도, 1 이면 전부 보인다.
@@ -34,7 +38,7 @@ const PREVIEW_DELAY = 620;
 const GRAIN_SLOPE = 36;
 const grainIntercept = (density) => -(0.74 - 0.54 * density) * GRAIN_SLOPE;
 
-export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, paused }) {
+export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused }) {
   const rootRef = useRef(null);
   const trackRef = useRef(null);
   const driftHostRef = useRef(null);
@@ -137,23 +141,33 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       iceFieldRef.current?.setPaused(pausedRef.current);
       if (pausedRef.current || !s.ready) return;
       const prev = s.current;
-      // Igloo처럼 휠 입력을 연속적인 타임라인 값으로 쌓는다. 목표점에 바로 점프하지 않고
-      // 약 1초 동안 따라가므로 얼음의 퇴장과 다음 얼음의 진입을 눈으로 볼 수 있다.
-      s.current = reduced ? s.target : approach(s.current, s.target, dt, 0.36);
+      // 지수 추적(approach)은 출발하는 순간 속도가 가장 빨라 얼음이 가볍게 튕겨 나간다.
+      // 임계 감쇠 스프링은 천천히 가속했다가 미끄러지듯 멈춰 질량감이 생긴다.
+      // Igloo 실측(넘어간 뒤 0.3초에 다음 얼음이 살짝, 1.3초에 거의 가운데, 약 2초에 정지)에 맞춘 값.
+      if (reduced) {
+        s.current = s.target;
+        s.vel = 0;
+      } else {
+        const omega = s.snapped ? 3 : 4.2;
+        const accel = omega * omega * (s.target - s.current) - 2 * omega * (s.vel || 0);
+        s.vel = (s.vel || 0) + accel * dt;
+        s.current += s.vel * dt;
+      }
       velocity = approach(velocity, clamp((s.current - prev) / Math.max(dt, 0.001) / 2600, -1, 1), dt, 0.08);
 
-      // 휠을 놓으면 가장 가까운 관찰 지점으로 아주 늦게 정렬한다. 입력 중에는 절대
-      // 프로젝트 단위로 강제 점프하지 않아 트랙패드의 작은 움직임도 그대로 보인다.
-      if (!reduced && s.snapAt && now >= s.snapAt && Math.abs(s.target - s.current) < root.clientHeight * 0.2) {
-        let nearest = 0;
-        let nearestDistance = Infinity;
-        const targetCenter = s.target + root.clientHeight / 2;
-        s.centers.forEach((value, index) => {
-          const distance = Math.abs(value - targetCenter);
-          if (distance < nearestDistance) { nearest = index; nearestDistance = distance; }
-        });
+      if (!reduced && s.snapAt && now >= s.snapAt) {
+        // 휠을 놓으면 굴린 방향의 다음 프로젝트로 넘어가 가운데에 멈춘다. 제자리로
+        // 되돌아가지 않는다. 트랙패드의 아주 작은 떨림(휠 반 칸 미만)만 무시한다.
+        const from = s.snapIndex ?? activeRef.current;
+        const pushed = s.push || 0;
+        const nearest = Math.abs(pushed) > 40
+          ? clamp(from + Math.sign(pushed), 0, s.centers.length - 1)
+          : from;
+        s.push = 0;
+        s.snapIndex = nearest;
         s.target = clamp(s.centers[nearest] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
         s.snapAt = 0;
+        s.snapped = true; // 목표 프로젝트가 정해지면 관성 대신 가운데에 또렷하게 붙는다
       }
 
       const max = Math.max(0, s.setHeight - root.clientHeight);
@@ -217,10 +231,15 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? root.clientHeight : 1;
-      const raw = event.deltaY * unit;
-      const delta = clamp(raw, -root.clientHeight * 0.72, root.clientHeight * 0.72);
-      s.target = clamp(s.target + delta * 1.12, 0, Math.max(0, s.setHeight - root.clientHeight));
-      s.snapAt = performance.now() + 260;
+      // 굴리는 동안은 누적 입력(push)만큼 얼음이 따라 움직이고, 포화 곡선이라 끝으로 갈수록
+      // 묵직해진다. 휠을 놓으면 위의 정렬 단계에서 굴린 방향의 다음 프로젝트로 넘어간다.
+      s.push = (s.push || 0) + event.deltaY * unit;
+      const from = s.snapIndex ?? activeRef.current;
+      const base = s.centers[from] - root.clientHeight / 2;
+      const offset = Math.sign(s.push) * root.clientHeight * 0.95 * Math.tanh(Math.abs(s.push) / 450);
+      s.target = clamp(base + offset, 0, Math.max(0, s.setHeight - root.clientHeight));
+      s.snapAt = performance.now() + 220;
+      s.snapped = false;
       pointer.current.dirty = true;
     };
     let touchY = null;
@@ -245,6 +264,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
           if (nextDistance < distance) { nearest = index; distance = nextDistance; }
         });
         activeRef.current = nearest;
+        s.snapIndex = nearest;
         onActiveRef.current(nearest);
         s.target = clamp(s.centers[nearest] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
       }
@@ -291,6 +311,8 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     if (!s.ready || !root) return;
     const next = clamp(activeRef.current + direction, 0, s.centers.length - 1);
     activeRef.current = next;
+    s.snapIndex = next;
+    s.push = 0;
     onActiveRef.current(next);
     s.target = clamp(s.centers[next] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
   }, []);
@@ -301,6 +323,8 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     if (!s.ready || !root) return;
     const next = clamp(index, 0, s.centers.length - 1);
     activeRef.current = next;
+    s.snapIndex = next;
+    s.push = 0;
     onActiveRef.current(next);
     s.target = clamp(s.centers[next] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
   }, []);
@@ -312,8 +336,10 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     hoverRef.current = index;
     launchingRef.current = index;
     setLaunching(index);
+    // 누르는 즉시 상세 화면을 얼음 속에 준비하고(포털), 얼음을 통과한 뒤 진짜 상세로 넘긴다.
+    if (!prefersReduced()) onEnter?.(spec.id);
     window.setTimeout(() => onOpen(spec.id), prefersReduced() ? 0 : LAUNCH_MS);
-  }, [launching, onOpen, specs]);
+  }, [launching, onEnter, onOpen, specs]);
 
   // 상세에서 돌아오면 창이 다시 작아진다
   useEffect(() => {
@@ -434,9 +460,10 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
                         }}
                       />
                       <span className="work-row__meta sys" aria-hidden="true" style={{ '--c': 0 }}>
-                        <span>{spec.no} / {String(specs.length).padStart(2, '0')}</span>
-                        <span>{spec.role}</span>
-                        <span>{spec.year}</span>
+                        {/* 클릭하면 라벨이 글리치로 깨지며 사라진다(Igloo). */}
+                        <span><ScrambleText mode="out" play={launching === index} duration={620} text={`${spec.no} / ${String(specs.length).padStart(2, '0')}`} /></span>
+                        <span><ScrambleText mode="out" play={launching === index} duration={620} delay={60} text={spec.role} /></span>
+                        <span><ScrambleText mode="out" play={launching === index} duration={620} delay={120} text={String(spec.year)} /></span>
                       </span>
                     </span>
                   </button>

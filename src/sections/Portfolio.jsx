@@ -29,6 +29,8 @@ export default function Portfolio() {
   const [mode, setMode] = useState('field');
   const [activeIndex, setActiveIndex] = useState(0);
   const [selected, setSelected] = useState(hashId);
+  // 얼음을 누른 순간부터 통과할 때까지, 상세 화면을 얼음 속에 미리 띄워 둔다(포털).
+  const [portal, setPortal] = useState(null);
   const hud = { state: 'SOLID', temp: 'LOW', tempValue: 0 };
   const returnTarget = useRef(selected);
   const currentState=useRef({selected,activeIndex});currentState.current={selected,activeIndex};
@@ -51,6 +53,7 @@ export default function Portfolio() {
   }, []);
 
   const select = useCallback((id) => {
+    setPortal(null);
     if (id) {
       returnTarget.current = id;
       setActiveIndex(SPECIMENS.findIndex(s => s.id === id));
@@ -168,7 +171,7 @@ export default function Portfolio() {
   }, [activeSpec, mode, moveActive, openFromList, selected]);
 
   return (
-    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''}`}>
+    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''} ${portal && !selected ? 'is-portal' : ''}`}>
       <div
         className={`portfolio__stage portfolio__stage--${mode}`}
         inert={selected ? '' : undefined}
@@ -183,6 +186,7 @@ export default function Portfolio() {
             activeIndex={activeIndex}
             onActiveChange={setActiveIndex}
             onOpen={select}
+            onEnter={setPortal}
             paused={Boolean(selected)}
           />
         ) : (
@@ -256,7 +260,8 @@ export default function Portfolio() {
       </div>
 
       <ProjectDetail
-        spec={selected ? byId(selected) : null}
+        spec={selected ? byId(selected) : (portal ? byId(portal) : null)}
+        portal={!selected && Boolean(portal)}
         onClose={() => select(null)}
         onSwitch={select}
       />

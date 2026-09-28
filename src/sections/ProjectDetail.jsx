@@ -6,6 +6,13 @@ import RollText from '../components/RollText';
 import CaseStudyBoards from '../components/CaseStudyBoards';
 import './detail.css';
 
+/* 얼음이 녹고 남은 표본 — 레퍼런스처럼 상세 배경에 로고를 흐릿하고 크게 남긴다. */
+const GHOST = {
+  odit: '/cases/odit-logo.svg',
+  tchaikim: '/cases/tchaikim-logo.svg',
+  walga: '/cases/walga-logo.svg',
+};
+
 /**
  * 이미지 한 장. src 가 비면 자리만 잡는다.
  * alt 는 화면에 그리지 않는다 — 이 페이지엔 캡션이 없다.
@@ -100,7 +107,7 @@ function Row({ block }) {
  *
  * 글을 두 군데로 제한하는 게 이 레이아웃의 전부다. 늘리면 무너진다.
  */
-export default function ProjectDetail({ spec, onClose, onSwitch }) {
+export default function ProjectDetail({ spec, onClose, onSwitch, portal = false }) {
   const scrollRef = useRef(null);
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
@@ -124,10 +131,10 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
   }, [spec]);
 
   useEffect(() => {
-    if (!spec || renderSpec?.id !== spec.id) return undefined;
+    if (!spec || portal || renderSpec?.id !== spec.id) return undefined;
     const frame = requestAnimationFrame(() => scrollRef.current?.querySelector('.dhero__title')?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
-  }, [spec, renderSpec]);
+  }, [spec, renderSpec, portal]);
 
   const links = useMemo(() => (data?.visit || []).filter((v) => v.href), [data]);
 
@@ -181,13 +188,18 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
 
   return (
     <article
-      className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''}`}
-      aria-hidden={!spec}
-      inert={!spec ? '' : undefined}
+      className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''} ${portal ? 'is-portal' : ''}`}
+      aria-hidden={!spec || portal}
+      inert={!spec || portal ? '' : undefined}
       style={renderSpec ? { '--pc': renderSpec.color } : undefined}
     >
       {renderSpec && data && (
         <>
+          {GHOST[renderSpec.id] && (
+            <div className="detail__ghost" aria-hidden="true" key={renderSpec.id}>
+              <img src={GHOST[renderSpec.id]} alt="" draggable="false" />
+            </div>
+          )}
           <nav className="detail__pills" aria-label="상세 탐색">
             <button type="button" className="roll" onClick={onClose} aria-label="필드로 돌아가기">
               <RollText text="/ RETURN" />
@@ -201,7 +213,9 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
           <div className="detail__scroll" ref={scrollRef}>
             {/* Project artwork, with transparent mockups framed to their visible bounds. */}
             <header className={`dhero ${projectHero ? 'dhero--project' : ''} ${data.hero?.viewBox ? 'dhero--cutout' : ''}`}>
-              <h2 className="dhero__title" tabIndex={-1}>{renderSpec.ko}</h2>
+              <h2 className="dhero__title" tabIndex={-1}>
+                {renderSpec.ko}
+              </h2>
               <div className="dhero__plate">
                 {data.hero?.viewBox ? (
                   <svg className="dhero__cutout" viewBox={data.hero.viewBox} role="img" aria-label={heroAlt}>
@@ -209,19 +223,21 @@ export default function ProjectDetail({ spec, onClose, onSwitch }) {
                   </svg>
                 ) : <img src={projectHero || renderSpec.imageCut || renderSpec.image} alt={heroAlt} />}
               </div>
-              <p className="dhero__year sys">YEAR — {data.year}</p>
+              <p className="dhero__year sys">
+                {`YEAR — ${data.year}`}
+              </p>
             </header>
 
             {/* ── 메타 — 라벨은 깨알, 값은 보통. 자세한 건 전부 링크로. ── */}
             <section className="dmeta">
               <div className="dmeta__col">
                 <p className="dmeta__label sys">CATEGORIES</p>
-                {data.categories.map((c) => <p key={c} className="dmeta__value">{c}</p>)}
+                {data.categories.map((c, i) => <p key={c} className="dmeta__value">{c}</p>)}
               </div>
 
               <div className="dmeta__col">
                 <p className="dmeta__label sys">ROLE</p>
-                {data.role.map((r) => <p key={r} className="dmeta__value">{r}</p>)}
+                {data.role.map((r, i) => <p key={r} className="dmeta__value">{r}</p>)}
 
                 {links.length > 0 && (
                   <ul className="dmeta__links">

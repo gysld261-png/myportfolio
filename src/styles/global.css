@@ -260,3 +260,13 @@ body {
   .nav__tabs { top: 38px; gap: 20px; }
   .nav__link, .nav__contact { font-size: 9px; }
 }
+
+/* ScrambleText — 뒤섞이는 글자 대신 화면 읽기 프로그램이 읽을 원래 문장 */
+.scramble__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
