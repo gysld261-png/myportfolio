@@ -16,7 +16,7 @@ const FIELD_MEDIA = {
 /* LIST 프리즘의 네 면 — 목록 순서와 같다.
    화면 자료가 없는 프로젝트는 표지(card)로 둔다. 화면이 생기면 { kind: 'image', src } 로 바꾸면 된다. */
 const PRISM_FACES = {
-  odit: { kind: 'card', card: { title: 'ODIT', meta: '01 / UX/UI + FRONTEND / 2026', note: 'IN PROGRESS' } },
+  odit: { kind: 'image', src: '/cases/odit-preview.jpg' }, // odit-web 홈·이야기 상세·연결 화면 캡처
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
   nuri: { kind: 'card', card: { title: '문화누리카드', meta: '03 / UX/UI / 2025', note: 'CASE STUDY IN PREPARATION' } },
   walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
