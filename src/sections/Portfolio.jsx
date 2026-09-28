@@ -3,6 +3,7 @@ import { gsap } from 'gsap';
 import { SPECIMENS, FIELD_LAYOUT, byId } from '../data/specimens';
 import StateReadout from '../components/StateReadout';
 import ProjectDetail from './ProjectDetail';
+import { createListPrism } from '../lib/listPrismScene';
 import './portfolio.css';
 
 const FIELD_MEDIA = {
@@ -10,6 +11,15 @@ const FIELD_MEDIA = {
   tchaikim: { src: '/specimens/tchaikim-cut.png', aspect: '0.332', width: '413.5%', left: '-150.3%', top: '-2%' },
   nuri: { src: '/specimens/nuri-cut.png', aspect: '1.298', width: '116.1%', left: '-7.9%', top: '-6.4%' },
   walga: { src: '/specimens/walga-cut.png', aspect: '1.473', width: '126%', left: '-12.7%', top: '-15.8%' },
+};
+
+/* LIST 프리즘의 네 면 — 목록 순서와 같다.
+   화면 자료가 없는 프로젝트는 표지(card)로 둔다. 화면이 생기면 { kind: 'image', src } 로 바꾸면 된다. */
+const PRISM_FACES = {
+  odit: { kind: 'card', card: { title: 'ODIT', meta: '01 / UX/UI + FRONTEND / 2026', note: 'IN PROGRESS' } },
+  tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
+  nuri: { kind: 'card', card: { title: '문화누리카드', meta: '03 / UX/UI / 2025', note: 'CASE STUDY IN PREPARATION' } },
+  walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
 };
 
 const hashId = () => {
@@ -35,6 +45,9 @@ export default function Portfolio() {
 
   const sectionRef = useRef(null);
   const listSceneRef = useRef(null);
+  const prismHostRef = useRef(null);
+  const prismRef = useRef(null);
+  const [zooming, setZooming] = useState(null);
   const wheelLock = useRef(0);
 
   const visibleSpecimens = SPECIMENS;
@@ -228,23 +241,55 @@ export default function Portfolio() {
   }, [moveActive, selected]);
 
   const handleListPointerMove = useCallback((event) => {
-    if (mode !== 'list' || !listSceneRef.current) return;
+    if (mode !== 'list') return;
     const bounds = event.currentTarget.getBoundingClientRect();
-    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
-    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
-    listSceneRef.current.style.setProperty('--slab-ry', `${x * 7}deg`);
-    listSceneRef.current.style.setProperty('--slab-rx', `${y * -5}deg`);
-    listSceneRef.current.style.setProperty('--slab-x', `${x * 16}px`);
-    listSceneRef.current.style.setProperty('--slab-y', `${y * 12}px`);
+    prismRef.current?.setPointer(
+      (event.clientX - bounds.left) / bounds.width - 0.5,
+      (event.clientY - bounds.top) / bounds.height - 0.5,
+    );
   }, [mode]);
 
-  const resetListPointer = useCallback(() => {
-    if (!listSceneRef.current) return;
-    listSceneRef.current.style.setProperty('--slab-ry', '0deg');
-    listSceneRef.current.style.setProperty('--slab-rx', '0deg');
-    listSceneRef.current.style.setProperty('--slab-x', '0px');
-    listSceneRef.current.style.setProperty('--slab-y', '0px');
-  }, []);
+  const resetListPointer = useCallback(() => prismRef.current?.setPointer(0, 0), []);
+
+  // LIST 프리즘 — 모드에 들어올 때 만들고 나갈 때 버린다
+  useEffect(() => {
+    if (mode !== 'list' || !prismHostRef.current) return undefined;
+    const prism = createListPrism(prismHostRef.current, SPECIMENS.map((s) => ({ id: s.id, ...PRISM_FACES[s.id] })));
+    prismRef.current = prism;
+    const state = currentState.current;
+    prism.setActive(state.activeIndex);
+    return () => {
+      prism.dispose();
+      prismRef.current = null;
+    };
+  }, [mode]);
+
+  useEffect(() => {
+    prismRef.current?.setActive(activeIndex);
+  }, [activeIndex]);
+
+  // 상세가 열려 있는 동안은 멈추고, 닫히면 화면을 채웠던 면에서 뒤로 물러난다
+  useEffect(() => {
+    const prism = prismRef.current;
+    if (!prism) return;
+    prism.setPaused(Boolean(selected));
+    if (!selected) {
+      setZooming(null);
+      prism.zoomOut();
+    }
+  }, [selected, mode]);
+
+  const openFromList = useCallback((id) => {
+    const prism = prismRef.current;
+    if (!prism || zooming) {
+      if (!zooming) select(id);
+      return;
+    }
+    const index = SPECIMENS.findIndex((s) => s.id === id);
+    setActiveIndex(index);
+    setZooming(id);
+    prism.zoomIn(index).then(() => select(id));
+  }, [select, zooming]);
 
   useEffect(() => {
     const handleKey = (event) => {
@@ -260,12 +305,13 @@ export default function Portfolio() {
       }
       if (event.key === 'Enter' && activeSpec) {
         event.preventDefault();
-        if (!fieldRef.current?.select(activeSpec.id)) select(activeSpec.id);
+        if (mode === 'list') openFromList(activeSpec.id);
+        else if (!fieldRef.current?.select(activeSpec.id)) select(activeSpec.id);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [activeSpec, moveActive, select, selected]);
+  }, [activeSpec, mode, moveActive, openFromList, select, selected]);
 
   return (
     <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''}`}>
@@ -321,21 +367,14 @@ export default function Portfolio() {
         ) : (
           <div
             ref={listSceneRef}
-            className={`plist-scene plist-scene--${activeSpec.id}`}
+            className={`plist-scene plist-scene--${activeSpec.id} ${zooming ? 'is-zooming' : ''}`}
             style={{ '--active-index': activeIndex }}
           >
-            <div className="cryo-stage" aria-hidden="true">
-              <div className="cryo-slab" key={activeSpec.id}>
-                <div className="cryo-slab__depth" />
-                <div className="cryo-slab__face">
-                  <img src={activeSpec.image} alt="" />
-                </div>
-              </div>
-              <div className="cryo-stage__caption">
-                <span>{activeSpec.tag} SPECIMEN</span>
-                <span>{activeSpec.role}</span>
-              </div>
-            </div>
+            <div ref={prismHostRef} className="plist-prism" aria-hidden="true" />
+            <p className="plist-caption sys" aria-hidden="true" key={activeSpec.id}>
+              <span>{activeSpec.no} / {String(SPECIMENS.length).padStart(2, '0')}</span>
+              <span>{activeSpec.role}</span>
+            </p>
 
             <ul className="plist">
               {visibleSpecimens.map((s, index) => (
@@ -344,9 +383,9 @@ export default function Portfolio() {
                     type="button"
                     data-project={s.id}
                     className={`plist__row ${index === activeIndex ? 'is-active' : ''} ${selected === s.id ? 'is-selected' : ''}`}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onFocus={() => setActiveIndex(index)}
-                    onClick={() => select(s.id)}
+                    onMouseEnter={() => { if (!zooming) setActiveIndex(index); }}
+                    onFocus={() => { if (!zooming) setActiveIndex(index); }}
+                    onClick={() => openFromList(s.id)}
                   >
                     <span className="plist__no sys">{s.no}</span>
                     <span className="plist__name">{s.ko}</span>
