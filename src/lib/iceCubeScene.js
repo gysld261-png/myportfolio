@@ -141,7 +141,7 @@ export function createStudio(renderer) {
   return target;
 }
 
-export function paintBackdrop(canvas, host) {
+export function paintBackdrop(canvas, host, { withTitle = true } = {}) {
   const width = host.clientWidth, height = host.clientHeight;
   const scale = Math.min(1.8, 3072 / Math.max(width, height));
   canvas.width = Math.round(width * scale);
@@ -157,12 +157,14 @@ export function paintBackdrop(canvas, host) {
   ctx.fillRect(0, 0, width, height);
   const hostBounds = host.getBoundingClientRect();
   const title = host.parentElement.querySelector('.main__claim');
-  if (!title) return;
+  if (!title || !withTitle) return;
   for (const line of title.children) {
     const bounds = line.getBoundingClientRect();
     const style = getComputedStyle(line);
     ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
     ctx.letterSpacing = style.letterSpacing;
+    // DOM 은 글자마다 따로 올라오므로 자간 조정이 없다 — 이어받을 때 어긋나지 않게 맞춘다
+    ctx.fontKerning = 'none';
     ctx.textBaseline = 'alphabetic';
     const metrics = ctx.measureText(line.textContent);
     const ascent = metrics.fontBoundingBoxAscent ?? parseFloat(style.fontSize) * 0.8;

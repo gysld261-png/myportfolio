@@ -9,8 +9,11 @@ const VEIL_DISTANCE = 0.5; // 연기 막이 카메라 앞에 떠 있는 거리
 const REST_ROTATION = new THREE.Euler(0.2, -0.48, -0.055);
 
 /** A real mesh with studio reflections and typography inside the refraction pass. */
-export default function IceCubeHero({ onReadout, onReady, initialEntrance = false, exitProgress = 0 }) {
+export default function IceCubeHero({ onReadout, onReady, initialEntrance = false, exitProgress = 0, showTitle = true }) {
   const hostRef = useRef(null);
+  // 제목이 DOM 에서 올라오는 동안은 배경에 그리지 않는다. 다 올라오면 배경이 이어받는다.
+  const showTitleRef = useRef(showTitle);
+  const paintRef = useRef(null);
   const exitRef = useRef(exitProgress);
   const entranceRef = useRef(initialEntrance);
   exitRef.current = exitProgress;
@@ -129,10 +132,11 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
       // A WebGL texture cannot change dimensions after its first upload.
       // Reallocate its GPU storage when the responsive canvas is repainted.
       backdropTexture.dispose();
-      paintBackdrop(backdropCanvas, host);
+      paintBackdrop(backdropCanvas, host, { withTitle: showTitleRef.current });
       backdropTexture.needsUpdate = true;
       needsFrame = true;
     };
+    paintRef.current = paint;
     const resize = () => {
       if (!live) return;
       const width = host.clientWidth, height = host.clientHeight;
@@ -337,6 +341,12 @@ export default function IceCubeHero({ onReadout, onReady, initialEntrance = fals
       renderer.domElement.remove();
     };
   }, [onReady, onReadout]);
+
+  useEffect(() => {
+    if (showTitleRef.current === showTitle) return;
+    showTitleRef.current = showTitle;
+    paintRef.current?.();
+  }, [showTitle]);
 
   return (
     <div ref={hostRef} className="ice-cube-hero" aria-hidden="true">

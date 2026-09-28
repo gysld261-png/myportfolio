@@ -6,30 +6,50 @@ import './work.css';
 /**
  * PORTFOLIO — SCROLL
  *
- * 프로젝트 이름이 거대한 글자로 끝없이 흘러간다. 화면 가운데에는 작은 창이 하나 고정되어 있고,
- * 가운데를 지나는 이름(또는 가리킨 이름)의 화면이 그 창에 비친다.
- * 이름을 누르면 창이 화면 전체로 열리며 프로젝트로 들어간다.
+ * 프로젝트마다 이름, 번호, 드라이아이스 표본이 한 덩어리로 묶여 끝없이 흘러간다.
+ * 이름이나 표본을 가리키면 표본이 승화하듯 사라지고 뒤에서 큰 미리보기가 열린다.
+ * 누르면 그 미리보기가 화면 전체로 열리며 프로젝트로 들어간다.
  * 뒤에는 드라이아이스 파편이 깊이별로 다른 속도로 떠다닌다.
  */
 
-/* 줄 나눔과 들여쓰기 — 이름마다 다른 자리에 놓여 지그재그로 읽힌다 */
-const LINES = {
-  odit: [['ODIT', 30]],
-  tchaikim: [['TCHAI', 4], ['KIM', 36]],
-  nuri: [['문화누리', 30], ['카드', 12]],
-  walga: [['왈가', 10], ['왈봇', 44]],
+/* 덩어리 배치 — x 는 덩어리의 왼쪽 위치(vw), lines 는 [글자, 덩어리 안 들여쓰기(em)].
+   덩어리끼리는 좌우로 엇갈리고, 덩어리 안의 줄은 바짝 붙는다. */
+const BLOCKS = {
+  odit: { x: 34, lines: [['ODIT', 0]] },
+  tchaikim: { x: 9, lines: [['TCHAI', 0], ['KIM', 0.9]] },
+  nuri: { x: 30, lines: [['문화누리', 0], ['카드', 0.55]] },
+  walga: { x: 12, lines: [['왈가', 0], ['왈봇', 0.7]] },
+};
+
+/* 원래 FIELD 에 있던 네 개의 드라이아이스 표본 — 이제 각 이름 덩어리에 붙어 다닌다 */
+const SPECIMEN = {
+  odit: { src: '/specimens/odit-cut.png', w: 24, x: 62, y: -6 },
+  tchaikim: { src: '/specimens/tchaikim-cut.png', w: 20, x: 70, y: -2 },
+  nuri: { src: '/specimens/nuri-cut.png', w: 20, x: 74, y: 8 },
+  walga: { src: '/specimens/walga-cut.png', w: 27, x: 58, y: 4 },
 };
 
 /* 가운데 창에 비치는 화면. 화면 자료가 없는 프로젝트는 표본 사진으로 둔다. */
 const PREVIEW = {
   odit: { kind: 'image', src: '/cases/odit-preview.jpg' },
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
-  nuri: { kind: 'image', src: '/specimens/midjourney/mnuri.png', note: 'IN PREPARATION' },
+  nuri: { kind: 'image', src: '/specimens/nuri.png', note: 'CASE STUDY IN PREPARATION' },
   walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
 };
 
 const SETS = 3;
 const LAUNCH_MS = 820;
+
+/* 알갱이 전환 — 노이즈 값이 문턱보다 큰 픽셀만 남긴다. 밀도 d 가 0 이면 아무것도, 1 이면 전부 보인다.
+   실측: 문턱 0.74 에서 약 1%, 0.44 에서 약 65%, 0.2 이하면 전부 남는다. */
+const GRAIN_SLOPE = 36;
+const grainIntercept = (density) => -(0.74 - 0.54 * density) * GRAIN_SLOPE;
+const TEXT_GRAIN = 0.46; // 가리킨 이름은 점이 절반쯤만 남아 이미지 위로 자글자글하게 비친다
+
+/** 글자를 한 자씩 나눈다 — 스크롤로 들어올 때 차례로 올라온다 */
+const chars = (text, offset = 0) => [...text].map((char, c) => (
+  <span className="work-ch" key={c} style={{ '--c': c + offset }}>{char}</span>
+));
 
 export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, paused }) {
   const rootRef = useRef(null);
@@ -49,8 +69,15 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   const hoverRef = useRef(null);
   const launchingRef = useRef(null);
   const pointer = useRef({ x: 0, y: 0, inside: false, dirty: false });
+  const windowRef = useRef(null);
+  const imgGrainRef = useRef(null);
+  const imgNoiseRef = useRef(null);
+  const textGrainRef = useRef(null);
+  const textNoiseRef = useRef(null);
+  const grain = useRef({ img: 0, text: 0, textIndex: null });
 
-  const shown = hoverIndex ?? activeIndex;
+  // 미리보기는 가리킬 때만 열린다
+  const shown = hoverIndex;
 
   // 첫 세트의 높이와 각 이름의 세로 중심을 잰다
   const measure = useCallback(() => {
@@ -109,12 +136,39 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
 
       drift.setScroll(s.current, velocity);
 
+      // 알갱이 — 이미지는 점이 모이며 나타나고, 가리킨 이름은 점으로 흩어진다
+      const g = grain.current;
+      const hovered = hoverRef.current;
+      const launchingNow = launchingRef.current !== null;
+      const imgTarget = hovered !== null || launchingNow ? 1 : 0;
+      g.img = reduced ? imgTarget : approach(g.img, imgTarget, dt, imgTarget ? 0.2 : 0.09);
+      if (hovered !== null) g.textIndex = hovered;
+      const textTarget = hovered !== null && !launchingNow ? 1 : 0;
+      g.text = reduced ? textTarget : approach(g.text, textTarget, dt, 0.14);
+      const jitter = Math.floor(now / 70) % 97; // 바뀌는 동안 점이 살아서 끓어오르게
+      const win = windowRef.current;
+      if (win) {
+        const settledImg = g.img > 0.995;
+        win.style.visibility = g.img < 0.004 ? 'hidden' : 'visible';
+        win.style.filter = settledImg ? 'none' : 'url(#work-grain-img)';
+        imgGrainRef.current?.setAttribute('intercept', grainIntercept(g.img).toFixed(3));
+        if (!settledImg) imgNoiseRef.current?.setAttribute('seed', String(jitter));
+      }
+      const textDensity = 1 - (1 - TEXT_GRAIN) * g.text;
+      textGrainRef.current?.setAttribute('intercept', grainIntercept(textDensity).toFixed(3));
+      if (g.text > 0.004 && g.text < 0.99) textNoiseRef.current?.setAttribute('seed', String(jitter));
+      track.querySelectorAll('.work-row').forEach((row) => {
+        const on = g.text > 0.004 && Number(row.dataset.index) === g.textIndex;
+        const want = on ? 'url(#work-grain-text)' : '';
+        if (row.style.filter !== want) row.style.filter = want;
+      });
+
       // 호버는 글자 위에 있는지로만 판단한다. 글자가 마우스 밑으로 흘러가도 바뀌어야 해서
       // pointerenter 대신 매 프레임(움직임이 있을 때만) 직접 확인한다.
       const p = pointer.current;
       if (launchingRef.current === null && (p.dirty || Math.abs(s.current - prev) > 0.2)) {
         p.dirty = false;
-        const line = p.inside ? document.elementFromPoint(p.x, p.y)?.closest('.work-row__line') : null;
+        const line = p.inside ? document.elementFromPoint(p.x, p.y)?.closest('.work-hit') : null;
         const next = line ? Number(line.closest('.work-row').dataset.index) : null;
         if (next !== hoverRef.current) {
           hoverRef.current = next;
@@ -159,6 +213,21 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       window.removeEventListener('pointerup', onPointerUp);
     };
   }, [measure]);
+
+  // 화면에 들어오는 덩어리마다 글자가 아래에서 올라온다. 완전히 나가면 다시 내려가 기다린다.
+  useEffect(() => {
+    const root = rootRef.current;
+    const rows = [...trackRef.current.querySelectorAll('.work-row')];
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        // className 은 React 가 다시 쓰므로(호버 때) 클래스 대신 data 속성에 기록한다
+        if (entry.isIntersecting && entry.intersectionRatio > 0.12) entry.target.dataset.in = '';
+        else if (!entry.isIntersecting) delete entry.target.dataset.in;
+      });
+    }, { root, threshold: [0, 0.12] });
+    rows.forEach((row) => io.observe(row));
+    return () => io.disconnect();
+  }, []);
 
   // 이름 하나만큼 위아래로
   const step = useCallback((direction) => {
@@ -216,7 +285,10 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     else video.pause();
   }, [paused, shown, specs]);
 
-  const shownSpec = specs[shown] || specs[0];
+  // 사라지는 동안에도 마지막 프로젝트의 배지와 캡션을 유지한다
+  const lastShown = useRef(0);
+  if (shown !== null) lastShown.current = shown;
+  const previewSpec = specs[lastShown.current];
 
   return (
     <div
@@ -225,21 +297,43 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     >
       <div ref={driftHostRef} className="work__drift" aria-hidden="true" />
 
-      <div className="work__window" aria-hidden="true">
-        {specs.map((spec, index) => {
-          const media = PREVIEW[spec.id];
-          const on = index === shown;
-          return (
-            <div key={spec.id} className={`work__media work__media--${spec.id} ${on ? 'is-on' : ''}`}>
-              {media.kind === 'video' ? (
-                <video ref={videoRef} src={media.src} poster={media.poster} muted loop playsInline preload="metadata" />
-              ) : (
-                <img src={media.src} alt="" draggable="false" />
-              )}
-              {media.note && <span className="work__media-note sys">{media.note}</span>}
-            </div>
-          );
-        })}
+      <svg className="work__filters" aria-hidden="true" focusable="false">
+        <filter id="work-grain-img" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+          <feTurbulence ref={imgNoiseRef} type="fractalNoise" baseFrequency="0.62" numOctaves="1" seed="2" result="noise" />
+          <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="field" />
+          <feComponentTransfer in="field" result="mask">
+            <feFuncA ref={imgGrainRef} type="linear" slope={GRAIN_SLOPE} intercept={grainIntercept(0)} />
+          </feComponentTransfer>
+          <feComposite in="SourceGraphic" in2="mask" operator="in" />
+        </filter>
+        <filter id="work-grain-text" x="-5%" y="-10%" width="110%" height="120%" colorInterpolationFilters="sRGB">
+          <feTurbulence ref={textNoiseRef} type="fractalNoise" baseFrequency="0.85" numOctaves="1" seed="5" result="noise" />
+          <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="field" />
+          <feComponentTransfer in="field" result="mask">
+            <feFuncA ref={textGrainRef} type="linear" slope={GRAIN_SLOPE} intercept={grainIntercept(1)} />
+          </feComponentTransfer>
+          <feComposite in="SourceGraphic" in2="mask" operator="in" />
+        </filter>
+      </svg>
+
+      <div className="work__preview" aria-hidden="true">
+        <div ref={windowRef} className="work__window">
+          {specs.map((spec, index) => {
+            const media = PREVIEW[spec.id];
+            return (
+              <div key={spec.id} className={`work__media work__media--${spec.id} ${index === lastShown.current ? 'is-on' : ''}`}>
+                {media.kind === 'video' ? (
+                  <video ref={videoRef} src={media.src} poster={media.poster} muted loop playsInline preload="metadata" />
+                ) : (
+                  <img src={media.src} alt="" draggable="false" />
+                )}
+                {media.note && <span className="work__media-note sys">{media.note}</span>}
+              </div>
+            );
+          })}
+        </div>
+        <span className="work__badge" key={previewSpec.id}>{lastShown.current + 1} / {specs.length}</span>
+        <p className="work__caption">{previewSpec.ko} /<br />{previewSpec.role.replace(' + ', ', ')}</p>
       </div>
 
       <div className="work__viewport">
@@ -259,16 +353,29 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
                     onClick={() => launch(index)}
                     aria-label={`${spec.no} ${spec.ko} 프로젝트 보기`}
                   >
-                    <span className="work-row__meta sys" aria-hidden="true">
-                      <span>{spec.no}</span>
-                      <span>{spec.role} / {spec.year}</span>
-                    </span>
-                    {LINES[spec.id].map(([text, indent], lineIndex, all) => (
-                      <span key={text} className="work-row__line" style={{ '--indent': `${indent}vw` }} aria-hidden="true">
-                        {text}
-                        {lineIndex === all.length - 1 && <i className="work-row__dot" />}
+                    <span className="work-row__block" style={{ '--x': `${BLOCKS[spec.id].x}vw` }}>
+                      <img
+                        className="work-row__specimen work-hit"
+                        src={SPECIMEN[spec.id].src}
+                        alt=""
+                        draggable="false"
+                        aria-hidden="true"
+                        style={{ '--sw': `${SPECIMEN[spec.id].w}vw`, '--sx': `${SPECIMEN[spec.id].x}%`, '--sy': `${SPECIMEN[spec.id].y}%` }}
+                      />
+                      <span className="work-row__meta sys" aria-hidden="true" style={{ '--c': 0 }}>
+                        <span>{spec.no} / {String(specs.length).padStart(2, '0')}</span>
+                        <span>{spec.role}</span>
+                        <span>{spec.year}</span>
                       </span>
-                    ))}
+                      {BLOCKS[spec.id].lines.map(([text, indent], lineIndex, all) => (
+                        <span key={text} className="work-row__line work-hit" style={{ '--indent': `${indent}em`, '--l': lineIndex }} aria-hidden="true">
+                          {chars(text)}
+                          {lineIndex === all.length - 1 && (
+                            <span className="work-ch" style={{ '--c': text.length }}><i className="work-row__dot" /></span>
+                          )}
+                        </span>
+                      ))}
+                    </span>
                   </button>
                 </li>
               ))}
@@ -277,9 +384,6 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         </div>
       </div>
 
-      <p className="work__counter sys" aria-hidden="true">
-        <span key={shownSpec.id}>{shownSpec.no}</span> / {String(specs.length).padStart(2, '0')}
-      </p>
       <p className="work__foot" aria-hidden="true">
         Selected work 2025 / 2026.<br />UX/UI design and frontend.
       </p>

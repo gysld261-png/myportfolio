@@ -263,7 +263,7 @@
 .about-room h2 {
   margin: 0;
   color: var(--text);
-  font: 620 clamp(38px, 4.7vw, 66px)/1.04 var(--display);
+  font: 600 clamp(38px, 4.7vw, 66px)/1.03 'SUIT Variable', 'SUIT', var(--kr);
   letter-spacing: -.055em;
   word-break: keep-all;
 }

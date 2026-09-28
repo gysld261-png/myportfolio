@@ -1,7 +1,9 @@
-/* ── SCROLL — 흘러가는 이름과 가운데 고정된 창 ── */
+/* ── SCROLL — 이름·번호·표본이 한 덩어리로 흐르고, 가리키면 큰 미리보기가 열린다 ── */
 .work {
   --sv: 0;
-  --window-w: clamp(210px, 19vw, 340px);
+  --preview-w: min(50vw, 820px);
+  --preview-h: min(calc(var(--preview-w) * 0.62), 54vh);
+  --preview-ease: cubic-bezier(0.76, 0, 0.24, 1);
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -14,38 +16,52 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  transition: opacity 520ms var(--ease);
 }
 .work__drift canvas { display: block; width: 100%; height: 100%; }
+.work.is-hovering .work__drift { opacity: 0.35; }
 
-/* 가운데 창 */
-.work__window {
+/* ── 큰 미리보기 ── */
+.work__preview {
   position: absolute;
   z-index: 1;
-  top: 50%;
-  left: 50%;
-  width: var(--window-w);
-  height: calc(var(--window-w) * 0.625);
-  overflow: hidden;
-  border-radius: 20px;
-  background: #121516;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(207, 223, 228, 0.12);
-  transform: translate(-50%, -50%) scale(calc(1 + var(--sv) * var(--sv) * 0.12));
-  transition:
-    width 820ms cubic-bezier(0.76, 0, 0.24, 1),
-    height 820ms cubic-bezier(0.76, 0, 0.24, 1),
-    border-radius 820ms cubic-bezier(0.76, 0, 0.24, 1),
-    box-shadow 420ms var(--ease);
+  inset: 0;
   pointer-events: none;
 }
-.work.is-hovering .work__window {
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(207, 223, 228, 0.3);
+.work__window {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--preview-w);
+  height: var(--preview-h);
+  overflow: hidden;
+  border-radius: clamp(28px, 4.4vw, 76px);
+  background: #121516;
+  /* 나타나고 사라지는 건 점 필터(#work-grain-img)가 맡는다 — 여기선 살짝 다가오기만 한다 */
+  visibility: hidden;
+  transform: translate(-50%, -50%) scale(0.94);
+  transition:
+    transform 1100ms var(--ease),
+    width 820ms var(--preview-ease),
+    height 820ms var(--preview-ease),
+    border-radius 820ms var(--preview-ease);
+}
+.work.is-hovering .work__window,
+.work.is-launching .work__window {
+  transform: translate(-50%, -50%) scale(1);
+}
+.work__filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
 }
 .work__media {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transform: scale(1.12);
-  transition: opacity 420ms var(--ease), transform 900ms var(--ease);
+  transform: scale(1.08);
+  transition: opacity 420ms var(--ease), transform 1100ms var(--ease);
 }
 .work__media.is-on {
   opacity: 1;
@@ -59,24 +75,68 @@
   object-position: 50% 0;
   display: block;
 }
-.work__media--nuri img { object-fit: contain; padding: 8% 14%; background: #000; }
+.work__media--nuri img { object-position: 50% 50%; }
 .work__media-note {
   position: absolute;
-  left: 12px;
-  bottom: 10px;
+  left: 50%;
+  bottom: 9%;
+  transform: translateX(-50%);
   color: rgba(241, 242, 239, 0.7);
-  font-size: 8px;
 }
 
-/* 누르면 창이 화면 전체로 열린다 */
+/* 몇 번째 프로젝트인지 — 원형 배지 */
+.work__badge {
+  --badge: clamp(56px, 4.8vw, 84px);
+  position: absolute;
+  top: calc(50% - var(--badge) * 0.5);
+  left: calc(50% + var(--preview-w) * 0.5 - var(--badge) * 1.6);
+  display: grid;
+  place-items: center;
+  width: var(--badge);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #0b0d0e;
+  color: #f1f2ef;
+  font-family: var(--display);
+  font-size: clamp(14px, 1.1vw, 19px);
+  letter-spacing: -0.01em;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 320ms var(--ease), transform 520ms var(--preview-ease);
+}
+.work.is-hovering .work__badge {
+  opacity: 1;
+  transform: scale(1);
+  transition-delay: 120ms;
+}
+.work__caption {
+  position: absolute;
+  top: calc(50% + var(--preview-h) * 0.5 + 22px);
+  left: calc(50% - var(--preview-w) * 0.5);
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(15px, 1.2vw, 21px);
+  line-height: 1.3;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 320ms var(--ease), transform 520ms var(--ease);
+}
+.work.is-hovering .work__caption {
+  opacity: 1;
+  transform: none;
+  transition-delay: 160ms;
+}
+
+/* 누르면 미리보기가 화면 전체로 열린다 */
 .work.is-launching .work__window {
   width: 100%;
   height: 100%;
   border-radius: 0;
-  transform: translate(-50%, -50%);
 }
+.work.is-launching .work__badge,
+.work.is-launching .work__caption { opacity: 0; transition-delay: 0ms; }
 
-/* 이름 */
+/* ── 이름 덩어리 ── */
 .work__viewport {
   position: absolute;
   inset: 0;
@@ -100,7 +160,8 @@
   position: relative;
   display: block;
   width: 100%;
-  padding: 9vh clamp(20px, 3.2vw, 54px);
+  /* 덩어리 사이는 넉넉하게, 덩어리 안은 바짝 */
+  padding: 17vh 0;
   background: none;
   border: 0;
   text-align: left;
@@ -108,68 +169,126 @@
   cursor: pointer;
   pointer-events: none;
   transform: skewY(calc(var(--sv) * -3deg));
+  transition: opacity 420ms var(--ease);
+}
+.work-row__block {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: max-content;
+  margin-left: var(--x);
+  font-family: var(--display);
+  font-size: clamp(76px, 11.5vw, 210px);
+  font-weight: 600;
+  line-height: 0.84;
+  letter-spacing: -0.06em;
 }
 .work-row__line {
   display: block;
   width: max-content;
   margin-left: var(--indent);
-  font-family: var(--display);
-  font-size: clamp(76px, 12.5vw, 230px);
-  font-weight: 560;
-  line-height: 0.86;
-  letter-spacing: -0.055em;
   white-space: nowrap;
   pointer-events: auto;
-  transition: color 420ms var(--ease), -webkit-text-stroke-color 420ms var(--ease), transform 620ms var(--ease);
+  transition: transform 620ms var(--ease);
 }
-/* 가리키는 이름만 채우고 나머지는 외곽선으로 물러난다 */
-.work.is-hovering .work-row:not(.is-shown) .work-row__line {
-  color: transparent;
-  -webkit-text-stroke: 1px rgba(241, 242, 239, 0.55);
-}
-.work-row.is-shown .work-row__line:nth-child(2) { transform: translateX(0.6vw); }
-.work-row.is-shown .work-row__line:nth-child(3) { transform: translateX(-0.6vw); }
 .work-row__dot {
   display: inline-block;
-  width: 0.16em;
-  height: 0.16em;
-  margin-left: 0.04em;
+  width: 0.15em;
+  height: 0.15em;
+  margin-left: 0.05em;
   border-radius: 50%;
   background: currentColor;
-  vertical-align: baseline;
-}
-.work.is-hovering .work-row:not(.is-shown) .work-row__dot {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px rgba(241, 242, 239, 0.55);
 }
 .work-row__meta {
-  position: absolute;
-  top: calc(9vh - 6px);
-  left: calc(clamp(20px, 3.2vw, 54px) + var(--meta-x, 0vw));
   display: flex;
-  gap: 18px;
+  gap: 1.2em;
+  margin: 0 0 1.1em 0.1em;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  line-height: 1;
   color: rgba(241, 242, 239, 0.62);
 }
-.work-row--odit .work-row__meta { --meta-x: 30vw; }
-.work-row--tchaikim .work-row__meta { --meta-x: 4vw; }
-.work-row--nuri .work-row__meta { --meta-x: 30vw; }
-.work-row--walga .work-row__meta { --meta-x: 10vw; }
+
+/* 드라이아이스 표본 — 이름 뒤에 겹쳐 붙어 떠다닌다 */
+.work-row__specimen {
+  position: absolute;
+  z-index: -1;
+  left: var(--sx);
+  top: calc(50% + var(--sy));
+  width: var(--sw);
+  max-width: none;
+  pointer-events: auto;
+  opacity: 0.92;
+  transform: translateY(-50%) rotate(calc(var(--sv) * 14deg));
+  filter: drop-shadow(0 30px 40px rgba(0, 0, 0, 0.5));
+  animation: work-specimen-float 7s ease-in-out infinite alternate;
+  transition: opacity 520ms var(--ease), filter 700ms var(--ease), scale 700ms var(--preview-ease);
+}
+.work-row--tchaikim .work-row__specimen { animation-delay: -2s; }
+.work-row--nuri .work-row__specimen { animation-delay: -4s; }
+.work-row--walga .work-row__specimen { animation-delay: -5.5s; }
+@keyframes work-specimen-float {
+  from { translate: 0 -10px; }
+  to { translate: 0 12px; }
+}
+
+/* 가리키면 — 표본은 승화하듯 흐려지고, 이름도 모두 비켜서 미리보기만 남는다.
+   글자는 투명해질 뿐 자리에 남아 있어서 계속 가리키고 누를 수 있다. */
+.work.is-hovering .work-row__specimen {
+  opacity: 0;
+  filter: blur(18px) drop-shadow(0 30px 40px rgba(0, 0, 0, 0.5));
+  scale: 1.15;
+}
+.work.is-hovering .work-row:not(.is-shown) { opacity: 0; }
+
+/* ── 스크롤로 들어올 때 — 글자가 한 자씩 줄 아래에서 튀어 올라온다 ── */
+.work-row__line {
+  /* 줄 밖으로 내려간 글자는 가린다. 한글 윗획·아랫획이 잘리지 않게 위아래 여유를 둔다 */
+  overflow: hidden;
+  padding: 0.12em 0.04em 0.1em 0;
+  margin-top: -0.12em;
+  margin-bottom: -0.1em;
+}
+.work-ch {
+  display: inline-block;
+  white-space: pre;
+  transform: translateY(105%) rotate(9deg);
+  transform-origin: 0 100%;
+  transition: transform 0s linear 0.4s;
+}
+.work-row[data-in] .work-ch {
+  transform: none;
+  transition: transform 1000ms cubic-bezier(0.19, 1, 0.22, 1);
+  transition-delay: calc(var(--l, 0) * 110ms + var(--c) * 42ms + 60ms);
+}
+.work-row__meta {
+  opacity: 0;
+  translate: 0 10px;
+  transition: opacity 0s linear 0.4s, translate 0s linear 0.4s;
+}
+.work-row[data-in] .work-row__meta {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 700ms var(--ease) 280ms, translate 900ms var(--ease) 280ms;
+}
+.work-row__specimen { visibility: hidden; }
+.work-row[data-in] .work-row__specimen { visibility: visible; animation: work-specimen-float 7s ease-in-out infinite alternate, work-specimen-in 1400ms var(--ease) 200ms both; }
+@keyframes work-specimen-in {
+  from { opacity: 0; filter: blur(16px) drop-shadow(0 30px 40px rgba(0, 0, 0, 0.5)); scale: 0.86; }
+}
+.work-row[data-in].work-row--tchaikim .work-row__specimen { animation-delay: -2s, 200ms; }
+.work-row[data-in].work-row--nuri .work-row__specimen { animation-delay: -4s, 200ms; }
+.work-row[data-in].work-row--walga .work-row__specimen { animation-delay: -5.5s, 200ms; }
+@media (prefers-reduced-motion: reduce) {
+  .work-ch, .work-row[data-in] .work-ch { transform: none; transition: none; }
+  .work-row__meta { opacity: 1; translate: none; }
+  .work-row__specimen { visibility: visible; }
+}
+
 .work-row:focus-visible { outline: none; }
-.work-row:focus-visible .work-row__line:first-of-type { text-decoration: underline 1px; text-underline-offset: 0.12em; }
+.work-row:focus-visible .work-row__line { text-decoration: underline 1px; text-underline-offset: 0.12em; }
 
 /* 주변 표시 */
-.work__counter {
-  position: absolute;
-  z-index: 3;
-  left: 50%;
-  top: calc(50% + var(--window-w) * 0.3125 + 18px);
-  margin: 0;
-  transform: translateX(-50%);
-  color: rgba(175, 194, 200, 0.6);
-  transition: opacity 320ms var(--ease);
-}
-.work__counter span { display: inline-block; color: var(--text); animation: work-count 420ms var(--ease) both; }
-@keyframes work-count { from { opacity: 0; transform: translateY(5px); } }
 .work__foot {
   position: absolute;
   z-index: 3;
@@ -180,6 +299,7 @@
   font-size: 13px;
   line-height: 1.5;
   pointer-events: none;
+  transition: opacity 320ms var(--ease);
 }
 .work__scroll {
   position: absolute;
@@ -193,6 +313,7 @@
   transform: translateX(-50%);
   color: rgba(175, 194, 200, 0.62);
   pointer-events: none;
+  transition: opacity 320ms var(--ease);
 }
 .work__scroll i {
   width: 1px;
@@ -207,19 +328,24 @@
   51% { transform-origin: bottom; }
   100% { transform: scaleY(0); transform-origin: bottom; }
 }
-.work.is-launching .work__counter,
+.work.is-hovering .work__foot,
+.work.is-hovering .work__scroll,
 .work.is-launching .work__foot,
 .work.is-launching .work__scroll { opacity: 0; }
 
 @media (max-width: 860px) {
-  .work { --window-w: min(62vw, 300px); }
-  .work-row { padding-block: 7vh; }
-  .work-row__line { font-size: clamp(58px, 19vw, 120px); margin-left: calc(var(--indent) * 0.5); }
-  .work-row__meta { left: 20px; top: calc(7vh - 16px); }
+  .work { --preview-w: 92vw; --preview-h: 58vw; }
+  .work-row { padding-block: 11vh; }
+  .work-row__block {
+    font-size: clamp(56px, 17vw, 120px);
+    margin-left: calc(var(--x) * 0.35 + 20px);
+  }
+  .work-row__specimen { width: calc(var(--sw) * 1.9); left: calc(var(--sx) * 0.6); }
   .work__foot { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .work-row { transform: none; }
+  .work-row__specimen { animation: none; }
   .work__window, .work__media { transition: none; }
 }

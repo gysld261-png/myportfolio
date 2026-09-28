@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import Ticks from '../components/Ticks';
 import FrostEdge from '../components/FrostEdge';
 import './main.css';
@@ -22,6 +22,11 @@ const CLAIM = ['차분한 인상,', '멈추지 않는 생각'];
 
 export default function Main({ onScrollCue, introEntrance = false, transitionProgress = 0, rewinding = false }) {
   const [cubeReady, setCubeReady] = useState(false);
+  // 마지막 글자가 자리 잡으면 true — 그때부터 제목은 얼음 뒤 배경(굴절되는 쪽)이 맡는다
+  const [claimSettled, setClaimSettled] = useState(
+    () => rewinding || window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+  useEffect(() => { if (rewinding) setClaimSettled(true); }, [rewinding]);
   const [readout, setReadout] = useState({
     mass: 100,
     heat: 0,
@@ -35,7 +40,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
   return (
     <section
-      className={`screen main ${cubeReady ? 'is-cube-ready' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
+      className={`screen main ${cubeReady ? 'is-cube-ready' : ''} ${claimSettled ? 'is-claim-settled' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
       id="main"
       style={{
         '--exit': transitionProgress,
@@ -57,6 +62,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
           exitProgress={transitionProgress}
           onReadout={updateReadout}
           onReady={setCubeReady}
+          showTitle={claimSettled}
         />
       </Suspense>
 
@@ -68,11 +74,26 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       {/* ── 정보층 — 어떤 상태에서도 가려지지 않는다 ── */}
       <div className="main__type">
         <p className="sys main__eyebrow">IDENTITY / SPECIMEN 00</p>
-        {/* 한 줄씩 아래에서 올라온다 — 마스크 안에서 밀려 올라오는 방식 */}
-        <h1 className="main__claim" aria-label={CLAIM.join(' ')}>
+        {/* 한 글자씩 아래에서 스르륵 올라온다 */}
+        <h1
+          className="main__claim"
+          aria-label={CLAIM.join(' ')}
+          onAnimationEnd={(event) => { if (event.target.dataset.last === 'true') setClaimSettled(true); }}
+        >
           {CLAIM.map((line, i) => (
-            <span className="claimline" key={line} style={{ '--i': i }}>
-              <i>{line}</i>
+            <span className="claimline" key={line} style={{ '--i': i }} aria-hidden="true">
+              <i>
+                {[...line].map((char, c, chars) => (
+                  <b
+                    className="claimchar"
+                    key={c}
+                    style={{ '--c': c }}
+                    data-last={i === CLAIM.length - 1 && c === chars.length - 1 ? 'true' : undefined}
+                  >
+                    {char}
+                  </b>
+                ))}
+              </i>
             </span>
           ))}
         </h1>
