@@ -10,6 +10,121 @@ import { createIceShard, icePhysical, loadLogo } from './iceBlockScene';
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const damp = (from, to, speed, dt) => THREE.MathUtils.damp(from, to, speed, dt);
 
+// 무게 있는 물체처럼 목표를 살짝 지나쳤다가 돌아오는 스프링. (위치, 속도) 쌍을 갱신한다.
+const spring = (s, target, stiffness, damping, dt) => {
+  s.v += ((target - s.x) * stiffness - s.v * damping) * dt;
+  s.x += s.v * dt;
+};
+
+/* ── 손자국(trail) ──
+   화면 크기의 작은 텍스처에 마우스가 지나간 자리와 방향을 쌓고, 매 프레임 조금씩 흘려보내며 옅어지게 한다.
+   얼음 셰이더가 이 텍스처로 법선을 밀어, 만진 자리의 굴절이 번졌다가 천천히 아문다.
+   RG = 문지른 방향, B = 세기 */
+const TRAIL = {
+  uTrail: { value: null },
+  uTrailRes: { value: new THREE.Vector2(1, 1) },
+};
+
+const TRAIL_FRAGMENT = /* glsl */ `
+  uniform sampler2D uPrev;
+  uniform vec2 uPoint;
+  uniform vec2 uMove;
+  uniform float uAspect;
+  uniform float uRadius;
+  uniform float uDecay;
+  uniform float uDt;
+  varying vec2 vUv;
+  void main() {
+    vec4 prev = texture2D(uPrev, vUv);
+    // 쌓인 흔적을 제 방향으로 조금 흘려서, 멈춘 뒤에도 번짐이 한 박자 더 번진다
+    vec2 flow = prev.rg * uDt * 0.035;
+    vec4 last = texture2D(uPrev, vUv - flow);
+    last *= uDecay;
+    vec2 d = vUv - uPoint;
+    d.x *= uAspect;
+    float splat = exp(-dot(d, d) / (uRadius * uRadius));
+    float speed = clamp(length(uMove) * 0.9, 0.0, 1.0);
+    // 가만히 대고 있으면 손끝 온기처럼 아주 옅게만 흐려지고, 문지를수록 크게 번진다
+    vec3 add = vec3(uMove * splat * 0.35, splat * (0.012 + speed * 0.5));
+    vec3 next = last.rgb + add;
+    next.rg = clamp(next.rg, vec2(-1.6), vec2(1.6));
+    next.b = min(next.b, 1.0);
+    gl_FragColor = vec4(next, 1.0);
+  }
+`;
+
+function createTrail(renderer) {
+  const options = { type: THREE.HalfFloatType, format: THREE.RGBAFormat, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+  let read = new THREE.WebGLRenderTarget(4, 4, options);
+  let write = new THREE.WebGLRenderTarget(4, 4, options);
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uPrev: { value: read.texture },
+      uPoint: { value: new THREE.Vector2(-10, -10) },
+      uMove: { value: new THREE.Vector2() },
+      uAspect: { value: 1 },
+      uRadius: { value: 0.075 },
+      uDecay: { value: 0.96 },
+      uDt: { value: 0.016 },
+    },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: TRAIL_FRAGMENT,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+  const scene = new THREE.Scene();
+  scene.add(quad);
+  const camera = new THREE.Camera();
+  const clear = () => {
+    [read, write].forEach((target) => {
+      renderer.setRenderTarget(target);
+      renderer.clearColor();
+    });
+    renderer.setRenderTarget(null);
+  };
+  TRAIL.uTrail.value = read.texture;
+
+  return {
+    uniforms: material.uniforms,
+    resize(width, height) {
+      // 번짐은 부드러워야 해서 화면의 1/4 해상도면 충분하다
+      const w = Math.max(4, Math.round(width / 4));
+      const h = Math.max(4, Math.round(height / 4));
+      read.setSize(w, h);
+      write.setSize(w, h);
+      material.uniforms.uAspect.value = width / height;
+      const previous = renderer.getClearColor(new THREE.Color());
+      const alpha = renderer.getClearAlpha();
+      renderer.setClearColor(0x000000, 0);
+      clear();
+      renderer.setClearColor(previous, alpha);
+    },
+    step(dt) {
+      material.uniforms.uPrev.value = read.texture;
+      // 프레임률과 상관없이 같은 속도로 아물게 한다 (약 1.4초 뒤 거의 사라짐)
+      material.uniforms.uDecay.value = Math.pow(0.1, dt / 1.4);
+      material.uniforms.uDt.value = dt;
+      const previousTarget = renderer.getRenderTarget();
+      const autoClear = renderer.autoClear;
+      renderer.autoClear = false;
+      renderer.setRenderTarget(write);
+      renderer.render(scene, camera);
+      renderer.setRenderTarget(previousTarget);
+      renderer.autoClear = autoClear;
+      [read, write] = [write, read];
+      TRAIL.uTrail.value = read.texture;
+    },
+    dispose() {
+      read.dispose();
+      write.dispose();
+      material.dispose();
+      quad.geometry.dispose();
+      TRAIL.uTrail.value = null;
+    },
+  };
+}
+
 const PROJECTS = {
   odit: {
     seed: 7,
@@ -853,11 +968,24 @@ async function makeSpecimen(id) {
   const baseCompile = material.onBeforeCompile;
   material.onBeforeCompile = (shader, renderer) => {
     baseCompile(shader, renderer);
+    shader.uniforms.uTrail = TRAIL.uTrail;
+    shader.uniforms.uTrailRes = TRAIL.uTrailRes;
     shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uTrail;\nuniform vec2 uTrailRes;')
       .replace('roughnessFactor = mix(roughnessFactor, 0.62, frost * 0.85);', 'roughnessFactor = mix(roughnessFactor, 0.34, frost * 0.4);')
-      .replace('float h = iceRelief(vIcePos) * 0.028;', 'float h = (iceNoise(vIcePos * 17.0) * 0.6 + iceNoise(vIcePos * 36.0) * 0.4) * 0.018;');
+      .replace('float h = iceRelief(vIcePos) * 0.028;', 'float h = (iceNoise(vIcePos * 17.0) * 0.6 + iceNoise(vIcePos * 36.0) * 0.4) * 0.018;')
+      .replace('normal = normalize(abs(det) * normal - g);\n}', `normal = normalize(abs(det) * normal - g);
+}
+{
+  // 손자국: 문지른 방향으로 법선을 밀어 굴절을 번지게 하고, 그 자리를 입김처럼 살짝 흐리게 한다
+  vec4 trail = texture2D(uTrail, gl_FragCoord.xy / uTrailRes);
+  float touch = clamp(trail.b, 0.0, 1.0);
+  float ripple = iceNoise(vIcePos * 24.0 + vec3(trail.rg * 3.0, 0.0)) - 0.5;
+  normal = normalize(normal + vec3(trail.rg * 0.55 + ripple * touch * 0.35, 0.0));
+  roughnessFactor = mix(roughnessFactor, 0.38, touch * 0.55);
+}`);
   };
-  material.customProgramCacheKey = () => 'work-ice-v2';
+  material.customProgramCacheKey = () => 'work-ice-v3';
   const ice = new THREE.Mesh(geometry, material);
   ice.renderOrder = 2;
   group.add(ice);
@@ -991,7 +1119,13 @@ export async function createWorkIceField(host, root, ids) {
   scene.add(new THREE.HemisphereLight(0xe2e7e9, 0x1c1f21, 0.62));
 
   const specimens = await Promise.all(ids.map(makeSpecimen));
-  specimens.forEach((item) => scene.add(item.group));
+  specimens.forEach((item) => {
+    scene.add(item.group);
+    item.touching = false;
+    item.tilt = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 }, z: { x: 0, v: 0 } };
+    item.inertia = { x: 0, v: 0 };
+    item.drift = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 } };
+  });
 
   // 연기는 얼음과 함께 움직이되 얼음처럼 구르지는 않도록 따로 둔다.
   const smokeTexture = createSmokeTexture();
@@ -1019,8 +1153,13 @@ export async function createWorkIceField(host, root, ids) {
     paused: false,
     pointerX: 0,
     pointerY: 0,
+    // 마우스 속도(화면 비율/초). 얼음을 문지르는 힘과 손자국 방향으로 쓴다.
+    pointerVX: 0,
+    pointerVY: 0,
+    pointerAt: 0,
     velocity: 0,
   };
+  const trail = createTrail(renderer);
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   let width = 1;
@@ -1045,6 +1184,8 @@ export async function createWorkIceField(host, root, ids) {
     camera.top = height / 2;
     camera.bottom = -height / 2;
     camera.updateProjectionMatrix();
+    trail.resize(width, height);
+    renderer.getDrawingBufferSize(TRAIL.uTrailRes.value);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(root);
@@ -1106,6 +1247,23 @@ export async function createWorkIceField(host, root, ids) {
     if (state.paused || document.hidden) return;
 
     const reduced = reducedQuery.matches;
+
+    // 마우스를 멈추면 문지르는 힘도 금방 빠진다
+    if (now - state.pointerAt > 60) {
+      state.pointerVX = damp(state.pointerVX, 0, 10, dt);
+      state.pointerVY = damp(state.pointerVY, 0, 10, dt);
+    }
+    // 손자국: 얼음 위에 있을 때만 쌓는다(맨 배경을 문질러도 얼음이 번지지 않게)
+    const trailUniforms = trail.uniforms;
+    const rubbing = state.pointerInside && state.launching === null && !reduced && specimens.some((item) => item.touching);
+    trailUniforms.uPoint.value.set(ndc.x * 0.5 + 0.5, ndc.y * 0.5 + 0.5);
+    trailUniforms.uMove.value.set(
+      rubbing ? THREE.MathUtils.clamp(state.pointerVX * 0.9, -2, 2) : 0,
+      rubbing ? THREE.MathUtils.clamp(-state.pointerVY * 0.9, -2, 2) : 0,
+    );
+    if (!rubbing) trailUniforms.uPoint.value.set(-10, -10);
+    trail.step(dt);
+
     let anyVisible = false;
     let launchP = 0;
     let portalFrame = null;
@@ -1195,11 +1353,34 @@ export async function createWorkIceField(host, root, ids) {
         // 공처럼 가볍게 보여서, 무거운 덩어리가 천천히 기울며 지나가는 정도로 줄였다.
         const roll = travel * Math.PI * 2 * 0.32;
         const axis = item.config.rollAxis;
-        const inertia = state.velocity * 0.24;
-        item.group.rotation.x = base[0] + roll * axis[0] + state.pointerY * 0.045 * focus * (1 - launchProgress) + inertia * axis[0];
-        item.group.rotation.y = base[1] + roll * axis[1] + Math.sin(time * 0.2 + index * 1.7) * 0.035 * focus * (1 - launchProgress) + state.pointerX * 0.055 * focus * (1 - launchProgress) + inertia * axis[1];
-        item.group.rotation.z = base[2] + roll * axis[2] + inertia * axis[2] + launchProgress * 0.12;
-        item.group.position.y += Math.sin(time * 0.46 + index * 1.4) * 1.6 * focus * (1 - launchProgress);
+        const hold = focus * (1 - launchProgress);
+        // 커서 쪽으로 무겁게 고개를 돌린다. 스프링이라 멈출 때 살짝 지나쳤다 돌아오며 자리를 잡는다.
+        const lookX = state.pointerInside ? state.pointerY * 0.2 : 0;
+        const lookY = state.pointerInside ? state.pointerX * 0.28 : 0;
+        const tilt = item.tilt;
+        spring(tilt.x, lookX * hold, 26, 7.5, dt);
+        spring(tilt.y, lookY * hold, 26, 7.5, dt);
+        // 얼음 위를 문지르면 그 방향으로 밀려 흔들린다(가로로 밀면 y축, 세로로 밀면 x축)
+        if (item.touching) {
+          tilt.y.v += THREE.MathUtils.clamp(state.pointerVX, -6, 6) * 0.9 * dt * hold;
+          tilt.x.v += THREE.MathUtils.clamp(state.pointerVY, -6, 6) * 0.7 * dt * hold;
+          tilt.z.v -= THREE.MathUtils.clamp(state.pointerVX, -6, 6) * 0.25 * dt * hold;
+        }
+        spring(tilt.z, 0, 22, 6.5, dt);
+        // 스크롤 관성도 순간값 대신 스프링을 거쳐, 멈출 때 한 번 흔들리고 가라앉는다
+        spring(item.inertia, state.velocity * 0.24, 18, 6, dt);
+        const inertia = item.inertia.x;
+        // 떠 있는 물체의 느린 흔들림 — 서로 다른 주기를 섞어 기계적으로 반복되지 않게 한다
+        const swayX = (Math.sin(time * 0.31 + index * 2.1) * 0.6 + Math.sin(time * 0.17 + index) * 0.4) * 0.028;
+        const swayY = (Math.sin(time * 0.23 + index * 1.7) * 0.6 + Math.sin(time * 0.13 + index * 0.6) * 0.4) * 0.045;
+        item.group.rotation.x = base[0] + roll * axis[0] + tilt.x.x + swayX * hold + inertia * axis[0];
+        item.group.rotation.y = base[1] + roll * axis[1] + tilt.y.x + swayY * hold + inertia * axis[1];
+        item.group.rotation.z = base[2] + roll * axis[2] + tilt.z.x + inertia * axis[2] + launchProgress * 0.12;
+        // 둥실 뜬 높이와, 커서 쪽으로 아주 조금 끌려가는 시차
+        spring(item.drift.x, state.pointerInside ? state.pointerX * 14 : 0, 12, 5.5, dt);
+        spring(item.drift.y, state.pointerInside ? -state.pointerY * 9 : 0, 12, 5.5, dt);
+        item.group.position.x += item.drift.x.x * hold;
+        item.group.position.y += (Math.sin(time * 0.46 + index * 1.4) * 3.2 + item.drift.y.x) * hold;
       }
 
       // 마우스가 얼음 표면에 닿은 지점을 표본 좌표로 옮겨 격자를 그 주변만 밝힌다.
@@ -1214,6 +1395,7 @@ export async function createWorkIceField(host, root, ids) {
           item.scanHit.copy(item.group.worldToLocal(hit.point.clone()));
         }
       }
+      item.touching = touching;
       if (touching && uniforms.uStrength.value < 0.05) uniforms.uHit.value.copy(item.scanHit);
       else uniforms.uHit.value.lerp(item.scanHit, touching ? Math.min(1, dt * 14) : 0);
       uniforms.uStrength.value = damp(uniforms.uStrength.value, touching ? 1 : 0, touching ? 6 : 2.4, dt);
@@ -1268,6 +1450,16 @@ export async function createWorkIceField(host, root, ids) {
       state.launching = launching;
     },
     setPointer(x, y) {
+      const at = performance.now();
+      const gap = (at - state.pointerAt) / 1000;
+      if (state.pointerInside && gap > 0.001 && gap < 0.2) {
+        // 이벤트 간격이 들쭉날쭉해도 튀지 않게 순간 속도를 부드럽게 섞는다
+        const vx = (x - (ndc.x * 0.5)) / gap;
+        const vy = (y - (-ndc.y * 0.5)) / gap;
+        state.pointerVX += (vx - state.pointerVX) * 0.35;
+        state.pointerVY += (vy - state.pointerVY) * 0.35;
+      }
+      state.pointerAt = at;
       state.pointerX = clamp01(x * 0.5 + 0.5) * 2 - 1;
       state.pointerY = clamp01(y * 0.5 + 0.5) * 2 - 1;
       ndc.set(x * 2, -y * 2);
@@ -1305,6 +1497,7 @@ export async function createWorkIceField(host, root, ids) {
       });
       smokeTexture.dispose();
       backdropTexture.dispose();
+      trail.dispose();
       composer.dispose();
       envTarget.texture.dispose();
       envTarget.dispose();

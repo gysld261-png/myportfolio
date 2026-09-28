@@ -131,15 +131,15 @@ export const CASES = {
     ],
     /* 케이스 스터디 보드 — Figma '왈가왈봇(개인)' 파일의 '목업' 페이지에서 내보낸다.
        사이트는 무채색 액자, 보드는 프로젝트 컬러. 보드를 고치면 같은 이름으로 다시 내보내 덮어쓰면 된다.
-       2x(2880px)로 내보내 WebP 로 줄여 넣었다.
-       TODO: 07 Closing 은 회고를 채운 뒤 추가한다 (지금은 자리 표시 박스가 남아 있어 뺐다). */
+       16:9 슬라이드(2000×1125)를 WebP 로 넣었다. */
     blocks: [
-      { type: 'full', src: '/cases/walga/boards/01-cover.webp', width: 2880, height: 1920, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요' },
-      { type: 'full', src: '/cases/walga/boards/02-problem.webp', width: 2880, height: 2240, alt: '문제 — 설문 33명 중 60.6%가 AI 판단을 정답처럼 받아들이기 어렵고, 45.5%가 AI와 사람의 판단 차이를 궁금해하며, 42.2%가 갈등 공개를 부담스러워했다' },
-      { type: 'full', src: '/cases/walga/boards/03-principles.webp', width: 2880, height: 2360, alt: '설계 원칙 — 판단 근거 제공, 다양한 관점 비교, 참여 범위 선택, 결과까지의 연결 — 과 사용자 흐름' },
-      { type: 'full', src: '/cases/walga/boards/04-plaza.webp', width: 2880, height: 2120, alt: '배심원 광장 — 명판관 랭킹, 카테고리 필터, 투표 중 배지' },
-      { type: 'full', src: '/cases/walga/boards/05-submit.webp', width: 2880, height: 2640, alt: '사건 접수 — 작성, 요약 확인, AI 1심과 공개 범위, 접수 완료' },
-      { type: 'full', src: '/cases/walga/boards/06-vote.webp', width: 2880, height: 2360, alt: '사건 상세와 투표 — AI 핵심요약, 네 가지 관점 투표, 1심과 2심 비교' },
+      { type: 'full', src: '/cases/walga/boards/01-cover.webp', width: 2000, height: 1125, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요. 역할 PM·IA·UI Design·Frontend, 담당 배심원 광장·사건 접수·사건 상세·투표, 2026' },
+      { type: 'full', src: '/cases/walga/boards/02-problem.webp', width: 2000, height: 1125, alt: '문제 — 판단을 비교하고 싶지만 비교할 곳이 없었다. 설문 31명 중 51.6%가 AI 답변에서 양쪽 입장의 균형을, 45.2%가 AI와 배심원 판단이 다를 때 이유를 궁금해했고, 58.6%가 개인적인 상황을 말하기 부담스러워했다' },
+      { type: 'full', src: '/cases/walga/boards/03-principles.webp', width: 2000, height: 1125, alt: '설계 원칙 — 판단 근거 제공, 다양한 관점 비교, 참여 범위 선택, 결과까지의 연결 — 과 사례 탐색부터 후일담까지의 사용자 흐름' },
+      { type: 'full', src: '/cases/walga/boards/04-plaza.webp', width: 2000, height: 1125, alt: '배심원 광장 — 이달의 명판관 랭킹, 정렬 필터, 투표 중 배지' },
+      { type: 'full', src: '/cases/walga/boards/05-submit.webp', width: 2000, height: 1125, alt: '사건 접수 — 사건 작성, 요약 확인, AI 1심과 공개 범위, 접수 완료' },
+      { type: 'full', src: '/cases/walga/boards/06-vote.webp', width: 2000, height: 1125, alt: '사건 상세와 투표 — 쟁점 확인, 네 가지 관점 선택, 24시간 투표 방식' },
+      { type: 'full', src: '/cases/walga/boards/07-result.webp', width: 2000, height: 1125, alt: '1심·2심 비교 — 판단 결과를 한눈에, 왜 달랐는지, 선택지별 투표 분포' },
     ],
   },
 };
