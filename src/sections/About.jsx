@@ -163,7 +163,7 @@ function ChamberVisual({ type }) {
 
 /**
  * 관찰 지도 — MAIN 의 눈밭 밑. 장면은 lib/aboutUnderScene 이 그리고, 여기서는
- * 깊이 눈금·눈가루(2D 오버레이), 눈에 반쯤 묻힌 키워드 글자의 자리, 하강, 방 안 바닥 연기를 맡는다.
+ * 깊이 눈금(2D 오버레이), 키워드 덩어리를 덮는 버튼의 자리, 하강, 방 안 바닥 연기를 맡는다.
  *
  *   하강    키워드를 고르면 카메라가 단면을 따라 깊은 어둠까지 내려가고, 거기서 방의 전등이 켜진다.
  *           눈밭과 하늘이 위로 빠져나가고 오른쪽 깊이 눈금이 흘러 올라간다
@@ -192,7 +192,7 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 function useUnderSnow(phase, selected) {
   const hostRef = useRef(null);            // three 장면이 들어갈 자리
-  const overlayRef = useRef(null);         // 깊이 눈금·눈가루
+  const overlayRef = useRef(null);         // 깊이 눈금
   const fogRef = useRef(null);             // 방 안 바닥 연기
   const nodeRefs = useRef({});
   const hoverRef = useRef(null);           // 커서나 포커스가 머문 키워드
@@ -225,7 +225,6 @@ function useUnderSnow(phase, selected) {
     let fogAmount = 0;
     let fogDrawn = false;
     const glow = Object.fromEntries(Object.keys(KEYS).map((id) => [id, 0.5]));
-    const puffs = {};                        // 글자가 떠오를 때 흩날리는 눈가루
     let W = 0; let H = 0; let dpr = 1;
     let descent = 0;
     let raf = 0;
@@ -303,7 +302,7 @@ function useUnderSnow(phase, selected) {
       const drop = e * H * 2.6;
       scene.render(dt, { glow, drop, look: { x: pointer.sx, y: pointer.sy }, mist: reduced ? 0 : 0.7 + 0.4 * stir });
 
-      // 오버레이 — 깊이 눈금과 눈가루
+      // 오버레이 — 깊이 눈금
       octx.setTransform(dpr, 0, 0, dpr, 0, 0);
       octx.clearRect(0, 0, W, H);
       octx.lineCap = 'round';
@@ -333,10 +332,10 @@ function useUnderSnow(phase, selected) {
         octx.beginPath(); octx.moveTo(ax, Math.max(0, ay)); octx.lineTo(ax, H); octx.stroke();
       }
 
-      // 키워드 글자 — 넓은 화면에선 버튼 아래 끝을 지표선에 맞춘다. 버튼이 그 아래를 잘라
-      // 글자 아랫부분이 눈에 묻힌 것처럼 보인다(about.css). 좁은 화면에선 눈 속 자리에 그대로 둔다
+      // 키워드 버튼 — 넓은 화면에선 지표선에 맞춘다(덩어리는 그 위, 이름표는 바로 아래).
+      // 좁은 화면에선 눈 속 덩어리 자리에 둔다(about.css)
       const wide = isWide();
-      // 넓은 화면 — 글자 폭을 재서 다섯 단어 사이의 틈이 똑같도록 가로 자리를 정한다.
+      // 넓은 화면 — 버튼 폭을 재서 다섯 덩어리 사이의 틈이 똑같도록 가로 자리를 정한다.
       // 가운데 정렬로 모으고, 틈은 너무 좁거나 넓지 않게 묶어 둔다
       if (wide) {
         const order = Object.keys(KEYS).sort((a, b) => KEYS[a].wide[0] - KEYS[b].wide[0]);
@@ -359,34 +358,10 @@ function useUnderSnow(phase, selected) {
         const wy = (py / H) * 100 + WORLD_OFFSET.y;
         el.style.translate = `${(((wx - item.map.x) * W) / 100).toFixed(1)}px ${(((wy - item.map.y) * H) / 100).toFixed(1)}px`;
 
-        // 글자가 떠오를 때 눈가루가 조금 흩날린다
-        const rising = wide && hover === item.id;
-        const puff = puffs[item.id] || (puffs[item.id] = { on: false, bits: [] });
-        if (rising && !puff.on && !reduced) {
-          const w = el.offsetWidth * 0.8;
-          for (let n = 0; n < 14; n += 1) {
-            puff.bits.push({
-              x: px + (Math.random() - 0.5) * w,
-              y: py,
-              vx: (Math.random() - 0.5) * 26,
-              vy: -18 - Math.random() * 34,
-              life: 0,
-              max: 0.7 + Math.random() * 0.7,
-              r: 0.6 + Math.random() * 1.1,
-            });
-          }
-        }
-        puff.on = rising;
-        puff.bits = puff.bits.filter((b) => {
-          b.life += dt;
-          if (b.life > b.max) return false;
-          b.vy += 30 * dt;                     // 가볍게 올라갔다 천천히 내려앉는다
-          b.x += b.vx * dt; b.y += b.vy * dt;
-          const t = b.life / b.max;
-          octx.fillStyle = `rgba(232, 242, 245, ${(1 - t) * 0.7})`;
-          octx.beginPath(); octx.arc(b.x, b.y, b.r, 0, Math.PI * 2); octx.fill();
-          return true;
-        });
+        // 버튼이 덩어리를 덮도록 크기를 맞춘다
+        const size = scene.blockSize(item.id);
+        el.style.setProperty('--obj-w', `${size.w.toFixed(0)}px`);
+        el.style.setProperty('--obj-h', `${size.h.toFixed(0)}px`);
       });
     };
 

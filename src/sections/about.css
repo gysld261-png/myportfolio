@@ -62,15 +62,22 @@
   will-change: translate;
   transition: color 280ms ease, opacity 440ms ease, filter 440ms ease, transform 520ms var(--ease);
 }
-/* 지도 — 키워드 글자가 지표선 위에 서고, 아랫부분이 눈에 묻힌다.
-   버튼의 아래 끝이 지표선(About.jsx 가 매 프레임 맞춘다)이고, overflow 로 그 아래를 잘라 낸다.
-   가리키면 글자가 눈을 털고 떠올라 전부 드러난다. 모든 키워드가 같은 크기다 */
+/* 지도 — 키워드마다 눈밭에 반쯤 묻힌 드라이아이스 덩어리(aboutUnderScene)가 있고, 버튼은 그 덩어리를 덮는다.
+   넓은 화면: 버튼 아래 끝에서 34px 위가 지표선(About.jsx 가 매 프레임 맞춘다). 덩어리는 지표선 위,
+   이름표는 지표선 바로 아래 눈 속에 작게 달린다. 크기는 덩어리 크기(--obj-w·--obj-h)를 따른다 */
 :is(.about--map, .about--travel, .about--return) .about-node {
-  display: block;
-  padding: 20px 6px 0;
-  overflow: hidden;
-  color: rgba(241, 242, 239, .88);
-  transform: translate(-50%, -100%);
+  display: grid;
+  grid-template-columns: auto auto;
+  align-content: end;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 7px;
+  min-width: var(--obj-w, 120px);
+  height: calc(var(--obj-h, 110px) + 34px);
+  padding: 0 0 6px;
+  overflow: visible;
+  color: rgba(241, 242, 239, .8);
+  transform: translate(-50%, calc(-100% + 34px));
   transition: color 280ms ease;
 }
 :is(.about--map, .about--travel, .about--return) .about-node::before,
@@ -78,39 +85,24 @@
 :is(.about--map, .about--travel, .about--return) .about-node > i { display: none; }
 :is(.about--map, .about--travel, .about--return) .about-node strong,
 :is(.about--map, .about--travel, .about--return) .about-node--identity strong {
-  display: block;
-  font: 500 clamp(20px, 2.6vw, 38px)/1 var(--display);
-  letter-spacing: .025em;
-  /* 반쯤 묻힘 — 글자 높이의 30% 가 지표선 아래로 내려가 잘린다. 단어는 한눈에 읽힌다 */
-  transform: translateY(30%);
-  transition: transform 760ms cubic-bezier(.16, 1, .3, 1);
+  font: 500 clamp(11px, .95vw, 13px)/1 var(--display);
+  letter-spacing: .18em;
 }
-:is(.about--map, .about--travel, .about--return) .about-node__index {
-  position: absolute;
-  top: 4px;
-  left: 6px;
-}
+:is(.about--map, .about--travel, .about--return) .about-node__index { position: static; font-size: 9px; }
 :is(.about--map, .about--travel, .about--return) .about-node__visited {
   position: absolute;
-  top: 4px;
-  right: 6px;
-  left: auto;
-  transform: none;
+  top: auto;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
 }
-/* 떠오름 — 가리키거나 고르면 눈 위로 올라온다 */
+/* 가리키거나 고르면 이름표가 밝아진다 — 덩어리의 서리·연기 반응은 장면이 맡는다 */
 .about--map .about-node:hover,
 .about--map .about-node:focus-visible,
 .about-node.is-selected { color: var(--accent-bright); }
-.about--map .about-node:hover strong,
-.about--map .about-node:focus-visible strong,
-.about-node.is-selected strong { transform: translateY(-6%); }
-/* 좁은 화면 — 눈 속 깊이별로 흩어 두고 묻지 않는다(About.jsx 의 KEYS.tall) */
+/* 좁은 화면 — 덩어리는 눈 속 깊이별 제자리에 박혀 있다(About.jsx 의 KEYS.tall). 버튼은 덩어리를 가운데에 둔다 */
 @media (max-aspect-ratio: 1/1) {
-  :is(.about--map, .about--travel, .about--return) .about-node { overflow: visible; transform: translate(-50%, -50%); }
-  :is(.about--map, .about--travel, .about--return) .about-node strong { transform: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  :is(.about--map, .about--travel, .about--return) .about-node strong { transition: none; }
+  :is(.about--map, .about--travel, .about--return) .about-node { transform: translate(-50%, calc(-50% + 17px)); }
 }
 
 /* 눈밭 단면(three) 위에 깊이 눈금·눈가루(2D)를 겹친다. 둘 다 키워드 버튼(.about-world)보다 아래 */

@@ -1,5 +1,8 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { makeNoise, createSky, createTerrain, createSnowfall } from './heroEnvironment';
+import { createIceShard } from './iceBlockScene';
+import { ICE_ATTENUATION, createTrail, createWorkIceMaterial, createSmoke, createSmokeTexture } from './workIceScene';
 
 /* ABOUT 지도 — MAIN 의 눈밭을 칼로 자른 단면.
 
@@ -8,13 +11,27 @@ import { makeNoise, createSky, createTerrain, createSnowfall } from './heroEnvir
    거의 수평하게 쌓이고, 색은 청록빛 없이 불투명한 흰회색이다(푸른빛은 물 얼음·바닷속으로 읽힌다).
    단면의 윗선은 MAIN 눈밭의 실제 굴곡(같은 노이즈, 같은 시드)을 따르고, 그 위로 승화 연기가 낮게 흐른다.
 
-   키워드는 층 속에 박힌 하얀 드라이아이스 조각이고, 조각 위로 짧은 금이 각지게 꺾인다.
+   키워드마다 PORTFOLIO 얼음과 같은 재질의 드라이아이스 덩어리가 눈밭에 반쯤 묻혀 있다(BLOCKS).
    카메라는 단면(z=0)을 정면으로 본다. 단위는 MAIN 과 같이 "z=0 에서 1 = 1px" 이라
    단면 위의 좌표가 곧 화면 px 이다(화면 가운데가 원점, y 는 위가 +). */
 
 const FOV = 35; // MAIN 히어로와 같다
 const FACE_DEPTH = 5200; // 단면이 내려가는 깊이 (px)
 const GLOW = new THREE.Vector3(0.38, 0.87, 0.84);
+
+/* 키워드마다 눈밭에 반쯤 묻힌 드라이아이스 덩어리 — PORTFOLIO 얼음과 같은 재질·연기.
+   shape: 파편 크기(가로·세로·깊이), seed: 깎인 모양, rot: 기본 기울기, size: 덩어리 크기 비율, sink: 묻힌 정도(0~1).
+   비슷한 덩어리가 한 줄로 서면 묘비처럼 읽혀서, 모양(낮고 넓은·가늘고 긴·누운)·기울기·묻힌 깊이를 확 다르게 둔다.
+   ABOUT 이 가장 크다. 나중에 컬러 아이콘을 속에 넣을 자리다 */
+const BLOCKS = {
+  observe: { shape: [1.7, 1.05, 1.25], seed: 11, rot: [0.22, 0.7, -0.18], size: 0.66, sink: 0.42 },
+  structure: { shape: [0.85, 2.0, 0.9], seed: 19, rot: [0.06, -0.3, 0.26], size: 0.98, sink: 0.3 },
+  hyomin: { shape: [1.45, 1.75, 1.3], seed: 3, rot: [0.16, -0.5, -0.1], size: 1.12, sink: 0.26 },
+  build: { shape: [1.55, 1.25, 1.5], seed: 29, rot: [0.35, 0.95, 0.22], size: 0.74, sink: 0.36 },
+  detail: { shape: [1.05, 1.6, 1.0], seed: 37, rot: [-0.08, -0.85, -0.3], size: 0.86, sink: 0.34 },
+};
+const FROST_REST = 0.92;   // 평소 — 서리가 껴 뿌옇다
+const FROST_CLEAR = 0.38;  // 가리키면 — 서리가 걷혀 속이 비친다
 
 const MIST_VERT = `
 varying vec3 vWorld;
@@ -222,6 +239,42 @@ export function createUnderSnow(host, { keys }) {
   moon.position.set(900, 1400, -2200);
   scene.add(moon);
 
+  // 드라이아이스 덩어리 — MAIN·PORTFOLIO 얼음과 같은 환경광·조명·재질
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const envTarget = pmrem.fromScene(new RoomEnvironment(), 0.04);
+  scene.environment = envTarget.texture;
+  const keyLight = new THREE.DirectionalLight(0xffffff, 2.15);
+  keyLight.position.set(-420, 560, 720);
+  scene.add(keyLight);
+  const rimLight = new THREE.DirectionalLight(0xdce4e8, 2.8);
+  rimLight.position.set(520, 120, -280);
+  scene.add(rimLight);
+  scene.add(new THREE.HemisphereLight(0xe2e7e9, 0x1c1f21, 0.62));
+  const trail = createTrail(renderer);           // 얼음 재질이 읽는 손자국 버퍼 — 여기선 문지르지 않는다
+  trail.uniforms.uPoint.value.set(-10, -10);
+  const smokeTexture = createSmokeTexture();
+  const blocks = Object.keys(keys).map((id) => {
+    const cfg = BLOCKS[id];
+    const geometry = createIceShard({ width: cfg.shape[0], height: cfg.shape[1], depth: cfg.shape[2], seed: cfg.seed });
+    const material = createWorkIceMaterial(trail.sample);
+    material.opacity = 1;                        // 공용 재질은 0 에서 시작한다(등장 연출용)
+    material.userData.ice.uTouchFog.value = 0;
+    material.userData.ice.uFrost.value = FROST_REST;
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 2;
+    const group = new THREE.Group();
+    group.add(mesh);
+    scene.add(group);
+    // 연기는 덩어리를 따라가되 같이 구르지 않도록 따로 둔다
+    const smoke = createSmoke(cfg.shape, cfg.seed, smokeTexture, { count: 18, strength: 1.2, spread: 1.3, wisps: 24 });
+    // 공용 연기는 깊이 검사를 끄고 그린다. 여기선 덩어리가 단면 뒤 눈밭에 있어서, 켜 두어야
+    // 흘러내린 연기가 단면(지층)에 가려 눈 위에만 보인다 — 끄면 땅속에 연기가 있는 것처럼 보였다
+    smoke.group.traverse((node) => { if (node.material) node.material.depthTest = true; });
+    scene.add(smoke.group);
+    return { id, cfg, group, geometry, material, smoke, spin: 0, lift: 0 };
+  });
+  let blockUnit = 100;                           // 덩어리 높이(px) — 화면 크기에 맞춘다
+
   // 단면 — 윗선은 눈밭의 z=0 높이(heroEnvironment createTerrain 의 dunes 항)를 따른다
   const duneAt = (x) => (noise(x / 900 + 3.1, 1.7, 4) - 0.5) * 70;
   const faceGeometry = new THREE.PlaneGeometry(1, 1, 240, 1);
@@ -312,6 +365,10 @@ export function createUnderSnow(host, { keys }) {
     mist.scale.set(faceW, 400, 1);
     mist.position.set(0, surface + 160, 2);
     mistMaterial.uniforms.uSurface.value = surface;
+    trail.resize(width, height);
+    blockUnit = width < height
+      ? THREE.MathUtils.clamp(width * 0.15, 40, 64)
+      : THREE.MathUtils.clamp(height * 0.17, 70, 130);
     layoutKeys();
   };
   const observer = new ResizeObserver(resize);
@@ -337,6 +394,39 @@ export function createUnderSnow(host, { keys }) {
         const k = keyWorld[id];
         keyUniform[i].set(k.x, k.y, glow[id] || 0, 0);
       });
+
+      // 덩어리 — 평소엔 서리가 껴 천천히 돌고 바닥에서 연기가 흐른다.
+      // 가리키면(glow 가 오르면) 서리가 걷혀 투명해지고, 연기가 피어오르고, 살짝 떠오른다
+      trail.step(dt);
+      const narrow = width < height;
+      blocks.forEach((b) => {
+        const k = keyWorld[b.id];
+        if (!k) return;
+        const g = glow[b.id] ?? 0.5;
+        const hover = THREE.MathUtils.clamp((g - 0.5) / 0.5, 0, 1);
+        const scale = (blockUnit * b.cfg.size) / b.cfg.shape[1];
+        const px = blockUnit * b.cfg.size;
+        b.lift = THREE.MathUtils.damp(b.lift, hover * px * 0.12, 5, dt);
+        b.spin += dt * (0.16 + hover * 0.7);
+        // 넓은 화면: 지표선 뒤 눈밭에 아랫부분이 묻힌다(단면과 눈밭이 가린다)
+        // 좁은 화면: 눈 속 제자리에 박혀 뒤쪽 절반이 단면 속에 들어간다
+        const x = k.x;
+        const y = narrow ? k.y : surface + duneAt(x) + px * (0.5 - b.cfg.sink);
+        const z = narrow ? 10 : -px * 0.95;   // 덩어리 앞면이 단면 앞으로 튀어나와 이름표를 가리지 않게
+        b.group.position.set(x, y + b.lift + Math.sin(time * 0.5 + b.cfg.seed) * 1.5, z);
+        b.group.scale.setScalar(scale);
+        b.group.rotation.set(
+          b.cfg.rot[0] + Math.sin(time * 0.31 + b.cfg.seed) * 0.03,
+          b.cfg.rot[1] + b.spin,
+          b.cfg.rot[2],
+        );
+        b.material.attenuationDistance = ICE_ATTENUATION * scale;
+        b.material.userData.ice.uFrost.value = THREE.MathUtils.lerp(FROST_REST, FROST_CLEAR, hover);
+        b.smoke.group.position.copy(b.group.position);
+        b.smoke.group.scale.setScalar(scale);
+        // 다른 키워드로 내려가는 동안(glow 가 바닥)엔 연기도 잦아든다
+        b.smoke.update(dt * (1 + hover), THREE.MathUtils.clamp(g / 0.5, 0.25, 1), 0, hover * 0.9, null);
+      });
       renderer.render(scene, camera);
     },
     /** 단면 위의 점 → 화면 px */
@@ -353,6 +443,13 @@ export function createUnderSnow(host, { keys }) {
       k.y = surface + duneAt(x) - k.depth * height;
     },
     surfaceAt(x) { return surface + duneAt(x); },
+    /** 키워드 덩어리의 화면 크기(px) — 버튼이 덩어리를 덮도록 */
+    blockSize(id) {
+      const cfg = BLOCKS[id];
+      if (!cfg) return { w: 0, h: 0 };
+      const h = blockUnit * cfg.size;
+      return { w: h * (cfg.shape[0] / cfg.shape[1]) * 1.2, h: h * 1.1 };
+    },
     size() { return { width, height }; },
     dispose() {
       observer.disconnect();
@@ -365,6 +462,15 @@ export function createUnderSnow(host, { keys }) {
       faceMaterial.dispose();
       mistGeometry.dispose();
       mistMaterial.dispose();
+      blocks.forEach((b) => {
+        b.geometry.dispose();
+        b.material.dispose();
+        b.smoke.dispose();
+      });
+      smokeTexture.dispose();
+      trail.dispose();
+      envTarget.dispose();
+      pmrem.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },
