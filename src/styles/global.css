@@ -62,7 +62,9 @@ body {
 .smoke-passage {
   position: fixed;
   inset: 0;
-  z-index: 35;               /* nav(40) 아래, 무대 위 */
+  /* nav(40) 위 — 연기가 헤더까지 삼켰다가, 걷히면서 헤더가 다시 드러난다.
+     MAIN 의 SmokeVeil 도 같은 높이라 화면이 바뀌는 순간 헤더만 튀어나오지 않는다 */
+  z-index: 45;
   pointer-events: none;
 }
 .smoke-passage canvas {
@@ -74,13 +76,14 @@ body {
 /* MAIN 에서만 기준선이 지나간 아래 영역부터 연기가 따라온다.
    ABOUT 전환용 SmokePassage 는 기존처럼 화면 전체를 사용한다. */
 .smoke-veil {
-  z-index: 8;
+  /* 아래에서 차오르는 경계(--smoke-front)가 맨 위에 닿으면 헤더까지 덮는다 */
+  z-index: 45;
   clip-path: inset(calc(100% - var(--smoke-front, 0%)) 0 0 0);
   will-change: clip-path;
 }
 /* WebGL 이 없거나 모션 축소 — 연기 색에서 짧게 걷힌다 */
 .smoke-passage--plain {
-  background: rgb(222, 230, 233);
+  background: rgb(26, 29, 31);   /* smokeVeil.js 의 어두운 연기 바탕과 같은 톤 */
   animation: smoke-plain 460ms linear both;
 }
 @keyframes smoke-plain { from { opacity: 1; } to { opacity: 0; } }

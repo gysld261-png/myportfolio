@@ -27,6 +27,13 @@ const routeFor = (view) => {
 const WHEEL_SCALE = 1 / 1150;
 /* 승화가 목표값을 따라가는 시간 상수. 클수록 더 미끄러진다. */
 const EXIT_TAU = 0.34;
+/* 휠을 멈췄을 때 이보다 많이 밀었으면 ABOUT 까지 넘긴다 (연기가 화면 대부분을 덮는 지점) */
+const WHEEL_COMMIT = 0.72;
+/* ABOUT 지도에서 이만큼 위로 밀어야 MAIN 으로 돌아간다 — 트랙패드 한 번 튕긴 것으로는 넘어가지 않게 */
+const BACK_THRESHOLD = 160;
+const BACK_THRESHOLD_TOUCH = 90;
+/* 지도 화면일 때만 되돌아간다. 방 안에서의 스크롤은 방 내용을 읽는 데 쓴다 */
+const aboutOnMap = () => Boolean(document.querySelector('.about--map'));
 
 /**
  * 세로 문서가 아니라 하나의 고정된 전시 공간이다.
@@ -54,6 +61,8 @@ export default function App() {
   const exitTimer = useRef(0);
   const mainReadyAt = useRef(0);
   const touchPrev = useRef(null);
+  const wheelIdle = useRef(0);      // 휠이 멈춘 뒤 끝까지 넘길지 판단하는 타이머
+  const backAccum = useRef(0);      // ABOUT 에서 위로 민 양
 
   /* 프로젝트를 누르는 순간 모듈 다운로드·대형 이미지 디코딩·셰이더 컴파일이 한꺼번에
      겹치지 않도록, 메인 화면의 유휴 시간에 다음 장면과 표지를 미리 준비한다. */
@@ -98,6 +107,7 @@ export default function App() {
 
     setContactOpen(false);
     setCurrent(id);
+    backAccum.current = 0;
     setArrival(id === 'about' && via === 'ice' ? 'ice' : null);
     setPassage(id === 'about' && via === 'ice');
     if (id === 'main' && rewind) {
@@ -225,9 +235,28 @@ export default function App() {
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
     const delta = clamp(event.deltaY * unit, -180, 180);
 
+    if (current === 'about') {
+      if (delta < 0 && aboutOnMap()) {
+        backAccum.current += -delta;
+        if (backAccum.current > BACK_THRESHOLD) go('main', { rewind: true });
+      } else {
+        backAccum.current = 0;
+      }
+      return;
+    }
     if (current !== 'main') return;
     if (performance.now() - mainReadyAt.current < 550) return;
     exitTarget.current = clamp(exitTarget.current + delta * WHEEL_SCALE, 0, 1);
+
+    // 휠을 멈췄을 때 연기가 이미 화면 대부분을 덮었다면 끝까지 넘긴다.
+    // 안 그러면 0.9 언저리에서 손을 떼는 순간 연기만 가득한 화면에 갇혀 '고장 났나?' 싶어진다.
+    // 덜 밀었을 때는 그 자리에 둔다 — 승화를 중간에서 멈춰 보는 것도 이 화면의 재미다.
+    // 위로 되감는 중이었다면 넘기지 않는다
+    window.clearTimeout(wheelIdle.current);
+    if (delta <= 0) return;
+    wheelIdle.current = window.setTimeout(() => {
+      if (exitTarget.current > WHEEL_COMMIT && exitTarget.current < 1) exitTarget.current = 1;
+    }, 200);
   }, [contactOpen, current, go, intro]);
 
   const onTouchStart = useCallback((event) => {
@@ -240,6 +269,15 @@ export default function App() {
     const delta = touchPrev.current - y;
     touchPrev.current = y;
 
+    if (current === 'about') {
+      if (delta < 0 && aboutOnMap()) {
+        backAccum.current += -delta;
+        if (backAccum.current > BACK_THRESHOLD_TOUCH) go('main', { rewind: true });
+      } else {
+        backAccum.current = 0;
+      }
+      return;
+    }
     if (current !== 'main') return;
     exitTarget.current = clamp(exitTarget.current + delta / 420, 0, 1);
   }, [current, go, intro]);

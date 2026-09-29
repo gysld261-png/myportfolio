@@ -163,7 +163,7 @@ function ChamberVisual({ type }) {
 
 /**
  * 관찰 지도 — MAIN 의 눈밭 밑. 장면은 lib/aboutUnderScene 이 그리고, 여기서는
- * 핀·깊이 눈금(2D 오버레이), 이름표 자리, 하강, 방 안 바닥 연기를 맡는다.
+ * 깊이 눈금·눈가루(2D 오버레이), 눈에 반쯤 묻힌 키워드 글자의 자리, 하강, 방 안 바닥 연기를 맡는다.
  *
  *   하강    키워드를 고르면 카메라가 단면을 따라 깊은 어둠까지 내려가고, 거기서 방의 전등이 켜진다.
  *           눈밭과 하늘이 위로 빠져나가고 오른쪽 깊이 눈금이 흘러 올라간다
@@ -171,24 +171,28 @@ function ChamberVisual({ type }) {
  *   복귀    방에서 돌아오면 깊은 곳에서 다시 지표로 떠오른다
  */
 const WORLD_OFFSET = { x: 80, y: 4 };   // 지도 화면일 때 .about-world 의 위치 (vw, vh)
-const STEM = 34;                         // 핀 줄기 길이 (px)
 const DESCEND = 1.6;                     // 내려가는 시간 (s) — travel 단계 길이
 const ASCEND = 1.1;                      // 떠오르는 시간 (s) — return 단계 길이
 const FOG_IN = 1.8;                      // 방에 닿은 뒤 바닥 연기가 차오르는 시간 (s)
 const DEG_PER_PX = 1.5 / 160;            // 깊이 눈금 — 160px 내려갈 때마다 1.5°C 차가워진다
-/* 키워드 결정의 자리 — [가로(지표 폭 대비 -1~1), 지표에서의 깊이(화면 높이 대비)] */
+/* 키워드 자리 — [가로(지표 폭 대비), 지표에서의 깊이(화면 높이 대비)]
+   넓은 화면: 다섯 단어가 지표선 위에 번호 순으로 한 줄로 서고, 아랫부분이 눈에 묻힌다.
+              깊이는 글자 밑에서 새어 나오는 빛의 자리라 지표 바로 아래다.
+   좁은 화면: 한 줄에 다 안 들어가서 눈 속 깊이별로 나눠 둔다(묻지 않고 다 보인다). */
 const KEYS = {
-  hyomin: { wide: [0.02, 0.27], tall: [0.1, 0.3] },
-  observe: { wide: [-0.8, 0.15], tall: [-0.9, 0.12] },
-  structure: { wide: [0.72, 0.19], tall: [0.8, 0.21] },
-  detail: { wide: [-0.42, 0.43], tall: [-0.7, 0.4] },
-  build: { wide: [0.4, 0.5], tall: [0.3, 0.5] },
+  observe: { wide: [-0.9, 0.03], tall: [-0.7, 0.12] },
+  structure: { wide: [-0.45, 0.03], tall: [0.62, 0.2] },
+  hyomin: { wide: [0, 0.03], tall: [-0.05, 0.3] },
+  build: { wide: [0.45, 0.03], tall: [0.55, 0.4] },
+  detail: { wide: [0.9, 0.03], tall: [-0.6, 0.5] },
 };
+/* 넓은 화면인지 — aboutUnderScene 의 layoutKeys 와 같은 기준 */
+const isWide = () => window.innerWidth >= window.innerHeight;
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
 function useUnderSnow(phase, selected) {
   const hostRef = useRef(null);            // three 장면이 들어갈 자리
-  const overlayRef = useRef(null);         // 핀·깊이 눈금
+  const overlayRef = useRef(null);         // 깊이 눈금·눈가루
   const fogRef = useRef(null);             // 방 안 바닥 연기
   const nodeRefs = useRef({});
   const hoverRef = useRef(null);           // 커서나 포커스가 머문 키워드
@@ -221,6 +225,7 @@ function useUnderSnow(phase, selected) {
     let fogAmount = 0;
     let fogDrawn = false;
     const glow = Object.fromEntries(Object.keys(KEYS).map((id) => [id, 0.5]));
+    const puffs = {};                        // 글자가 떠오를 때 흩날리는 눈가루
     let W = 0; let H = 0; let dpr = 1;
     let descent = 0;
     let raf = 0;
@@ -298,7 +303,7 @@ function useUnderSnow(phase, selected) {
       const drop = e * H * 2.6;
       scene.render(dt, { glow, drop, look: { x: pointer.sx, y: pointer.sy }, mist: reduced ? 0 : 0.7 + 0.4 * stir });
 
-      // 오버레이 — 핀과 깊이 눈금
+      // 오버레이 — 깊이 눈금과 눈가루
       octx.setTransform(dpr, 0, 0, dpr, 0, 0);
       octx.clearRect(0, 0, W, H);
       octx.lineCap = 'round';
@@ -316,8 +321,9 @@ function useUnderSnow(phase, selected) {
         octx.strokeStyle = `rgba(200, 226, 232, ${major ? 0.42 : 0.18})`;
         octx.lineWidth = 1;
         octx.beginPath(); octx.moveTo(sx - (major ? 14 : 7), sy); octx.lineTo(sx, sy); octx.stroke();
-        if (major && W >= 700) {
-          octx.fillStyle = depth === 0 ? 'rgba(157, 222, 215, .75)' : 'rgba(175, 194, 200, .5)';
+        // 지표(0) 라벨은 빼 둔다 — 같은 온도가 내비게이션에 있고, 지표선의 키워드와 겹친다
+        if (major && depth > 0 && W >= 700) {
+          octx.fillStyle = 'rgba(175, 194, 200, .5)';
           octx.fillText(`−${(78.5 + depth * DEG_PER_PX).toFixed(1)}°`, sx - 20, sy);
         }
       }
@@ -327,27 +333,60 @@ function useUnderSnow(phase, selected) {
         octx.beginPath(); octx.moveTo(ax, Math.max(0, ay)); octx.lineTo(ax, H); octx.stroke();
       }
 
-      // 핀 — 결정 자리의 작은 원과 위로 선 줄기. 이름표(버튼)가 줄기 끝에 달린다
+      // 키워드 글자 — 넓은 화면에선 버튼 아래 끝을 지표선에 맞춘다. 버튼이 그 아래를 잘라
+      // 글자 아랫부분이 눈에 묻힌 것처럼 보인다(about.css). 좁은 화면에선 눈 속 자리에 그대로 둔다
+      const wide = isWide();
+      // 넓은 화면 — 글자 폭을 재서 다섯 단어 사이의 틈이 똑같도록 가로 자리를 정한다.
+      // 가운데 정렬로 모으고, 틈은 너무 좁거나 넓지 않게 묶어 둔다
+      if (wide) {
+        const order = Object.keys(KEYS).sort((a, b) => KEYS[a].wide[0] - KEYS[b].wide[0]);
+        const widths = order.map((id) => nodeRefs.current[id]?.offsetWidth || 0);
+        const total = widths.reduce((sum, w) => sum + w, 0);
+        const room = W - 2 * Math.max(W * 0.085, 110);   // 오른쪽 깊이 눈금 라벨과 겹치지 않게 양쪽을 같게 비운다
+        const gap = Math.min(140, Math.max(20, (room - total) / (order.length - 1)));
+        let cursor = (W - total - gap * (order.length - 1)) / 2;
+        order.forEach((id, i) => {
+          scene.placeKey(id, cursor + widths[i] / 2 - W / 2);
+          cursor += widths[i] + gap;
+        });
+      }
       CHAMBERS.forEach((item) => {
         const k = scene.key(item.id);
-        if (!k) return;
-        // 핀은 조각 윗면에 꽂는다
-        const [px, py] = scene.toScreen(k.x, k.y + 11);
-        const lit = hover === item.id || (sel === item.id && ph === 'travel') ? 1 : 0.6;
-        const fade = ph === 'travel' && sel !== item.id ? 0.2 : 1;
-        octx.strokeStyle = `rgba(226, 240, 244, ${(0.55 * lit + 0.15) * fade})`;
-        octx.lineWidth = 1;
-        octx.beginPath(); octx.moveTo(px, py - 6); octx.lineTo(px, py - STEM); octx.stroke();
-        octx.strokeStyle = `rgba(236, 248, 250, ${(0.6 + 0.4 * lit) * fade})`;
-        octx.lineWidth = 1.3;
-        octx.fillStyle = '#0b0d0e';
-        octx.beginPath(); octx.arc(px, py, 4.2, 0, Math.PI * 2); octx.fill(); octx.stroke();
-
         const el = nodeRefs.current[item.id];
-        if (!el) return;
+        if (!k || !el) return;
+        const [px, py] = wide ? scene.toScreen(k.x, scene.surfaceAt(k.x)) : scene.toScreen(k.x, k.y);
         const wx = (px / W) * 100 + WORLD_OFFSET.x;
         const wy = (py / H) * 100 + WORLD_OFFSET.y;
         el.style.translate = `${(((wx - item.map.x) * W) / 100).toFixed(1)}px ${(((wy - item.map.y) * H) / 100).toFixed(1)}px`;
+
+        // 글자가 떠오를 때 눈가루가 조금 흩날린다
+        const rising = wide && hover === item.id;
+        const puff = puffs[item.id] || (puffs[item.id] = { on: false, bits: [] });
+        if (rising && !puff.on && !reduced) {
+          const w = el.offsetWidth * 0.8;
+          for (let n = 0; n < 14; n += 1) {
+            puff.bits.push({
+              x: px + (Math.random() - 0.5) * w,
+              y: py,
+              vx: (Math.random() - 0.5) * 26,
+              vy: -18 - Math.random() * 34,
+              life: 0,
+              max: 0.7 + Math.random() * 0.7,
+              r: 0.6 + Math.random() * 1.1,
+            });
+          }
+        }
+        puff.on = rising;
+        puff.bits = puff.bits.filter((b) => {
+          b.life += dt;
+          if (b.life > b.max) return false;
+          b.vy += 30 * dt;                     // 가볍게 올라갔다 천천히 내려앉는다
+          b.x += b.vx * dt; b.y += b.vy * dt;
+          const t = b.life / b.max;
+          octx.fillStyle = `rgba(232, 242, 245, ${(1 - t) * 0.7})`;
+          octx.beginPath(); octx.arc(b.x, b.y, b.r, 0, Math.PI * 2); octx.fill();
+          return true;
+        });
       });
     };
 
@@ -595,7 +634,7 @@ export default function About({ onGoMain, onOpenProject }) {
 
       <div className="about-map-intro">
         <p className="sys">ABOUT / UNDER THE SNOW 00</p>
-        <p>눈밭 아래, 다섯 개의 결정이 묻혀 있습니다.<br />하나를 골라 더 깊이 내려가 보세요.</p>
+        <p>눈밭에 다섯 개의 이야기가 묻혀 있습니다.<br />하나를 골라 그 아래로 내려가 보세요.</p>
       </div>
 
       <div className="about-hud" aria-hidden="true">
@@ -606,7 +645,7 @@ export default function About({ onGoMain, onOpenProject }) {
 
       <button type="button" className="about-back sys" onClick={onGoMain}>← MAIN</button>
       <p className="about-instruction sys">
-        {phase === 'map' && 'SELECT A CRYSTAL · CLICK TO DESCEND'}
+        {phase === 'map' && 'HOVER TO UNEARTH · CLICK TO DESCEND'}
         {phase === 'travel' && `FOLLOWING ${chamber?.label} SIGNAL`}
         {phase === 'impact' && 'IMPACT · LIGHTING CHAMBER'}
         {phase === 'reveal' && 'ESC · RETURN TO MAP'}

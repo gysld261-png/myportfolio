@@ -67,10 +67,15 @@ void main() {
   float alpha = smoothstep(0.0, 0.6 + sqrt(e) * 0.9, cover);
   alpha *= 1.0 - smoothstep(0.82, 1.0, uProgress);
 
-  // 빛을 머금은 연기 — 두꺼운 곳은 밝고, 옅어지는 가장자리는 살짝 그늘진다
-  vec3 lit = vec3(0.92, 0.945, 0.955);
-  vec3 shade = vec3(0.72, 0.77, 0.79);
-  vec3 color = mix(shade, lit, smoothstep(0.25, 0.8, d));
+  // 어둠 속에서 빛을 받은 연기 — 바탕은 페이지보다 조금 밝은 차콜이고, 두꺼운 결만 은빛으로 떠오른다.
+  // (예전엔 0.72~0.92 의 흰 연기라, 화면을 다 덮는 순간 어두운 사이트가 흰 벽으로 바뀌어 눈이 부셨다)
+  // 얇은 곳까지 결이 차도록 밝아지는 구간을 넓게 잡는다 — 너무 좁으면 두꺼운 덩어리만 남아 듬성듬성 비어 보인다
+  vec3 lit = vec3(0.6, 0.64, 0.66);
+  vec3 shade = vec3(0.19, 0.21, 0.225);
+  float body = smoothstep(0.2, 0.8, d);
+  vec3 color = mix(shade, lit, body);
+  // 가장 두꺼운 결에만 옅은 아이스 민트를 얹어 사이트 포인트 색과 잇는다
+  color += vec3(0.02, 0.06, 0.055) * smoothstep(0.7, 0.95, d);
   color *= mix(0.82, 1.0, alpha);
 
   gl_FragColor = vec4(color * alpha, alpha);

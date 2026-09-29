@@ -41,30 +41,44 @@ void main() {
   float aspect = uRes.x / uRes.y;
   vec2 p = vec2(uv.x * aspect, uv.y);
 
+  // 손으로 연기를 스윽 저었을 때 — 밀려서 휘지 않는다. 지나간 자리가 부드럽게 흩어지며 사라진다.
+  //   한 줄기   자국 점을 하나씩 찍지 않고, 앞뒤 점을 이은 선분까지의 거리로 이어진 띠를 만든다
+  //   가장자리  연기 결(느린 노이즈)로 경계를 흐리게 풀어, 칼로 벤 선이 생기지 않게 한다
+  //   사라짐    지나간 직후가 가장 옅고, 시간이 지나며 조금 넓게 번지면서 주변 연기가 흘러들어 메운다
+  // (예전 두 방식: 원으로 파내기 → 구멍이 줄지어 뚫림 / 좌표 밀기 → 결이 끌려가 정전기 난 머리처럼 됨)
+  vec2 drift = vec2(-uTime * 0.035, 0.0);
+  float soft = fbm(p * vec2(2.2, 3.4) + drift * 1.4 + 11.0);   // 경계를 흐리는 느린 결
+  float keep = 1.0;                                            // 남아 있는 연기의 비율
+  for (int i = 1; i < ${TRAIL}; i++) {
+    vec3 t = uTrail[i];
+    vec3 s = uTrail[i - 1];
+    if (t.z < 0.0 || s.z < 0.0) continue;
+    float life = clamp(t.z / ${TRAIL_LIFE.toFixed(1)}, 0.0, 1.0);
+    vec2 a0 = vec2(s.x * aspect, s.y);
+    vec2 a1 = vec2(t.x * aspect, t.y);
+    vec2 ab = a1 - a0;
+    float along = clamp(dot(p - a0, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0);
+    float dist = length(p - (a0 + ab * along));
+    float r = (0.05 + life * 0.07) * (0.75 + 0.5 * soft);     // 흐트러진 폭, 시간이 갈수록 번진다
+    float fall = exp(-(dist * dist) / (r * r));
+    // 스윽 — 곧바로 옅어졌다가 천천히 돌아온다
+    float strength = (1.0 - smoothstep(0.0, 1.0, life)) * 0.8;
+    keep *= 1.0 - fall * strength;
+  }
+  float cleared = 1.0 - keep;
+
   // 옆으로 천천히 흐르는 결
-  vec2 q = p * vec2(1.6, 2.6) + vec2(-uTime * 0.035, 0.0);
+  vec2 q = p * vec2(1.6, 2.6) + drift;
   vec2 w = vec2(fbm(q * 1.2 + uTime * 0.02), fbm(q * 1.2 - uTime * 0.018 + 5.2));
   float n = fbm(q + w * 1.3 + vec2(0.0, -uTime * 0.03));
-
-  // 걷힌 자국 — 갓 지나간 자리는 좁고 깨끗하게 비고, 시간이 지나며 넓게 번지면서 옅게 메워진다.
-  // 경계는 연기 결(n)로 흔들어 매끈한 원이 아니라 찢긴 가장자리가 되게 한다
-  float clearing = 0.0;
-  for (int i = 0; i < ${TRAIL}; i++) {
-    vec3 t = uTrail[i];
-    if (t.z < 0.0) continue;
-    float life = clamp(t.z / ${TRAIL_LIFE.toFixed(1)}, 0.0, 1.0);
-    vec2 c = vec2(t.x * aspect, t.y);
-    float r = 0.045 + life * 0.09;
-    float d = length(p - c) / r;
-    d += (n - 0.5) * 0.9;
-    clearing = max(clearing, (1.0 - smoothstep(0.35, 1.0, d)) * (1.0 - smoothstep(0.0, 1.0, life)));
-  }
 
   // 바닥에 가장 짙고 위로 갈수록 옅다
   float h = uv.y;
   float floorBand = 1.0 - smoothstep(0.0, 0.26 + n * 0.14, h);
   float a = floorBand * smoothstep(0.32, 0.78, n + (0.2 - h) * 0.7);
-  a *= (1.0 - clearing * 0.92) * 0.62 * uAmount;
+  // 옅은 결부터 먼저 사라지고 두꺼운 결은 조금 남는다 — 연기가 흩어지는 순서
+  a *= 1.0 - cleared * mix(1.0, 0.6, smoothstep(0.5, 0.85, n));
+  a *= 0.62 * uAmount;
 
   vec3 lit = vec3(0.9, 0.925, 0.93);
   vec3 shade = vec3(0.62, 0.66, 0.68);
@@ -116,7 +130,8 @@ export function createRoomFog(canvas) {
   const trailData = new Float32Array(TRAIL * 3);
 
   const resize = () => {
-    const scale = Math.min(window.devicePixelRatio || 1, 1) * 0.5;
+    // 절반 해상도로 그려 늘리면, 손이 지나가며 결이 급하게 휘는 자리에서 픽셀 계단이 보였다
+    const scale = Math.min(window.devicePixelRatio || 1, 1) * 0.75;
     canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
     canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
     gl.viewport(0, 0, canvas.width, canvas.height);

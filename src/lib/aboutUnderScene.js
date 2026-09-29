@@ -67,32 +67,54 @@ void main() {
   float x = vWorld.x;
   float d = max(0.0, vTop - vWorld.y);   // 지표에서 잰 깊이 (px)
 
-  // 눌려 다져진 층 — 거의 수평이고, 층마다 두께와 밝기가 조금씩 다르다
-  float lean = (noise(vec2(x * 0.0009, 2.0)) - 0.5) * 18.0;
-  float dl = d + lean;
-  float layerId = floor(dl / 26.0 + noise(vec2(x * 0.002, floor(dl / 26.0))) * 0.4);
+  // 눌려 다져진 층 — 자로 그은 듯 곧으면 폼보드 단면처럼 보인다.
+  // 층 경계는 크게 휘고(낮은 주파수) 잘게 떨리며(높은 주파수), 두께도 층마다 제각각이다.
+  float bend = (fbm(vec2(x * 0.0011, 1.3)) - 0.5) * 70.0 + (noise(vec2(x * 0.007, 4.0)) - 0.5) * 9.0;
+  float dl = d + bend * smoothstep(0.0, 80.0, d);         // 지표 바로 밑은 덜 휜다
+  // 층 번호를 노이즈로 늘였다 줄였다 — 얇은 층과 두꺼운 층이 섞인다
+  float t = dl / 30.0 + fbm(vec2(dl * 0.011, 7.0)) * 2.2;
+  float layerId = floor(t);
+  float within = fract(t);
   float layerTone = hash(vec2(layerId, 3.1));
 
   // 눈 → 다져진 눈 → 단단한 드라이아이스. 청록빛 없이 중립적인 흰회색
-  vec3 snow = vec3(0.34, 0.35, 0.355);
-  vec3 packed = vec3(0.19, 0.195, 0.2);
-  vec3 solid = vec3(0.1, 0.103, 0.107);
-  vec3 col = mix(snow, packed, smoothstep(0.0, 110.0, d));
-  col = mix(col, solid, smoothstep(90.0, 520.0, d));
-  col *= 0.86 + 0.22 * layerTone;
+  vec3 snow = vec3(0.26, 0.27, 0.275);
+  vec3 packed = vec3(0.13, 0.135, 0.14);
+  vec3 solid = vec3(0.07, 0.075, 0.08);
+  vec3 col = mix(snow, packed, smoothstep(0.0, 130.0, d));
+  col = mix(col, solid, smoothstep(80.0, 480.0, d));
+  // 층마다 밝기 차 + 한 층 안에서도 위가 조금 밝다(눌리며 생긴 밀도 차)
+  // 층 무늬는 거의 숨긴다 — 또렷하면 케이크 단면처럼 보이고 다른 페이지의 어두운 공기와 따로 논다
+  col *= 0.97 + 0.06 * layerTone;
+  col *= 0.99 + 0.02 * (1.0 - within);
+  // 옆으로 번지는 얼룩 — 같은 층이라도 자리마다 다져진 정도가 다르다
+  float mottle = fbm(vec2(x * 0.004, dl * 0.02));
+  col *= 0.88 + 0.24 * mottle;   // 대신 구름처럼 번지는 얼룩으로 깊이를 준다
 
-  // 눈 알갱이 — 얕을수록 거칠고 밝은 점이 섞인다
+  // 층 경계 — 가는 선이 끊겼다 이어진다. 몇몇 경계만 먼지가 낀 듯 조금 더 짙다
+  float edge = min(within, 1.0 - within) * 30.0;
+  float gap = smoothstep(0.35, 0.6, noise(vec2(x * 0.012, layerId)));
+  float dusty = step(0.78, hash(vec2(layerId, 8.2)));
+  col -= (0.004 + 0.008 * dusty) * (1.0 - smoothstep(0.0, 1.4, edge)) * gap * (1.0 - smoothstep(380.0, 1500.0, d));
+
+  // 빛이 스며든 자리 — 지표 아래가 반투명하게 밝아 속이 있는 물질로 읽힌다
+  float glowIn = exp(-d / 120.0) * (0.55 + 0.45 * fbm(vWorld.xy * 0.006 + 2.0));
+  col += vec3(0.13, 0.135, 0.14) * glowIn;
+
+  // 눈 알갱이와 작은 기포 — 얕을수록 거칠고, 깊은 곳엔 어두운 기포 점이 드문드문
   float grain = hash(floor(vec2(x, dl) / 1.6));
   col += (grain - 0.5) * 0.05 * (1.0 - smoothstep(60.0, 700.0, d));
   col += step(0.985, grain) * 0.07 * (1.0 - smoothstep(0.0, 260.0, d));
+  float pore = step(0.993, hash(floor(vWorld.xy / 2.4) + 5.0));
+  col -= pore * 0.05 * smoothstep(40.0, 200.0, d) * (1.0 - smoothstep(600.0, 1400.0, d));
 
-  // 층 경계 — 곧고 가는 선
-  float edge = abs(fract(dl / 26.0) - 0.5);
-  col -= 0.025 * (1.0 - smoothstep(0.0, 0.05, edge)) * (1.0 - smoothstep(300.0, 1400.0, d));
+  // 자른 면의 결 — 칼날이 지나간 방향으로 아주 옅은 세로 긁힘
+  col += (noise(vec2(x * 0.32, d * 0.003)) - 0.5) * 0.022 * (1.0 - smoothstep(200.0, 1200.0, d));
 
-  // 지표 — 두꺼운 흰 눈 껍질
-  col = mix(col, vec3(0.62, 0.64, 0.645), 1.0 - smoothstep(0.0, 9.0, d));
-  col += vec3(0.07) * (1.0 - smoothstep(9.0, 40.0, d));
+  // 지표 — 두께가 일정한 띠가 아니라 울퉁불퉁한 눈 껍질. 껍질 바로 밑엔 옅은 그늘이 진다
+  float crust = 5.0 + 9.0 * fbm(vec2(x * 0.012, 3.3));
+  col = mix(col, vec3(0.64, 0.66, 0.665), 1.0 - smoothstep(crust - 2.5, crust + 1.5, d));
+  col *= 1.0 - 0.16 * exp(-max(d - crust, 0.0) / 12.0) * step(crust, d);
 
   // 세로 금 — 각지게 꺾이며 얕은 층에만
   float seg = floor(d / 70.0);
@@ -101,27 +123,19 @@ void main() {
   float fOn = step(0.72, hash(vec2(floor(x / 260.0), 9.0)));
   col -= 0.05 * fOn * (1.0 - smoothstep(0.0, 1.1, frac)) * smoothstep(40.0, 120.0, d) * (1.0 - smoothstep(500.0, 1100.0, d));
 
-  // 키워드 — 층 속에 박힌 드라이아이스 조각. 하얗고 불투명하며, 고르면 가장자리가 차갑게 빛난다
+  // 키워드 — 눈 속에 반쯤 묻힌 글자(DOM) 아래로 빛이 은은하게 새어 나온다.
+  // 예전의 흰 조각은 어둠 속에서 팝콘처럼 읽혀 뺐다. 여기서는 빛만 그린다
   for (int i = 0; i < 5; i++) {
     vec2 k = uKeys[i].xy;
     float g = uKeys[i].z;
     vec2 v = vWorld.xy - k;
-    float tilt = (hash(vec2(float(i), 1.3)) - 0.5) * 0.5;
-    // 가장자리를 노이즈로 흔들어 깎아 만든 듯한 불규칙한 덩어리로
-    float sd = chunk(v, vec2(19.0, 9.0), tilt) + (noise(v * 0.16 + float(i) * 5.0) - 0.5) * 7.0;
-    float inside = 1.0 - smoothstep(-1.5, 1.5, sd);
-    vec3 body = vec3(0.6, 0.615, 0.62) + (noise(v * 0.3) - 0.5) * 0.1 + clamp(v.y / 12.0, -1.0, 1.0) * 0.06;
-    col = mix(col, body * (0.8 + 0.2 * g), inside);
-    // 위에서 빛을 받는 윗면 모서리만 살짝 밝다
-    col += vec3(0.9) * (1.0 - smoothstep(0.0, 2.0, abs(sd))) * smoothstep(-2.0, 6.0, v.y) * 0.16;
-    col += uGlow * g * 0.22 * exp(-max(sd, 0.0) / 10.0) * (1.0 - inside);             // 선택된 빛
-    // 조각 위로 짧은 금 — 각지게 꺾인다
-    float up = vWorld.y - k.y;
-    float step1 = floor(up / 22.0);
-    float cx = k.x + (hash(vec2(step1, float(i))) - 0.5) * 14.0;
-    float crack = (1.0 - smoothstep(0.0, 1.0, abs(x - cx))) * step(10.0, up) * (1.0 - smoothstep(40.0, 120.0, up));
-    col -= crack * 0.08;
-    col += uGlow * g * crack * 0.25;
+    // 가로로 넓고 아래로 짧게 번지는 빛 — 글자 폭을 따라 눈 속이 밝아진다
+    vec2 e = v / vec2(95.0 + 30.0 * g, 30.0 + 14.0 * g);
+    float light = exp(-dot(e, e));
+    // 눈 결을 따라 빛이 고르지 않게 스민다
+    light *= 0.75 + 0.5 * fbm(vWorld.xy * 0.012 + float(i) * 3.7);
+    col += uGlow * light * (0.004 + 0.2 * g * g * g);   // 평소(g≈0.5)엔 거의 없고, 가리키면(g=1) 밝아진다
+    col += vec3(0.55) * light * 0.06 * g * g * g;
   }
 
   // 깊어질수록 페이지 배경색으로 가라앉는다
@@ -192,8 +206,18 @@ export function createUnderSnow(host, { keys }) {
   // 단면 앞쪽(z > 0)의 눈밭은 잘라 낸다
   terrain.material.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 0, -1), 0)];
   scene.add(terrain);
-  const snow = createSnowfall(41);
-  scene.add(snow.object);
+  // 시드가 다른 눈발 두 겹 — 앞쪽을 잘라 내 줄어든 밀도를 채운다
+  const snows = [createSnowfall(41), createSnowfall(73)];
+  // 멀리 있는 눈송이가 장면 안개(scene.fog)에 묻혀 사라지지 않게 눈만 안개에서 뺀다.
+  // 이 카메라에선 MAIN 크기(7)면 눈송이가 1~4px 라 거의 안 보인다. 크게 키우면 카메라 바로 앞 눈송이가
+  // 크고 흐릿한 동그라미(거품)가 되므로, 앞쪽은 잘라 내고(resize) 남은 눈송이를 키워 2~5px 점으로 보이게 한다.
+  // 공용 설정(heroEnvironment)은 MAIN 그대로다
+  snows.forEach((snow) => {
+    snow.object.material.size = 18;
+    snow.object.material.opacity = 0.8;
+    snow.object.material.fog = false;
+    scene.add(snow.object);
+  });
   const moon = new THREE.DirectionalLight(0xb9c7d0, 0.8);
   moon.position.set(900, 1400, -2200);
   scene.add(moon);
@@ -237,29 +261,37 @@ export function createUnderSnow(host, { keys }) {
   const keyWorld = {};                // 키워드 결정의 단면 위 자리 (px)
   const layoutKeys = () => {
     const narrow = width < height;
-    const reach = Math.min(width * 0.36, width / 2 - (narrow ? 118 : 170));
+    const reach = Math.min(width * 0.36, width / 2 - (narrow ? 118 : 160));
     Object.entries(keys).forEach(([id, k]) => {
       const kx = narrow ? k.tall[0] : k.wide[0];
       const kd = narrow ? k.tall[1] : k.wide[1];
       const x = kx * reach;
-      keyWorld[id] = { x, y: surface + duneAt(x) - kd * height };
+      keyWorld[id] = { x, y: surface + duneAt(x) - kd * height, depth: kd };
     });
   };
 
   const resize = () => {
-    const bounds = host.getBoundingClientRect();
-    width = Math.max(1, bounds.width);
-    height = Math.max(1, bounds.height);
+    // 레이아웃 크기로 잰다. getBoundingClientRect 는 transform 까지 포함해서,
+    // ABOUT 이 확대된 채 들어오는 연출 도중에 재면 그 크기로 굳어 버린다
+    // (transform 은 레이아웃을 안 바꿔 ResizeObserver 가 다시 부르지 않는다 → 핀과 조각이 어긋났다)
+    width = Math.max(1, host.clientWidth);
+    height = Math.max(1, host.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, width <= 900 ? 1.1 : 1.35));
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
     camera.position.set(0, 0, (height / 2) / Math.tan(THREE.MathUtils.degToRad(FOV / 2)));
     camera.updateProjectionMatrix();
-    // 지표선은 화면 위에서 35% 자리 — 그 위로 MAIN 의 하늘과 먼 산이 보인다
-    surface = height * (width < height ? 0.2 : 0.15);
+    // 지표선은 화면 위에서 60% 자리 — 그 위로 MAIN 의 하늘과 먼 산이 넓게 보인다
+    surface = height * (width < height ? 0.2 : -0.1);
     terrain.position.y = surface;
-    snow.object.position.y = surface + 200;
-    snow.object.material.clippingPlanes = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -(surface - 30))];
+    // 눈은 지표 위, 카메라에서 어느 정도 떨어진 곳(z ≤ −200)에만 내린다
+    snows.forEach((snow) => {
+      snow.object.position.y = surface + 200;
+      snow.object.material.clippingPlanes = [
+        new THREE.Plane(new THREE.Vector3(0, 1, 0), -(surface - 30)),
+        new THREE.Plane(new THREE.Vector3(0, 0, -1), -200),
+      ];
+    });
     const distance = camera.position.z + 7600;
     const viewH = 2 * distance * Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     sky.position.set(0, surface * 0.4, -7600);
@@ -296,7 +328,7 @@ export function createUnderSnow(host, { keys }) {
       time += dt;
       mistMaterial.uniforms.uTime.value = time;
       mistMaterial.uniforms.uStrength.value = mistStrength;
-      snow.update(dt, time, 0);
+      snows.forEach((snow) => snow.update(dt, time, 0));
       lookX = THREE.MathUtils.damp(lookX, look.x * 40, 2.2, dt);
       lookY = THREE.MathUtils.damp(lookY, -look.y * 20, 2.2, dt);
       camera.position.x = lookX;
@@ -313,11 +345,18 @@ export function createUnderSnow(host, { keys }) {
       return [(projected.x * 0.5 + 0.5) * width, (-projected.y * 0.5 + 0.5) * height];
     },
     key(id) { return keyWorld[id]; },
+    /** 키워드의 가로 자리를 바깥에서 정한다 — 글자 폭을 재서 틈을 고르게 맞출 때 */
+    placeKey(id, x) {
+      const k = keyWorld[id];
+      if (!k) return;
+      k.x = x;
+      k.y = surface + duneAt(x) - k.depth * height;
+    },
     surfaceAt(x) { return surface + duneAt(x); },
     size() { return { width, height }; },
     dispose() {
       observer.disconnect();
-      snow.dispose();
+      snows.forEach((snow) => snow.dispose());
       sky.geometry.dispose();
       sky.material.dispose();
       terrain.geometry.dispose();

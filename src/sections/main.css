@@ -460,7 +460,12 @@
   padding: 6px 0;
   cursor: pointer;
   color: var(--frost);
-  transition: color 200ms var(--ease);
+  /* 위(197줄)의 인트로 등장 전환(opacity·transform)을 덮어쓰지 않게 함께 적는다 —
+     color 만 두면 이 버튼만 페이드 없이 뚝 나타났다 */
+  transition:
+    color 200ms var(--ease),
+    opacity 720ms var(--ease),
+    transform 860ms var(--ease);
 }
 .main__scroll:hover { color: var(--text); }
 .main__scroll-line {
