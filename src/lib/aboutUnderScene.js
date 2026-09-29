@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { makeNoise, createSky, createTerrain, createSnowfall } from './heroEnvironment';
-import { createIceShard } from './iceBlockScene';
-import { ICE_ATTENUATION, createTrail, createWorkIceMaterial, createSmoke, createSmokeTexture } from './workIceScene';
+import { createDryIceForm, createIceSliver } from './dryIceForms';
+import { ICE_ATTENUATION, createTrail, createWorkIceMaterial, createSmoke, createSmokeTexture, seeded } from './workIceScene';
 import { createIceWordGeometry } from './iceText';
 
 /* ABOUT 지도 — MAIN 의 눈밭을 칼로 자른 단면.
@@ -20,19 +20,21 @@ const FOV = 35; // MAIN 히어로와 같다
 const FACE_DEPTH = 5200; // 단면이 내려가는 깊이 (px)
 const GLOW = new THREE.Vector3(0.38, 0.87, 0.84);
 
-/* 키워드마다 눈밭에 반쯤 묻힌 드라이아이스 덩어리 — PORTFOLIO 얼음과 같은 재질·연기.
-   shape: 파편 크기(가로·세로·깊이), seed: 깎인 모양, rot: 기본 기울기, size: 덩어리 크기 비율, sink: 묻힌 정도(0~1).
-   비슷한 덩어리가 한 줄로 서면 묘비처럼 읽혀서, 모양(낮고 넓은·가늘고 긴·누운)·기울기·묻힌 깊이를 확 다르게 둔다.
-   ABOUT 이 가장 크다. 나중에 컬러 아이콘을 속에 넣을 자리다 */
+/* 키워드마다 눈밭에 반쯤 묻힌 드라이아이스 — PORTFOLIO 얼음과 같은 재질·연기, 형태는 다섯 개 모두 다르다(dryIceForms).
+   form: 형태, seed: 모양 난수, rot: 기본 기울기, size: 높이(덩어리 단위 대비 비율), sink: 묻힌 정도(0~1) */
 const BLOCKS = {
-  observe: { shape: [1.7, 1.05, 1.25], seed: 11, rot: [0.22, 0.7, -0.18], size: 0.66, sink: 0.42 },
-  structure: { shape: [0.85, 2.0, 0.9], seed: 19, rot: [0.06, -0.3, 0.26], size: 0.98, sink: 0.3 },
-  hyomin: { shape: [1.45, 1.75, 1.3], seed: 3, rot: [0.16, -0.5, -0.1], size: 1.12, sink: 0.26 },
-  build: { shape: [1.55, 1.25, 1.5], seed: 29, rot: [0.35, 0.95, 0.22], size: 0.74, sink: 0.36 },
-  detail: { shape: [1.05, 1.6, 1.0], seed: 37, rot: [-0.08, -0.85, -0.3], size: 0.86, sink: 0.34 },
+  observe: { form: 'plates', seed: 11, rot: [0.08, 0.6, -0.05], size: 0.62, sink: 0.3 },
+  structure: { form: 'crystals', seed: 19, rot: [0.04, -0.3, 0.06], size: 1.02, sink: 0.22 },
+  hyomin: { form: 'brick', seed: 3, rot: [0.1, -0.45, -0.06], size: 0.8, sink: 0.28 },
+  build: { form: 'pellets', seed: 29, rot: [0.05, 0.9, 0.04], size: 0.62, sink: 0.26 },
+  detail: { form: 'spires', seed: 37, rot: [0, -0.8, 0], size: 1.12, sink: 0.18 },
 };
 const FROST_REST = 0.92;   // 평소 — 서리가 껴 뿌옇다
 const FROST_CLEAR = 0.38;  // 가리키면 — 서리가 걷혀 속이 비친다
+const SHARDS = 18;         // 덩어리 하나가 부서지는 조각 수 — 얇고 날카로운 판(createIceSliver)
+const BREAK_AT = 0.12;     // 진행도(form)가 여기까지는 금이 가며 떨리고, 넘으면 부서진다
+const FLIGHT = 1.1;        // 조각이 날아가는 시간(s, 단위 공간 기준)
+const GRAVITY = -7;        // 조각에 걸리는 중력(덩어리 단위/s²)
 
 const MIST_VERT = `
 varying vec3 vWorld;
@@ -257,7 +259,7 @@ export function createUnderSnow(host, { keys, labels = {} }) {
   const smokeTexture = createSmokeTexture();
   const blocks = Object.keys(keys).map((id) => {
     const cfg = BLOCKS[id];
-    const geometry = createIceShard({ width: cfg.shape[0], height: cfg.shape[1], depth: cfg.shape[2], seed: cfg.seed });
+    const { geometry, size: shape } = createDryIceForm(cfg.form, seeded(cfg.seed));   // shape: 가로·높이(1)·깊이
     const material = createWorkIceMaterial(trail.sample);
     material.opacity = 1;                        // 공용 재질은 0 에서 시작한다(등장 연출용)
     material.userData.ice.uTouchFog.value = 0;
@@ -268,17 +270,46 @@ export function createUnderSnow(host, { keys, labels = {} }) {
     group.add(mesh);
     scene.add(group);
     // 연기는 덩어리를 따라가되 같이 구르지 않도록 따로 둔다
-    const smoke = createSmoke(cfg.shape, cfg.seed, smokeTexture, { count: 18, strength: 1.2, spread: 1.3, wisps: 24 });
+    const smoke = createSmoke(shape, cfg.seed, smokeTexture, { count: 18, strength: 1.2, spread: 1.3, wisps: 24 });
     // 공용 연기는 깊이 검사를 끄고 그린다. 여기선 덩어리가 단면 뒤 눈밭에 있어서, 켜 두어야
     // 흘러내린 연기가 단면(지층)에 가려 눈 위에만 보인다 — 끄면 땅속에 연기가 있는 것처럼 보였다
     smoke.group.traverse((node) => { if (node.material) node.material.depthTest = true; });
     scene.add(smoke.group);
-    return { id, cfg, group, geometry, material, smoke, spin: 0, lift: 0, form: 0 };
+
+    // 부서질 조각 — 얇고 날카로운 얼음 판. 덩어리 부피 안에 미리 채워 두고 평소엔 숨긴다.
+    // 깨지면 가운데에서 바깥·위로 빠르게 튀어 팽글팽글 돌며 떨어진다. 자리는 "처음 자리 + 속도×시간 + 중력" 이라
+    // 진행도를 거꾸로 돌리면 날아간 궤적을 되짚어 다시 덩어리로 모인다.
+    // 서리를 덜 껴 투명하게 두어야 돌멩이가 아니라 깨진 얼음으로 읽힌다
+    const rand = seeded(cfg.seed * 7 + 3);
+    const shardMaterial = createWorkIceMaterial(trail.sample);
+    shardMaterial.opacity = 1;
+    shardMaterial.userData.ice.uTouchFog.value = 0;
+    shardMaterial.userData.ice.uFrost.value = 0.4;
+    const shards = Array.from({ length: SHARDS }, () => {
+      const shardGeometry = createIceSliver(rand);
+      const shardMesh = new THREE.Mesh(shardGeometry, shardMaterial);
+      shardMesh.renderOrder = 2;
+      shardMesh.visible = false;
+      scene.add(shardMesh);
+      const p0 = new THREE.Vector3(
+        (rand() - 0.5) * shape[0] * 0.75,
+        (rand() - 0.5) * shape[1] * 0.75,
+        (rand() - 0.5) * shape[2] * 0.75,
+      );
+      const out = p0.clone().normalize();
+      const speed = 2.2 + rand() * 2.4;
+      const v = new THREE.Vector3(out.x * speed, Math.abs(out.y) * speed * 0.5 + 1.8 + rand() * 1.6, out.z * speed * 0.6);
+      const rv = new THREE.Vector3((rand() - 0.5) * 16, (rand() - 0.5) * 16, (rand() - 0.5) * 16);
+      // 큰 판 몇 개와 잔 파편 여럿
+      const sz = rand() < 0.25 ? 0.24 + rand() * 0.1 : 0.1 + rand() * 0.1;
+      return { mesh: shardMesh, geometry: shardGeometry, p0, v, rv, sz };
+    });
+    return { id, cfg, shape, group, geometry, material, smoke, shards, shardMaterial, spin: 0, lift: 0, form: 0 };
   });
   let blockUnit = 100;                           // 덩어리 높이(px) — 화면 크기에 맞춘다
 
-  // 얼음 글자 — 가리키면 덩어리가 녹아 사라지고, 같은 자리에 키워드 모양의 얼음이 맺힌다.
-  // 사이트 글꼴이 준비된 뒤에 만든다(그 전엔 덩어리만 녹았다 돌아온다)
+  // 얼음 글자 — 가리키면 덩어리가 부서지고, 그 자리에 키워드 모양의 얼음이 드러난다.
+  // 사이트 글꼴이 준비된 뒤에 만든다(그 전엔 덩어리가 부서지지 않는다)
   const words = {};
   let disposed = false;
   (async () => {
@@ -423,8 +454,9 @@ export function createUnderSnow(host, { keys, labels = {} }) {
       });
 
       // 덩어리 — 평소엔 서리가 껴 천천히 돌고 바닥에서 연기가 흐른다.
-      // 가리키면(glow 가 오르면) 살짝 떠오르며 가장자리부터 연기로 녹아 사라지고,
-      // 그 연기 속에서 키워드 모양의 얼음 글자가 맺힌다. 떼면 거꾸로 글자가 녹고 덩어리가 돌아온다
+      // 가리키면(glow 가 오르면) 순간 떨리며 금이 가고, 조각으로 부서져 튀어 흩어진다.
+      // 부서진 자리에서 키워드 모양의 얼음 글자가 드러난다 — 원래 덩어리 속에 있던 것처럼.
+      // 떼면 조각이 날아간 궤적을 되짚어 모이고 덩어리가 돌아온다
       trail.step(dt);
       const narrow = width < height;
       blocks.forEach((b) => {
@@ -432,7 +464,7 @@ export function createUnderSnow(host, { keys, labels = {} }) {
         if (!k) return;
         const g = glow[b.id] ?? 0.5;
         const hover = THREE.MathUtils.clamp((g - 0.5) / 0.5, 0, 1);
-        const scale = (blockUnit * b.cfg.size) / b.cfg.shape[1];
+        const scale = blockUnit * b.cfg.size;   // 형태는 높이 1 — 덩어리 높이(px)가 곧 배율
         const px = blockUnit * b.cfg.size;
         b.lift = THREE.MathUtils.damp(b.lift, hover * px * 0.12, 5, dt);
         b.spin += dt * (0.16 + hover * 0.7);
@@ -441,24 +473,54 @@ export function createUnderSnow(host, { keys, labels = {} }) {
         const x = k.x;
         const y = narrow ? k.y : surface + duneAt(x) + px * (0.5 - b.cfg.sink);
         const z = narrow ? 10 : -px * 0.95;   // 덩어리 앞면이 단면 앞으로 튀어나와 이름표를 가리지 않게
-        b.group.position.set(x, y + b.lift + Math.sin(time * 0.5 + b.cfg.seed) * 1.5, z);
+
+        // 진행도 form — 0 덩어리, BREAK_AT 까지 금 가며 떨림, 그 뒤로 부서져 흩어짐, 1 글자만 남음.
+        // 깨질 땐 빠르게, 다시 모일 땐 조금 느리게
+        const word = words[b.id];
+        const want = word && hover > 0.5 ? 1 : 0;
+        b.form = reduced ? want : THREE.MathUtils.damp(b.form, want, want ? 2.8 : 2.2, dt);
+        const f = b.form;
+        // 금 가며 떨리는 건 깨지는 방향일 때만 — 다시 모일 때도 이 구간을 지나가서, 조건을 안 걸면 한참 부르르 떨었다
+        const cracking = want === 1 && f > 0.002 && f < BREAK_AT;
+        const shake = cracking ? (f / BREAK_AT) * px * 0.03 : 0;
+        b.group.position.set(
+          x + Math.sin(time * 90) * shake,
+          y + b.lift + Math.sin(time * 0.5 + b.cfg.seed) * 1.5 + Math.cos(time * 77) * shake,
+          z,
+        );
         b.group.scale.setScalar(scale);
         b.group.rotation.set(
           b.cfg.rot[0] + Math.sin(time * 0.31 + b.cfg.seed) * 0.03,
           b.cfg.rot[1] + b.spin,
           b.cfg.rot[2],
         );
+        b.group.visible = f < BREAK_AT;
         b.material.attenuationDistance = ICE_ATTENUATION * scale;
-        b.material.userData.ice.uFrost.value = THREE.MathUtils.lerp(FROST_REST, FROST_CLEAR, hover);
+        // 금이 가는 동안 서리가 하얗게 올라온다
+        b.material.userData.ice.uFrost.value = cracking
+          ? THREE.MathUtils.lerp(FROST_CLEAR, 1, f / BREAK_AT)
+          : THREE.MathUtils.lerp(FROST_REST, FROST_CLEAR, hover);
 
-        // 덩어리 ↔ 글자. form 0 은 덩어리, 1 은 글자 — 둘이 겹치는 가운데 구간에 연기가 가장 짙다
-        const word = words[b.id];
-        const want = word && hover > 0.5 ? 1 : 0;
-        b.form = reduced ? want : THREE.MathUtils.damp(b.form, want, want ? 2.4 : 3, dt);
-        const blockGone = THREE.MathUtils.smoothstep(b.form, 0, 0.62);
-        const wordIn = THREE.MathUtils.smoothstep(b.form, 0.38, 1);
-        b.material.userData.ice.uDissolve.value = blockGone;
-        b.group.visible = blockGone < 0.995;
+        // 조각 — 덩어리 자리에서 튀어 돌며 떨어지다 흩어진다
+        const broke = f >= BREAK_AT && f < 0.999;
+        const p = THREE.MathUtils.clamp((f - BREAK_AT) / (1 - BREAK_AT), 0, 1);
+        const t = p * FLIGHT;
+        b.shardMaterial.attenuationDistance = ICE_ATTENUATION * scale;
+        b.shardMaterial.userData.ice.uDissolve.value = THREE.MathUtils.smoothstep(p, 0.45, 1);
+        b.shards.forEach((s) => {
+          s.mesh.visible = broke;
+          if (!broke) return;
+          s.mesh.position.set(
+            b.group.position.x + (s.p0.x + s.v.x * t) * scale,
+            b.group.position.y + (s.p0.y + s.v.y * t + 0.5 * GRAVITY * t * t) * scale,
+            b.group.position.z + (s.p0.z + s.v.z * t) * scale,
+          );
+          s.mesh.rotation.set(b.group.rotation.x + s.rv.x * t, b.group.rotation.y + s.rv.y * t, b.group.rotation.z + s.rv.z * t);
+          s.mesh.scale.setScalar(scale * s.sz);
+        });
+
+        // 얼음 글자 — 부서지는 순간부터 드러난다
+        const wordIn = THREE.MathUtils.smoothstep(f, BREAK_AT, 0.55);
         if (word) {
           // 글자 높이는 덩어리에 맞추되, 옆 키워드와 겹치지 않게 폭을 묶는다
           const maxW = narrow ? width * 0.5 : blockUnit * 1.9;
@@ -477,8 +539,8 @@ export function createUnderSnow(host, { keys, labels = {} }) {
 
         b.smoke.group.position.copy(b.group.position);
         b.smoke.group.scale.setScalar(scale);
-        // 형태가 바뀌는 가운데 구간에 연기가 확 피어오른다. 다른 키워드로 내려가는 동안엔 잦아든다
-        const burst = Math.sin(Math.PI * b.form) * 1.3;
+        // 부서지는 순간 연기가 확 피어오른다. 다른 키워드로 내려가는 동안엔 잦아든다
+        const burst = f > BREAK_AT * 0.5 ? Math.sin(Math.PI * Math.min(1, (f - BREAK_AT * 0.5) / 0.6)) * 1.6 : 0;
         b.smoke.update(dt * (1 + hover), THREE.MathUtils.clamp(g / 0.5, 0.25, 1), burst, hover * 0.9, null);
       });
       renderer.render(scene, camera);
@@ -499,10 +561,10 @@ export function createUnderSnow(host, { keys, labels = {} }) {
     surfaceAt(x) { return surface + duneAt(x); },
     /** 키워드 덩어리의 화면 크기(px) — 버튼이 덩어리를 덮도록 */
     blockSize(id) {
-      const cfg = BLOCKS[id];
-      if (!cfg) return { w: 0, h: 0 };
-      const h = blockUnit * cfg.size;
-      return { w: h * (cfg.shape[0] / cfg.shape[1]) * 1.2, h: h * 1.1 };
+      const b = blocks.find((item) => item.id === id);
+      if (!b) return { w: 0, h: 0 };
+      const h = blockUnit * b.cfg.size;
+      return { w: h * b.shape[0] * 1.1, h: h * 1.1 };
     },
     size() { return { width, height }; },
     dispose() {
@@ -520,6 +582,8 @@ export function createUnderSnow(host, { keys, labels = {} }) {
         b.geometry.dispose();
         b.material.dispose();
         b.smoke.dispose();
+        b.shards.forEach((sh) => sh.geometry.dispose());
+        b.shardMaterial.dispose();
       });
       disposed = true;
       Object.values(words).forEach((w) => {
