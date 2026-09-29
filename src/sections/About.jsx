@@ -208,7 +208,9 @@ function useUnderSnow(phase, selected) {
     const reduced = prefersReduced();
     let scene = null;
     try {
-      scene = createUnderSnow(host, { keys: KEYS });
+      // 가리키면 덩어리가 이 이름 모양의 얼음 글자로 바뀐다
+      const labels = Object.fromEntries(CHAMBERS.map((item) => [item.id, item.label]));
+      scene = createUnderSnow(host, { keys: KEYS, labels });
     } catch {
       scene = null; // WebGL 이 없으면 이름표만 기본 자리에 남는다
     }

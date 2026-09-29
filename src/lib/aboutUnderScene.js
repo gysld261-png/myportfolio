@@ -3,6 +3,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { makeNoise, createSky, createTerrain, createSnowfall } from './heroEnvironment';
 import { createIceShard } from './iceBlockScene';
 import { ICE_ATTENUATION, createTrail, createWorkIceMaterial, createSmoke, createSmokeTexture } from './workIceScene';
+import { createIceWordGeometry } from './iceText';
 
 /* ABOUT 지도 — MAIN 의 눈밭을 칼로 자른 단면.
 
@@ -203,7 +204,8 @@ void main() {
 }
 `;
 
-export function createUnderSnow(host, { keys }) {
+export function createUnderSnow(host, { keys, labels = {} }) {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping; // MAIN 과 같은 톤
@@ -271,9 +273,34 @@ export function createUnderSnow(host, { keys }) {
     // 흘러내린 연기가 단면(지층)에 가려 눈 위에만 보인다 — 끄면 땅속에 연기가 있는 것처럼 보였다
     smoke.group.traverse((node) => { if (node.material) node.material.depthTest = true; });
     scene.add(smoke.group);
-    return { id, cfg, group, geometry, material, smoke, spin: 0, lift: 0 };
+    return { id, cfg, group, geometry, material, smoke, spin: 0, lift: 0, form: 0 };
   });
   let blockUnit = 100;                           // 덩어리 높이(px) — 화면 크기에 맞춘다
+
+  // 얼음 글자 — 가리키면 덩어리가 녹아 사라지고, 같은 자리에 키워드 모양의 얼음이 맺힌다.
+  // 사이트 글꼴이 준비된 뒤에 만든다(그 전엔 덩어리만 녹았다 돌아온다)
+  const words = {};
+  let disposed = false;
+  (async () => {
+    try { await document.fonts.load('600 120px Archivo'); } catch { /* 글꼴이 없으면 대체 글꼴로 만든다 */ }
+    if (disposed) return;
+    Object.keys(keys).forEach((id) => {
+      const text = labels[id];
+      if (!text) return;
+      const geometry = createIceWordGeometry(text);
+      if (!geometry) return;
+      const material = createWorkIceMaterial(trail.sample);
+      material.opacity = 1;
+      material.userData.ice.uTouchFog.value = 0;
+      material.userData.ice.uFrost.value = 0.72;   // 굴절에 뭉개지지 않게 서리를 짙게 — 하얗게 읽힌다
+      material.userData.ice.uDissolve.value = 1;
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.renderOrder = 3;
+      mesh.visible = false;
+      scene.add(mesh);
+      words[id] = { mesh, geometry, material, aspect: geometry.boundingBox.max.x * 2 };
+    });
+  })();
 
   // 단면 — 윗선은 눈밭의 z=0 높이(heroEnvironment createTerrain 의 dunes 항)를 따른다
   const duneAt = (x) => (noise(x / 900 + 3.1, 1.7, 4) - 0.5) * 70;
@@ -396,7 +423,8 @@ export function createUnderSnow(host, { keys }) {
       });
 
       // 덩어리 — 평소엔 서리가 껴 천천히 돌고 바닥에서 연기가 흐른다.
-      // 가리키면(glow 가 오르면) 서리가 걷혀 투명해지고, 연기가 피어오르고, 살짝 떠오른다
+      // 가리키면(glow 가 오르면) 살짝 떠오르며 가장자리부터 연기로 녹아 사라지고,
+      // 그 연기 속에서 키워드 모양의 얼음 글자가 맺힌다. 떼면 거꾸로 글자가 녹고 덩어리가 돌아온다
       trail.step(dt);
       const narrow = width < height;
       blocks.forEach((b) => {
@@ -422,10 +450,36 @@ export function createUnderSnow(host, { keys }) {
         );
         b.material.attenuationDistance = ICE_ATTENUATION * scale;
         b.material.userData.ice.uFrost.value = THREE.MathUtils.lerp(FROST_REST, FROST_CLEAR, hover);
+
+        // 덩어리 ↔ 글자. form 0 은 덩어리, 1 은 글자 — 둘이 겹치는 가운데 구간에 연기가 가장 짙다
+        const word = words[b.id];
+        const want = word && hover > 0.5 ? 1 : 0;
+        b.form = reduced ? want : THREE.MathUtils.damp(b.form, want, want ? 2.4 : 3, dt);
+        const blockGone = THREE.MathUtils.smoothstep(b.form, 0, 0.62);
+        const wordIn = THREE.MathUtils.smoothstep(b.form, 0.38, 1);
+        b.material.userData.ice.uDissolve.value = blockGone;
+        b.group.visible = blockGone < 0.995;
+        if (word) {
+          // 글자 높이는 덩어리에 맞추되, 옆 키워드와 겹치지 않게 폭을 묶는다
+          const maxW = narrow ? width * 0.5 : blockUnit * 1.9;
+          const wordScale = Math.min(blockUnit * 0.34, maxW / word.aspect);
+          word.mesh.visible = wordIn > 0.005;
+          word.mesh.scale.setScalar(wordScale);
+          word.mesh.position.set(
+            x,
+            (narrow ? k.y : surface + duneAt(x) + wordScale * 0.75) + (1 - wordIn) * -10 + Math.sin(time * 0.6 + b.cfg.seed) * 1.2,
+            z,
+          );
+          word.mesh.rotation.set(-0.06, Math.sin(time * 0.4 + b.cfg.seed) * 0.12, 0);
+          word.material.attenuationDistance = ICE_ATTENUATION * wordScale;
+          word.material.userData.ice.uDissolve.value = 1 - wordIn;
+        }
+
         b.smoke.group.position.copy(b.group.position);
         b.smoke.group.scale.setScalar(scale);
-        // 다른 키워드로 내려가는 동안(glow 가 바닥)엔 연기도 잦아든다
-        b.smoke.update(dt * (1 + hover), THREE.MathUtils.clamp(g / 0.5, 0.25, 1), 0, hover * 0.9, null);
+        // 형태가 바뀌는 가운데 구간에 연기가 확 피어오른다. 다른 키워드로 내려가는 동안엔 잦아든다
+        const burst = Math.sin(Math.PI * b.form) * 1.3;
+        b.smoke.update(dt * (1 + hover), THREE.MathUtils.clamp(g / 0.5, 0.25, 1), burst, hover * 0.9, null);
       });
       renderer.render(scene, camera);
     },
@@ -466,6 +520,11 @@ export function createUnderSnow(host, { keys }) {
         b.geometry.dispose();
         b.material.dispose();
         b.smoke.dispose();
+      });
+      disposed = true;
+      Object.values(words).forEach((w) => {
+        w.geometry.dispose();
+        w.material.dispose();
       });
       smokeTexture.dispose();
       trail.dispose();
