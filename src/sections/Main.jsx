@@ -155,8 +155,15 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
         <span className="sys">SUBLIMATION / {Math.round(frontProgress * 100)}%</span>
       </div>
 
-      <button type="button" className="main__scroll sys" onClick={onScrollCue}>
-        SCROLL TO EXPLORE <span className="main__scroll-line" />
+      {/* 스크롤 안내 — 가운데 아래. 선 위로 빛이 흘러내려 '아래로 굴리면 된다'를 말 없이 보여 주고,
+          가만히 있으면 몇 초 뒤 한 번 더 밝아지며 부른다. 문구는 스크롤이 무엇을 하는지(승화)까지 말한다. */}
+      <button type="button" className="main__cue" onClick={onScrollCue} aria-label="스크롤해서 다음 화면으로">
+        <span className="main__cue-label sys" aria-hidden="true">
+          <span className="main__cue-word--wheel">SCROLL</span>
+          <span className="main__cue-word--touch">SWIPE UP</span>
+          {' '}TO SUBLIMATE
+        </span>
+        <span className="main__cue-track" aria-hidden="true" />
       </button>
     </section>
   );

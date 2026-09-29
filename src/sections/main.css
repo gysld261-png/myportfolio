@@ -199,7 +199,7 @@
 .main__role,
 .main__lead,
 .main__hint,
-.main__scroll,
+.main__cue,
 .instrument {
   transition:
     opacity 720ms var(--ease),
@@ -211,24 +211,24 @@
 .app-shell--intro-active .main__role,
 .app-shell--intro-active .main__lead,
 .app-shell--intro-active .main__hint,
-.app-shell--intro-active .main__scroll,
+.app-shell--intro-active .main__cue,
 .app-shell--intro-active .instrument {
   opacity: 0;
 }
 
 .app-shell--intro-active .main__eyebrow,
 .app-shell--intro-active .main__role,
-.app-shell--intro-active .main__scroll { transform: translateX(-16px); }
+.app-shell--intro-active .main__hint { transform: translateX(-16px); }
 .app-shell--intro-active .main__lead,
 .app-shell--intro-active .instrument { transform: translateX(16px); }
-.app-shell--intro-active .main__hint { transform: translateY(10px); }
+.app-shell--intro-active .main__cue { transform: translate(-50%, 10px); }
 
 .app-shell--intro-leaving .main__claim { transition-delay: 60ms; }
 .app-shell--intro-leaving .main__eyebrow { transition-delay: 150ms; }
 .app-shell--intro-leaving .main__role,
 .app-shell--intro-leaving .main__lead { transition-delay: 240ms; }
 .app-shell--intro-leaving .main__hint,
-.app-shell--intro-leaving .main__scroll,
+.app-shell--intro-leaving .main__cue,
 .app-shell--intro-leaving .instrument { transition-delay: 340ms; }
 
 /* 문장 위 머리표 — 문장이 길어져서 아래에 두면 겹친다 */
@@ -388,12 +388,12 @@
   transition: width 320ms var(--ease);
 }
 
+/* 문지르기 안내는 왼쪽 아래 — 가운데 아래는 스크롤 안내가 쓴다 */
 .main__hint {
   position: absolute;
   z-index: 7;
-  left: 50%;
+  left: var(--gutter);
   bottom: 44px;
-  transform: translateX(-50%);
   margin: 0;
   font-size: 11.5px;
   color: var(--muted);
@@ -445,35 +445,98 @@
 }
 
 .main.is-sublimating .ticks { opacity: var(--ticks-opacity); }
-.main.is-sublimating .main__hint { opacity: 0; }
+.main.is-sublimating .main__hint,
+.main.is-sublimating .main__cue { opacity: 0; pointer-events: none; }
 
-.main__scroll {
+.main__cue {
   position: absolute;
   z-index: 8;
-  left: var(--gutter);
-  bottom: 42px;
-  display: inline-flex;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: none;
   border: 0;
-  padding: 6px 0;
+  padding: 0;
   cursor: pointer;
-  color: var(--frost);
-  /* 위(197줄)의 인트로 등장 전환(opacity·transform)을 덮어쓰지 않게 함께 적는다 —
-     color 만 두면 이 버튼만 페이드 없이 뚝 나타났다 */
-  transition:
-    color 200ms var(--ease),
-    opacity 720ms var(--ease),
-    transform 860ms var(--ease);
+  color: var(--accent-bright);
 }
-.main__scroll:hover { color: var(--text); }
-.main__scroll-line {
+/* 얼음 아래 안개가 밝아서 글자만 두면 묻힌다 —
+   승화 진행도(.main__thermal)와 같은 어두운 캡슐에 담는다. 스크롤하면 그 캡슐이 진행도로 이어진다. */
+.main__cue-label {
+  padding: 7px 12px 6px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: rgba(11, 13, 14, .72);
+  box-shadow: 0 0 18px rgba(11, 13, 14, .42), 0 0 16px var(--accent-glow);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: inherit;
+  font-size: 10.5px;
+  white-space: nowrap;
+  opacity: 0.9;
+  transition: opacity 200ms var(--ease), border-color 200ms var(--ease);
+}
+.main__cue:hover .main__cue-label { opacity: 1; border-color: var(--accent); }
+.main__cue-word--touch { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .main__cue-word--wheel { display: none; }
+  .main__cue-word--touch { display: inline; }
+}
+/* 선 — 옅은 레일 위로 빛 한 줄기가 계속 흘러내린다 */
+.main__cue-track {
+  position: relative;
   display: block;
-  width: 34px;
-  height: 1px;
-  background: currentColor;
-  opacity: 0.7;
+  width: 1px;
+  height: 46px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(157, 222, 215, .5), rgba(157, 222, 215, .12));
+  box-shadow: 0 0 6px rgba(11, 13, 14, .6);
+}
+.main__cue-track::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -18px;
+  width: 1px;
+  height: 22px;
+  background: linear-gradient(180deg, transparent, #fff);
+  box-shadow: 0 0 10px var(--accent-bright);
+  animation: cue-fall 1800ms cubic-bezier(0.55, 0, 0.35, 1) infinite;
+}
+@keyframes cue-fall {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(64px); opacity: 0; }
+}
+/* 가만히 있으면 — 등장 후 4초쯤 지나 한 번씩 밝아지며 살짝 내려앉는다 */
+.main__cue-label,
+.main__cue-track {
+  animation-name: cue-call;
+  animation-duration: 2600ms;
+  animation-timing-function: var(--ease);
+  animation-delay: 4200ms;
+  animation-iteration-count: infinite;
+}
+.main__cue-track { animation-name: cue-call-track; }
+@keyframes cue-call {
+  0%, 60%, 100% { opacity: .9; transform: translateY(0); box-shadow: 0 0 18px rgba(11, 13, 14, .42), 0 0 16px var(--accent-glow); }
+  25% { opacity: 1; transform: translateY(4px); box-shadow: 0 0 18px rgba(11, 13, 14, .42), 0 0 26px rgba(157, 222, 215, .45); }
+}
+@keyframes cue-call-track {
+  0%, 60%, 100% { transform: translateY(0); }
+  25% { transform: translateY(4px); }
+}
+/* 인트로 동안엔 부르지 않는다 — 인트로가 끝난 뒤부터 4초를 센다 */
+.app-shell--intro-active .main__cue-label,
+.app-shell--intro-active .main__cue-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  .main__cue-label,
+  .main__cue-track { animation: none; }
+  .main__cue-track::after { animation: none; top: auto; bottom: 0; opacity: 1; }
 }
 
 /* Keep a clear vertical reading order when the desktop composition no longer fits. */
@@ -496,7 +559,8 @@
     font-size: clamp(16px, 2.3vw, 20px);
     line-height: 1.45;
   }
-  .main__role { bottom: 82px; font-size: 10px; line-height: 19px; }
+  /* 가운데 아래 스크롤 캡슐(높이 약 90px)과 겹치지 않게 그 위로 올린다 */
+  .main__role { bottom: 104px; font-size: 10px; line-height: 19px; }
   .instrument {
     top: auto;
     right: var(--gutter);
@@ -510,7 +574,9 @@
   .instrument__track { margin-top: 10px; }
 
   .main__hint { display: none; }
-  .main__scroll { bottom: 30px; font-size: 10px; }
+  .main__cue { bottom: 18px; gap: 9px; }
+  .main__cue-label { font-size: 10px; }
+  .main__cue-track { height: 34px; }
 }
 
 @media (max-width: 900px) and (max-height: 740px) {
@@ -524,10 +590,11 @@
   .main__claim { top: 38px; font-size: 38px; }
   .claimline:first-child { font-size: 22px; }
   .ice-cube-hero__layout { left: 50%; top: 64px; width: 46%; height: calc(100% - 92px); }
-  .main__lead { bottom: 110px; max-width: 47%; font-size: 14px; }
+  .main__lead { bottom: 118px; max-width: 47%; font-size: 14px; }
   .main__lead br { display: none; }
-  .main__role { bottom: 55px; }
-  .main__scroll { bottom: 14px; }
+  .main__role { bottom: 70px; }
+  .main__cue { bottom: 8px; gap: 6px; }
+  .main__cue-track { height: 20px; }
 }
 
 
@@ -561,7 +628,6 @@
 
 /* 계기와 안내는 연기보다 먼저 빠진다 */
 .main.is-sublimating .instrument { opacity: var(--exit-opacity, 1); }
-.main.is-sublimating .main__scroll { opacity: var(--exit-opacity, 1); }
 .main.is-sublimating .frost { opacity: calc(var(--grow, 0) * 0.85 * var(--exit-opacity, 1)); }
 
 @media (prefers-reduced-motion: reduce) {
