@@ -24,7 +24,7 @@ const SPECIMEN = {
 const PREVIEW = {
   odit: { kind: 'image', src: '/cases/odit-preview.jpg' },
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
-  walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
+  walga: { kind: 'image', src: '/cases/walga/boards/01.webp' },
 };
 
 const SETS = 1;

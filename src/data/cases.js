@@ -129,17 +129,27 @@ export const CASES = {
       /* 기획서 나오면 public/ 에 넣고 '/walga-deck.pdf' 로 채우면 그때 버튼이 나온다 */
       { label: 'DECK (PDF)', href: '' },
     ],
-    /* 케이스 스터디 보드 — Figma '왈가왈봇(개인)' 파일의 '목업' 페이지에서 내보낸다.
-       사이트는 무채색 액자, 보드는 프로젝트 컬러. 보드를 고치면 같은 이름으로 다시 내보내 덮어쓰면 된다.
-       16:9 슬라이드(2000×1125)를 WebP 로 넣었다. */
+    cinematicHero: {
+      src: '/cases/walga/boards/main.png',
+      width: 3840,
+      height: 2160,
+      alt: '왈가왈봇 프로젝트 메인 비주얼',
+    },
+    /* 케이스 스터디 보드 — Figma에서 2x PNG로 내보낸 16:9 슬라이드.
+       보드를 고치면 같은 이름으로 다시 내보내 덮어쓰면 된다. */
     blocks: [
-      { type: 'full', src: '/cases/walga/boards/01-cover.webp', width: 2000, height: 1125, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요. 역할 PM·IA·UI Design·Frontend, 담당 배심원 광장·사건 접수·사건 상세·투표, 2026' },
-      { type: 'full', src: '/cases/walga/boards/02-problem.webp', width: 2000, height: 1125, alt: '문제 — 판단을 비교하고 싶지만 비교할 곳이 없었다. 설문 31명 중 51.6%가 AI 답변에서 양쪽 입장의 균형을, 45.2%가 AI와 배심원 판단이 다를 때 이유를 궁금해했고, 58.6%가 개인적인 상황을 말하기 부담스러워했다' },
-      { type: 'full', src: '/cases/walga/boards/03-principles.webp', width: 2000, height: 1125, alt: '설계 원칙 — 판단 근거 제공, 다양한 관점 비교, 참여 범위 선택, 결과까지의 연결 — 과 사례 탐색부터 후일담까지의 사용자 흐름' },
-      { type: 'full', src: '/cases/walga/boards/04-plaza.webp', width: 2000, height: 1125, alt: '배심원 광장 — 이달의 명판관 랭킹, 정렬 필터, 투표 중 배지' },
-      { type: 'full', src: '/cases/walga/boards/05-submit.webp', width: 2000, height: 1125, alt: '사건 접수 — 사건 작성, 요약 확인, AI 1심과 공개 범위, 접수 완료' },
-      { type: 'full', src: '/cases/walga/boards/06-vote.webp', width: 2000, height: 1125, alt: '사건 상세와 투표 — 쟁점 확인, 네 가지 관점 선택, 24시간 투표 방식' },
-      { type: 'full', src: '/cases/walga/boards/07-result.webp', width: 2000, height: 1125, alt: '1심·2심 비교 — 판단 결과를 한눈에, 왜 달랐는지, 선택지별 투표 분포' },
+      { type: 'full', src: '/cases/walga/boards/01.webp', width: 3840, height: 2160, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요. 역할 PM·IA·UI Design·Frontend, 팀 5명, 2026년 8월 26일부터 9월 18일까지 진행' },
+      { type: 'full', src: '/cases/walga/boards/02.webp', width: 3840, height: 2160, alt: '문제 — 다른 판단이 궁금하지만 이유를 비교하기 어려웠다. 사용자 설문 결과와 핵심 인사이트' },
+      { type: 'full', src: '/cases/walga/boards/03.webp', width: 3840, height: 2160, alt: '판단 근거 제공, 다양한 관점 비교, 참여 범위 선택이라는 세 가지 설계 원칙과 사용자 흐름' },
+      { type: 'full', src: '/cases/walga/boards/04-2.webp', width: 3840, height: 2160, alt: '리서치에서 매일의 실행까지 흐름을 설계한 PM 역할과 14일간의 작업 과정' },
+      { type: 'full', src: '/cases/walga/boards/05.webp', width: 3840, height: 2160, alt: '왈랑이와 왈가닥이 캐릭터 시스템과 투표 선택지, 판결 결과, 명판관 트로피 적용 사례' },
+      { type: 'full', src: '/cases/walga/boards/06.webp', width: 3840, height: 2160, alt: '이달의 명판관 랭킹, 사건 정렬 필터와 투표 상태 배지를 갖춘 배심원 광장' },
+      { type: 'full', src: '/cases/walga/boards/07-2.webp', width: 3840, height: 2160, alt: '사건 작성, 추가 질문, AI 요약, 공개 범위 선택과 접수 완료까지의 사건 접수 흐름' },
+      { type: 'full', src: '/cases/walga/boards/08-2.webp', width: 3840, height: 2160, alt: '팀 피드백을 반영해 서술형 질문을 선택형으로 바꾸고 단계별 화면을 같은 템플릿으로 통일한 개선 과정' },
+      { type: 'full', src: '/cases/walga/boards/09.webp', width: 3840, height: 2160, alt: 'AI 핵심 요약을 읽고 관점을 선택한 뒤 24시간 배심원 투표에 참여하는 사건 상세와 투표 흐름' },
+      { type: 'full', src: '/cases/walga/boards/10.webp', width: 3840, height: 2160, alt: 'AI 1심과 배심원 2심의 판단 차이, 판단 근거와 선택지별 투표 분포를 보여주는 결과 화면' },
+      { type: 'full', src: '/cases/walga/boards/11.webp', width: 3840, height: 2160, alt: '승패 중심의 초기 결과 화면을 서로 다른 판단 기준을 비교하는 사건 상세 화면으로 개선한 과정' },
+      { type: 'full', src: '/cases/walga/boards/12.webp', width: 3840, height: 2160, alt: '프로젝트에서 배운 점과 어려웠던 점, 다음 프로젝트에서 검증하고 싶은 내용을 정리한 회고와 마무리' },
     ],
   },
 };

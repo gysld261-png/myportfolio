@@ -11,7 +11,7 @@ import './portfolio.css';
 const PRISM_FACES = {
   odit: { kind: 'image', src: '/cases/odit-preview.jpg' }, // odit-web 홈·이야기 상세·연결 화면 캡처
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
-  walga: { kind: 'image', src: '/cases/walga/boards/01-cover.webp' },
+  walga: { kind: 'image', src: '/cases/walga/boards/01.webp' },
 };
 
 const hashId = () => {

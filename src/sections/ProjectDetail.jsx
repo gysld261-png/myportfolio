@@ -109,9 +109,12 @@ function Row({ block }) {
  */
 export default function ProjectDetail({ spec, onClose, onSwitch, portal = false }) {
   const scrollRef = useRef(null);
+  const metaRef = useRef(null);
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
+  const [metaRevealed, setMetaRevealed] = useState(false);
   const data = renderSpec ? getCase(renderSpec.id) : null;
+  const cinematicCover = renderSpec?.id === 'walga' ? data?.cinematicHero : null;
   const projectHero = data?.hero?.src || (renderSpec?.id === 'tchaikim' ? '/cases/tchaikim-home.jpg' : null);
   const heroAlt = data?.hero?.alt || (projectHero ? '차이킴 웹사이트 디자인' : '');
 
@@ -132,7 +135,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
 
   useEffect(() => {
     if (!spec || portal || renderSpec?.id !== spec.id) return undefined;
-    const frame = requestAnimationFrame(() => scrollRef.current?.querySelector('.dhero__title')?.focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() => scrollRef.current?.querySelector('.dhero__title, .dhero__a11y')?.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(frame);
   }, [spec, renderSpec, portal]);
 
@@ -147,11 +150,12 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
   /* concept 자리표가 없으면 리듬 맨 끝에 붙인다 — 글이 사라지는 일은 없게 */
   const blocks = useMemo(() => {
     if (!data) return [];
-    const content = projectHero ? data.blocks.filter(b => b.src !== projectHero) : data.blocks;
+    const leadSource = cinematicCover?.src || projectHero;
+    const content = leadSource ? data.blocks.filter(b => b.src !== leadSource) : data.blocks;
     const has = content.some((b) => b.type === 'concept');
     const hasText = (data.concept || []).length > 0;
     return has || !hasText ? content : [...content, { type: 'concept' }];
-  }, [data, projectHero]);
+  }, [cinematicCover, data, projectHero]);
 
   // onClose 는 부모에서 매 렌더 새로 만들어진다. Field 의 HUD 가 매 프레임 갱신되므로
   // 이걸 의존성에 넣으면 스크롤 위치가 계속 0 으로 되돌아간다. ref 로 고정한다.
@@ -177,6 +181,71 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
     if (spec && scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [spec?.id]);
 
+  /* 레퍼런스처럼 첫 보드를 한 화면 가득 붙잡은 뒤, 스크롤 진행에 맞춰
+     안쪽으로 축소하고 모서리를 만든다. DOM을 다시 그리지 않고 CSS 변수만 갱신한다. */
+  useEffect(() => {
+    const scroller = scrollRef.current;
+    if (!spec || !cinematicCover || !scroller) return undefined;
+
+    let frame = 0;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const sync = () => {
+      frame = 0;
+      const compact = scroller.clientWidth <= 700;
+      const travel = Math.max(1, scroller.clientHeight * 0.72);
+      const progress = reduced ? 1 : Math.min(1, Math.max(0, scroller.scrollTop / travel));
+      const shrink = compact ? 0.055 : 0.105;
+      const radius = compact ? 28 : 64;
+
+      scroller.style.setProperty('--cinema-progress', progress.toFixed(4));
+      scroller.style.setProperty('--cinema-scale', (1 - progress * shrink).toFixed(4));
+      scroller.style.setProperty('--cinema-radius', `${(progress * radius).toFixed(2)}px`);
+      scroller.style.setProperty('--cinema-cue', Math.max(0, 1 - progress * 2.4).toFixed(4));
+      scroller.style.setProperty('--cinema-shadow', (progress * 0.44).toFixed(4));
+    };
+
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(sync);
+    };
+
+    sync();
+    scroller.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      scroller.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      scroller.style.removeProperty('--cinema-progress');
+      scroller.style.removeProperty('--cinema-scale');
+      scroller.style.removeProperty('--cinema-radius');
+      scroller.style.removeProperty('--cinema-cue');
+      scroller.style.removeProperty('--cinema-shadow');
+    };
+  }, [cinematicCover, spec]);
+
+  /* 이미지가 축소되어 자리를 잡은 다음, 메타 정보가 짧은 간격으로 이어서 등장한다. */
+  useEffect(() => {
+    if (!spec || !cinematicCover) {
+      setMetaRevealed(true);
+      return undefined;
+    }
+
+    setMetaRevealed(false);
+    const node = metaRef.current;
+    const root = scrollRef.current;
+    if (!node || !root) return undefined;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setMetaRevealed(true);
+        observer.disconnect();
+      }
+    }, { root, threshold: 0.16 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [cinematicCover, spec]);
+
   // 상세 스크롤에 관성을 준다. 휠 한 칸이 그대로 한 칸 점프하지 않는다.
   // 거기에 속도를 CSS 로 흘려보내서, 빠르게 내릴수록 이미지가 울렁이게 한다.
   useEffect(() => {
@@ -188,48 +257,73 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
 
   return (
     <article
-      className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''} ${portal ? 'is-portal' : ''}`}
+      className={`detail ${spec ? 'is-open' : ''} ${revealed ? 'is-revealed' : ''} ${portal ? 'is-portal' : ''} ${cinematicCover ? 'detail--cinematic' : ''}`}
       aria-hidden={!spec || portal}
       inert={!spec || portal ? '' : undefined}
       style={renderSpec ? { '--pc': renderSpec.color } : undefined}
     >
       {renderSpec && data && (
         <>
+          <header className="detail__chrome">
+            <span className="detail__brand">PARK HYOMIN</span>
+            <button
+              type="button"
+              className="detail__dismiss"
+              onClick={onClose}
+              aria-label="프로젝트 상세 닫기"
+            >
+              <span aria-hidden="true" />
+            </button>
+          </header>
+
           {GHOST[renderSpec.id] && (
             <div className="detail__ghost" aria-hidden="true" key={renderSpec.id}>
               <img src={GHOST[renderSpec.id]} alt="" draggable="false" />
             </div>
           )}
-          <nav className="detail__pills" aria-label="상세 탐색">
-            <button type="button" className="roll" onClick={onClose} aria-label="필드로 돌아가기">
-              <RollText text="/ RETURN" />
-            </button>
-            <button type="button" className="roll" onClick={() => onSwitch(next.id)}
-              aria-label="다음 프로젝트">
-              <RollText text="NEXT" />
-            </button>
-          </nav>
 
           <div className="detail__scroll" ref={scrollRef}>
-            {/* Project artwork, with transparent mockups framed to their visible bounds. */}
-            <header className={`dhero ${projectHero ? 'dhero--project' : ''} ${data.hero?.viewBox ? 'dhero--cutout' : ''}`}>
-              <h2 className="dhero__title" tabIndex={-1}>
-                {renderSpec.ko}
-              </h2>
-              <div className="dhero__plate">
-                {data.hero?.viewBox ? (
-                  <svg className="dhero__cutout" viewBox={data.hero.viewBox} role="img" aria-label={heroAlt}>
-                    <image href={projectHero} width={data.hero.width} height={data.hero.height} />
-                  </svg>
-                ) : <img src={projectHero || renderSpec.imageCut || renderSpec.image} alt={heroAlt} />}
-              </div>
-              <p className="dhero__year sys">
-                {`YEAR — ${data.year}`}
-              </p>
-            </header>
+            {/* 보드형 프로젝트는 첫 장이 풀스크린에서 카드로 응축된다. */}
+            {cinematicCover ? (
+              <header className="dhero dhero--cinematic">
+                <h2 className="dhero__a11y" tabIndex={-1}>{renderSpec.ko}</h2>
+                <div className="dhero__cinema-pin">
+                  <figure className="dhero__cinema-frame">
+                    <img
+                      src={cinematicCover.src}
+                      alt={cinematicCover.alt || `${renderSpec.ko} 프로젝트 표지`}
+                      width={cinematicCover.width}
+                      height={cinematicCover.height}
+                      loading="eager"
+                      fetchpriority="high"
+                    />
+                  </figure>
+                  <p className="dhero__cinema-cue sys" aria-hidden="true">SCROLL / VIEW PROJECT</p>
+                </div>
+              </header>
+            ) : (
+              <header className={`dhero ${projectHero ? 'dhero--project' : ''} ${data.hero?.viewBox ? 'dhero--cutout' : ''}`}>
+                <h2 className="dhero__title" tabIndex={-1}>
+                  {renderSpec.ko}
+                </h2>
+                <div className="dhero__plate">
+                  {data.hero?.viewBox ? (
+                    <svg className="dhero__cutout" viewBox={data.hero.viewBox} role="img" aria-label={heroAlt}>
+                      <image href={projectHero} width={data.hero.width} height={data.hero.height} />
+                    </svg>
+                  ) : <img src={projectHero || renderSpec.imageCut || renderSpec.image} alt={heroAlt} />}
+                </div>
+                <p className="dhero__year sys">
+                  {`YEAR — ${data.year}`}
+                </p>
+              </header>
+            )}
 
             {/* ── 메타 — 라벨은 깨알, 값은 보통. 자세한 건 전부 링크로. ── */}
-            <section className="dmeta">
+            <section
+              ref={metaRef}
+              className={`dmeta ${cinematicCover ? 'dmeta--cinematic' : ''} ${metaRevealed ? 'is-visible' : ''}`}
+            >
               <div className="dmeta__col">
                 <p className="dmeta__label sys">CATEGORIES</p>
                 {data.categories.map((c, i) => <p key={c} className="dmeta__value">{c}</p>)}

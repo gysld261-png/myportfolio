@@ -25,11 +25,20 @@
     visibility 0s linear 420ms;
 }
 .detail.is-open {
+  z-index: 50;
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
   /* 연기에 덮인 화면 위로 상세가 천천히 떠오른다. */
   transition: opacity 600ms var(--ease), visibility 0s linear 0s;
+}
+
+/* 실제 상세가 열린 동안에는 전역 사이트 네비를 완전히 치운다.
+   상세 자체의 이름 + 닫기 버튼만 남겨 레퍼런스와 같은 독립 화면으로 보이게 한다. */
+.app-shell:has(.detail.is-open:not(.is-portal)) > .nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 /* 얼음 속 상세 화면(포털) — 얼음 모양의 부드러운 창 안에서만 보이고, 얼음 크기에 맞춘 미니어처로 시작한다.
    변수는 workIceScene 이 매 프레임 넣는다. 전환이 끝나면 창이 화면 밖까지 넓어지고 크기가 1 이 되어,
@@ -63,6 +72,15 @@
     to bottom,
     rgba(11, 13, 14, 0.96) 0 52%,
     rgba(11, 13, 14, 0)
+  );
+}
+.detail--cinematic::before {
+  height: calc(var(--nav-h) + 42px);
+  background: linear-gradient(
+    to bottom,
+    rgba(11, 13, 14, .82) 0 44%,
+    rgba(11, 13, 14, .24) 72%,
+    transparent 100%
   );
 }
 
@@ -127,34 +145,58 @@
 .detail__scroll::-webkit-scrollbar { display: none; }
 .detail.is-revealed .detail__scroll { opacity: 1; }
 
-.detail__pills {
+/* 상세에서는 사이트 네비를 덮고 이름과 닫기만 남긴다. */
+.detail__chrome {
   position: absolute;
-  top: calc(var(--nav-h) + 14px);
-  left: var(--dg);
-  z-index: 6;
+  inset: 0 0 auto;
+  height: var(--nav-h);
+  padding: 0 var(--dg);
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 6;
   opacity: 0;
   transition: opacity 420ms var(--ease);
 }
-.detail.is-revealed .detail__pills { opacity: 1; }
-.detail__pills button {
-  font-family: var(--mono);
-  font-size: 11.5px;
-  letter-spacing: 0.12em;
-  padding: 10px 20px;
-  border-radius: 999px;
-  border: 1px solid rgba(175, 194, 200, 0.2);
-  background: rgba(11, 13, 14, 0.6);
-  backdrop-filter: blur(8px);
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 260ms var(--ease), border-color 260ms var(--ease);
-}
-.detail__pills button:hover {
+.detail.is-revealed .detail__chrome { opacity: 1; }
+.detail__brand {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: .13em;
   color: var(--text);
-  border-color: rgba(175, 194, 200, 0.5);
+  text-shadow: 0 1px 14px rgba(0, 0, 0, .78);
 }
+.detail__dismiss {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(11, 13, 14, .18);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 260ms var(--ease), transform 260ms var(--ease);
+  backdrop-filter: blur(7px);
+}
+.detail__dismiss::before,
+.detail__dismiss::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 1.5px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+}
+.detail__dismiss::before { transform: translate(-50%, -50%) rotate(45deg); }
+.detail__dismiss::after { transform: translate(-50%, -50%) rotate(-45deg); }
+.detail__dismiss:hover { background: rgba(11, 13, 14, .42); transform: rotate(7deg); }
+.detail__dismiss:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
 
 /* ── 히어로 ──
    표본 하나가 가운데. 좌우 끝에 제목과 연도가 그 세로 중앙선에 걸린다.
@@ -185,6 +227,17 @@
   white-space: nowrap;
 }
 .dhero__title:focus { outline: none; }
+.dhero__a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .dhero__plate {
   /* 안쪽 img 는 등장 애니메이션이 transform 을 쓰고 있어서(fill-mode: both)
      여기에 겹쳐 쓰면 애니메이션이 이긴다. 스크롤 변위는 바깥 상자가 받는다. */
@@ -265,6 +318,54 @@
 }
 .dhero__cutout { display: block; width: 100%; height: 100%; }
 
+/* 첫 보드가 화면을 채운 채 고정되고, 스크롤 진행에 따라 안쪽 카드로 응축된다. */
+.dhero.dhero--cinematic {
+  position: relative;
+  display: block;
+  height: 225svh;
+  min-height: 225svh;
+  padding: 0;
+}
+.dhero__cinema-pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+}
+.dhero__cinema-frame {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--cinema-radius, 0);
+  background: #eaf3ff;
+  transform: scale(var(--cinema-scale, 1));
+  transform-origin: center;
+  box-shadow: 0 32px 100px rgba(0, 0, 0, var(--cinema-shadow, 0));
+  will-change: transform, border-radius;
+}
+.dhero__cinema-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.dhero__cinema-cue {
+  position: absolute;
+  right: max(var(--dg), 26px);
+  bottom: max(28px, 4vh);
+  z-index: 1;
+  margin: 0;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: rgba(11, 13, 14, .72);
+  color: var(--text);
+  opacity: var(--cinema-cue, 1);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
 /* ── 메타 ──
    왼쪽 1/3 에 라벨 두 칸, 오른쪽 절반에 INFO. 자세한 건 링크로 넘긴다. */
 .dmeta {
@@ -274,6 +375,15 @@
   row-gap: 38px;
   padding: 0 var(--dg) clamp(70px, 9vw, 150px);
 }
+.dmeta--cinematic > * {
+  opacity: 0;
+  transform: translateY(34px);
+  transition: opacity 720ms var(--ease), transform 820ms var(--ease);
+}
+.dmeta--cinematic.is-visible > * { opacity: 1; transform: translateY(0); }
+.dmeta--cinematic.is-visible > :nth-child(2) { transition-delay: 90ms; }
+.dmeta--cinematic.is-visible > :nth-child(3) { transition-delay: 180ms; }
+.dmeta--cinematic.is-visible > :nth-child(4) { transition-delay: 270ms; }
 .dmeta__col { min-width: 0; }
 /* 레벨 1 — 라벨. 제일 작고 제일 얇다. 구획을 나누는 표시다.
    불투명도로 더 죽이지 않는다 — muted 에 0.55 를 곱하면 대비가 2.7:1 로 떨어져서
@@ -686,10 +796,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dhero__plate img { animation: none; }
-  .detail, .detail__scroll, .detail__pills { transition: none; }
+  .detail, .detail__scroll, .detail__chrome { transition: none; }
+  .dhero.dhero--cinematic { height: 110svh; min-height: 110svh; }
+  .dhero__cinema-frame { will-change: auto; }
+  .dmeta--cinematic > * { opacity: 1; transform: none; transition: none; }
 }
 
 @media (max-width: 700px) {
+  .detail__brand { font-size: 12px; }
+  .detail__dismiss { width: 40px; height: 40px; margin-right: -8px; }
+  .detail__dismiss::before,
+  .detail__dismiss::after { width: 21px; }
+  .dhero.dhero--cinematic { height: 205svh; min-height: 205svh; }
+  .dhero__cinema-frame img { object-fit: contain; }
+  .dhero__cinema-cue { right: 20px; bottom: 24px; }
   .downership__head { align-items: flex-start; flex-direction: column; gap: 7px; }
   .downership__list { grid-template-columns: 1fr; }
   .downership__item { min-height: 144px; border-left: 0; }
