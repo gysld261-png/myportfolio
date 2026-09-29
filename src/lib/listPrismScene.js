@@ -65,7 +65,7 @@ function drawCard({ title, meta, note }) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 1000); ctx.stroke();
   }
   ctx.fillStyle = 'rgba(241,242,239,0.92)';
-  ctx.font = '600 150px "Wanted Sans", "Pretendard", system-ui, sans-serif';
+  ctx.font = '600 150px "Pretendard Variable", "Pretendard", system-ui, sans-serif';
   ctx.fillText(title, 96, 560);
   ctx.fillStyle = 'rgba(175,194,200,0.7)';
   ctx.font = '500 30px ui-monospace, "JetBrains Mono", monospace';

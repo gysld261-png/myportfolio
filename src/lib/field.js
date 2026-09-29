@@ -1112,15 +1112,15 @@ export function createField(canvas, options) {
 
     labelQueue.forEach(({ spec, box, t, depth = 0.5 }) => {
       const ly = box.y + box.h + 30;
-      ctx.font = '500 10px "Manrope", sans-serif';
+      ctx.font = '500 10px "Pretendard Variable", sans-serif';
       const depthAlpha = spatial ? 0.64 + depth * 0.36 : 1;
       ctx.fillStyle = `rgba(${FROST},${(0.48 + 0.52 * t) * depthAlpha})`;
       ctx.fillText(spec.no, box.x, ly);
-      ctx.font = '500 14px "Pretendard Variable", "Manrope", sans-serif';
+      ctx.font = '500 14px "Pretendard Variable", "Pretendard Variable", sans-serif';
       ctx.fillStyle = `rgba(241,242,239,${(0.34 + 0.66 * t) * depthAlpha})`;
       ctx.fillText(spec.ko, box.x + 26, ly + 1);
       if (t > 0.18) {
-        ctx.font = '400 10px "Manrope", sans-serif';
+        ctx.font = '400 10px "Pretendard Variable", sans-serif';
         ctx.fillStyle = `rgba(140,150,154,${((t - 0.18) / 0.82) * 0.95})`;
         ctx.fillText(`${spec.tag}  /  ${spec.role}  /  ${spec.year}`, box.x + 26, ly + 20);
       }

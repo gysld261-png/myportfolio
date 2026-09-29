@@ -1,6 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
-@import url('https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css');
+@import url('https://hangeul.pstatic.net/hangeul_static/css/maru-buri.css');
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css');
 @import './tokens.css';
 
@@ -109,7 +108,7 @@ body {
   font-family: var(--display);
   font-size: 11.5px;
   font-weight: 500;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
   text-transform: uppercase;
@@ -188,10 +187,12 @@ body {
   .nav__status { display: none; }
 }
 .nav__mark {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 16px;
-  letter-spacing: 0.13em;
+  /* 이름은 메인 제목과 같은 세리프 — 네비가 계기판이 아니라 같은 목소리로 읽힌다 */
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 23px;
+  line-height: 1;
+  letter-spacing: 0;
   color: var(--text);
   background: none;
   border: 0;
@@ -208,7 +209,7 @@ body {
 .nav__link {
   font-family: var(--mono);
   font-size: 12px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   color: var(--muted);
   background: none;
   border: 0;
@@ -222,7 +223,7 @@ body {
 .nav__contact {
   font-family: var(--mono);
   font-size: 12px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   color: var(--muted);
   background: none;
   border: 0;

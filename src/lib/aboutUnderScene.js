@@ -313,7 +313,7 @@ export function createUnderSnow(host, { keys, labels = {} }) {
   const words = {};
   let disposed = false;
   (async () => {
-    try { await document.fonts.load('600 120px Archivo'); } catch { /* 글꼴이 없으면 대체 글꼴로 만든다 */ }
+    try { await document.fonts.load('600 120px "Pretendard Variable"'); } catch { /* 글꼴이 없으면 대체 글꼴로 만든다 */ }
     if (disposed) return;
     Object.keys(keys).forEach((id) => {
       const text = labels[id];

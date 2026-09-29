@@ -250,7 +250,7 @@
   max-width: 100%;
   margin: 0;
   /* 헤드라인만 세리프 — 주변 계기판·라벨(산세리프)과 대비시킨다 */
-  font-family: var(--claim-font, 'Instrument Serif'), Georgia, serif;
+  font-family: var(--claim-font, var(--serif));
   font-weight: 400;
   font-size: clamp(56px, 7.4vw, 112px);
   line-height: 0.98;

@@ -312,7 +312,7 @@ function useUnderSnow(phase, selected) {
       // 깊이 눈금 — 오른쪽 가장자리. 지표가 −78.5°C, 내려갈수록 차가워진다
       const gx = W / 2 - (W < 700 ? 22 : 56);
       const top = scene.surfaceAt(gx);
-      octx.font = '500 10px Archivo, sans-serif';
+      octx.font = '500 10px "Pretendard Variable", sans-serif';
       octx.textAlign = 'right';
       octx.textBaseline = 'middle';
       for (let depth = 0; depth <= 5000; depth += 40) {

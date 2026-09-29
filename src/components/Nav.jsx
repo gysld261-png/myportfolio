@@ -15,7 +15,7 @@ export default function Nav({ current, onGo, progress = 0 }) {
     <header className="nav" style={{ '--nav-progress': progress }}>
       <div className="nav__left">
         <button type="button" className="nav__mark roll" onClick={() => onGo('main')} aria-label="메인으로 이동">
-          <RollText text="PARK HYOMIN" />
+          <RollText text="Park Hyomin" />
         </button>
         <p className="nav__status sys" aria-hidden="true">
           <span className="nav__dot" />

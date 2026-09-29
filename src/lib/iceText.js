@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/* 얼음 글자 — 사이트 글꼴(Archivo)로 캔버스에 단어를 그리고, 그 윤곽을 따서 입체로 뽑는다.
+/* 얼음 글자 — 사이트 글꼴(Pretendard)로 캔버스에 단어를 그리고, 그 윤곽을 따서 입체로 뽑는다.
    three 에 딸린 글꼴 파일이 없고, 있어도 사이트 글꼴과 모양이 달라서 직접 만든다.
 
    1. 캔버스에 흰 글자를 그린다
@@ -135,7 +135,7 @@ const inside = (pt, poly) => {
 };
 
 /** 단어 → 높이 1 에 맞춘 얼음 글자 도형. 글꼴이 준비된 뒤에 부른다 */
-export function createIceWordGeometry(text, { family = 'Archivo', depth = 0.32 } = {}) {
+export function createIceWordGeometry(text, { family = '"Pretendard Variable"', depth = 0.32 } = {}) {
   const loops = traceLoops(rasterize(text, family))
     // 닫힌 선을 그대로 넣으면 시작점과 끝점이 같아 기준선 길이가 0 이 되고, 모든 점이 지워진다.
     // 열린 선(첫 점 ~ 마지막 점, 서로 이웃한 두 점)으로 단순화한다

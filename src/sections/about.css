@@ -289,8 +289,9 @@
 .about-room h2 {
   margin: 0;
   color: var(--text);
-  font: 600 clamp(28px, 2.8vw, 44px)/1.32 var(--kr);
-  letter-spacing: -.02em;
+  /* 메인 제목과 같은 세리프 — 한글은 마루부리가 받는다 */
+  font: 400 clamp(30px, 3vw, 46px)/1.34 var(--serif);
+  letter-spacing: -.01em;
   word-break: keep-all;
 }
 /* > span — 안쪽의 ScrambleText span 까지 같이 움직이면 두 번 올라온다 */
@@ -508,7 +509,7 @@
   z-index: 9;
   right: var(--gutter);
   top: calc(var(--nav-h) + 42px);
-  width: min(230px, 24vw);
+  width: min(270px, 30vw);
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -516,6 +517,7 @@
   color: var(--muted);
 }
 .about-hud i { height: 1px; background: rgba(175, 194, 200, .22); }
+.about-hud span { white-space: nowrap; }
 
 .about-back {
   position: absolute;

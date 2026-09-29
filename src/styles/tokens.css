@@ -21,19 +21,19 @@
   --pc-nuri: #2f7d62;
   --pc-walga: #b8823a;
 
-  /* type
-     영문은 Archivo — 대문자가 넓고 획의 끝이 평평한 그로테스크.
-     한글은 프리텐다드. 순서가 중요하다: Archivo 에 한글 글리프가 없으므로
-     라틴은 Archivo 로, 한글은 자동으로 프리텐다드로 떨어진다.
-     (Manrope 는 끝이 둥근 지오메트릭이라 레퍼런스와 성격이 반대였다) */
-  --display: 'Archivo', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
-  /* 라벨·버튼도 같은 서체다.
-     K95 를 실측해 보면 'VISIT WEBSITE' 의 I 는 6px, W 는 28px 로 진폭이 4.67 배 다르다 —
-     모노스페이스가 아니라 본문과 같은 그로테스크를 작게·대문자로·자간만 벌려 쓴 것이다.
-     모노 + 대문자 + 넓은 자간은 개발자 템플릿의 기본값이라 어디서 본 듯한 인상을 준다.
+  /* type — 세리프 하나, 산세리프 하나.
+     --serif  제목 전용. 영문은 Instrument Serif, 한글은 글리프가 없으니 마루부리로 떨어진다.
+              메인 문장 · 네비 이름 · About 방 제목 · Contact 제목처럼 '말하는' 글자에만 쓴다.
+     --sans   나머지 전부(네비 탭 · 라벨 · 본문). 프리텐다드 한 벌로 라틴과 한글을 같이 받는다.
+              라틴 전용 그로테스크를 따로 두면 한 줄 안에서 영문과 한글의 결이 갈라진다.
+     --display / --mono / --kr 은 예전 이름이다. 호출부가 많아 이름은 두고 값만 --sans 로 모은다. */
+  --serif: 'Instrument Serif', 'MaruBuri', 'Nanum Myeongjo', 'AppleMyungjo', Georgia, serif;
+  --sans: 'Pretendard Variable', 'Pretendard', -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --display: var(--sans);
+  /* 라벨·버튼도 같은 서체다 — 작게, 대문자로, 자간만 조금 벌린다.
      숫자 정렬은 서체를 바꾸는 대신 tabular-nums 로 잡는다(.sys 참고). */
-  --mono: 'Archivo', 'Pretendard Variable', 'Helvetica Neue', Arial, sans-serif;
-  --kr: 'Archivo', 'Pretendard Variable', 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --mono: var(--sans);
+  --kr: var(--sans);
 
   /* layout */
   --gutter: clamp(20px, 5.5vw, 80px);
