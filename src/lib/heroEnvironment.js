@@ -10,7 +10,7 @@ const SKY_TOP = new THREE.Color(0x0b0d0e); // --bg
 const HORIZON = new THREE.Color(0x1f272c);
 const FOG = 0x1a2125;
 
-function makeNoise(seed) {
+export function makeNoise(seed) {
   const rand = seeded(seed);
   const size = 256;
   const table = new Float32Array(size * size);
@@ -41,7 +41,7 @@ function makeNoise(seed) {
   };
 }
 
-function createSky() {
+export function createSky() {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uTop: { value: SKY_TOP },
@@ -71,7 +71,7 @@ function createSky() {
   return mesh;
 }
 
-function createTerrain(noise) {
+export function createTerrain(noise) {
   const width = 16000;
   const depth = 9000;
   const geometry = new THREE.PlaneGeometry(width, depth, 220, 150);
@@ -129,7 +129,7 @@ float snowNoise(vec2 p) {
   return mesh;
 }
 
-function createSnowfall(seed) {
+export function createSnowfall(seed) {
   const count = 520;
   const rand = seeded(seed);
   const positions = new Float32Array(count * 3);

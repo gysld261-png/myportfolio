@@ -83,7 +83,27 @@
 :is(.about--map, .about--travel, .about--return) .about-node > i { margin: 2px 0 0; }
 :is(.about--map, .about--travel, .about--return) .about-node__visited { position: static; transform: none; margin-top: 2px; }
 
-/* 드라이아이스 판과 균열 — 키워드 버튼(.about-world)보다 아래에 깔린다 */
+/* 눈밭 단면(three) 위에 핀·깊이 눈금(2D)을 겹친다. 둘 다 키워드 버튼(.about-world)보다 아래 */
+.about-under {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 700ms ease;
+}
+.about-under canvas { display: block; width: 100%; height: 100%; }
+.about--impact .about-under,
+.about--reveal .about-under { opacity: 0; }
+.about--impact .about-under { transition-duration: 240ms; }
+/* 방 안 바닥 연기 — 방 글자 뒤, 화면 아래에 낮게 깔린다 */
+.about-fog {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 .about-constellation {
   position: absolute;
   inset: 0;
