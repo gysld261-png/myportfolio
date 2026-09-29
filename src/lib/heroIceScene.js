@@ -94,7 +94,7 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
 
   // 연기와 굴절용 빛판은 회전하지 않는다
   const smokeTexture = createSmokeTexture();
-  const smoke = createSmoke(SHAPE, SEED, smokeTexture, { count: 44, strength: 1.7, spread: 1.5 });
+  const smoke = createSmoke(SHAPE, SEED, smokeTexture, { count: 44, strength: 1.7, spread: 1.5, wisps: 64 });
   scene.add(smoke.group);
 
   const pointer = { x: 0, y: 0, vx: 0, vy: 0, at: 0, inside: false };
@@ -110,6 +110,9 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
   let height = 1;
   let bounds = host.getBoundingClientRect();
   let touching = false;
+  // 건드린 세기(0~1)와 닿은 점(연기 그룹 좌표). 닿으면 그 자리에서 김이 피어난다.
+  let stir = 0;
+  const stirPoint = new THREE.Vector3();
   let heat = 0;
   let alpha = 0;
   let frame = 0;
@@ -164,6 +167,11 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
     if (cursor === value) return;
     cursor = value;
     document.documentElement.style.cursor = value;
+    // 얼음을 만지는 동안 커서 유체를 옅게 누른다 (components/cursor.css)
+    if (value) document.documentElement.dataset.iceTouch = '';
+    else delete document.documentElement.dataset.iceTouch;
+    // 따라다니는 점도 링 + DRAG 라벨로 바꾼다 (components/CustomCursor)
+    window.dispatchEvent(new CustomEvent('app-cursor', { detail: value ? { active: true, label: 'DRAG' } : null }));
   };
   const onDown = (event) => {
     if (event.button !== 0 || getExit() > 0.3) return;
@@ -296,7 +304,17 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
 
     smoke.group.position.copy(group.position);
     smoke.group.scale.setScalar(scale);
-    smoke.update(reduced ? 0 : dt * (1 + exit * 2), alpha * (1 - smoothstep(exit, 0.7, 1)), smoothstep(exit, 0, 0.7));
+    // 스치면 몇 가닥, 문지르거나 잡고 돌리면 뭉게뭉게. 손을 떼면 서서히 잦아든다.
+    const stirTarget = touching && exit < 0.3 ? clamp01(0.35 + speed * 0.45 + (drag.active ? 0.4 : 0)) : 0;
+    stir = damp(stir, stirTarget, stirTarget > stir ? 5 : 1.8, dt);
+    smoke.update(
+      // 건드리는 동안엔 밑동 김도 더 빨리 흘러내린다
+      reduced ? 0 : dt * (1 + exit * 2 + stir * 0.9),
+      alpha * (1 - smoothstep(exit, 0.7, 1)),
+      smoothstep(exit, 0, 0.7),
+      reduced ? 0 : stir,
+      touching ? stirPoint : null,
+    );
     environment.update(reduced ? 0 : dt, time, pointer.inside ? pointer.x * 40 : 0);
     // 커서 쪽으로 시점이 아주 조금 따라가, 얼음과 먼 산 사이에 깊이가 생긴다
     if (!reduced) {
@@ -310,7 +328,10 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
     if (pointer.inside && !reduced) {
       group.updateMatrixWorld(true);
       raycaster.setFromCamera(ndc, camera);
-      touching = raycaster.intersectObject(ice, false).length > 0;
+      const hit = raycaster.intersectObject(ice, false)[0];
+      touching = Boolean(hit);
+      // 연기 그룹은 얼음 위치·크기만 따르고 회전은 안 하므로, 위치를 빼고 크기로 나누면 그 좌표가 된다
+      if (hit) stirPoint.copy(hit.point).sub(group.position).divideScalar(Math.max(scale, 1e-6));
     }
     if (!drag.active) setCursor(touching && exit < 0.3 ? 'grab' : '');
 

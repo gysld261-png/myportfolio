@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import Ticks from '../components/Ticks';
 import FrostEdge from '../components/FrostEdge';
 import SmokeVeil from '../components/SmokeVeil';
+import { sublimationFront, sublimationFrontOpacity } from '../lib/sublimation';
 import './main.css';
 
 const HeroIce = lazy(() => import('../components/HeroIce'));
@@ -39,6 +40,8 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
   const updateReadout = useCallback((next) => setReadout(next), []);
   const sublimating = transitionProgress > 0.01;
+  const frontProgress = sublimationFront(transitionProgress);
+  const frontOpacity = sublimationFrontOpacity(transitionProgress);
 
   return (
     <section
@@ -142,11 +145,14 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
       </p>
 
       <div
-        className="main__thermal"
-        style={{ bottom: `${transitionProgress * 100}%` }}
+        className={`main__thermal ${frontProgress > 0.8 ? 'is-upper' : ''}`}
+        style={{
+          bottom: `${frontProgress * 100}%`,
+          '--front-opacity': frontOpacity,
+        }}
         aria-hidden="true"
       >
-        <span className="sys">THERMAL BOUNDARY / {Math.round(transitionProgress * 100)}%</span>
+        <span className="sys">SUBLIMATION / {Math.round(frontProgress * 100)}%</span>
       </div>
 
       <button type="button" className="main__scroll sys" onClick={onScrollCue}>

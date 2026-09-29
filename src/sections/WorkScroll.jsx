@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createWorkDrift } from '../lib/workDriftScene';
 import { approach, clamp, prefersReduced } from '../lib/smooth';
 import ScrambleText from '../components/ScrambleText';
+import { setCursor } from '../components/CustomCursor';
 import './work.css';
 
 /**
@@ -33,10 +34,15 @@ const SETS = 1;
 const LAUNCH_MS = 2600;
 const PREVIEW_DELAY = 620;
 
-/* 알갱이 전환 — 노이즈 값이 문턱보다 큰 픽셀만 남긴다. 밀도 d 가 0 이면 아무것도, 1 이면 전부 보인다.
-   실측: 문턱 0.74 에서 약 1%, 0.44 에서 약 65%, 0.2 이하면 전부 남는다. */
-const GRAIN_SLOPE = 36;
-const grainIntercept = (density) => -(0.74 - 0.54 * density) * GRAIN_SLOPE;
+/* 연기 전환 — 느린 구름 노이즈(fractalNoise, 저주파)의 짙은 곳부터 이미지가 드러난다.
+   진행도 p 가 0 이면 문턱이 구름보다 높아 아무것도, 1 이면 전부 보인다.
+   경사가 완만해서(알갱이 때의 36 → 7) 경계가 점이 아니라 뭉게뭉게 번진다.
+   경계 바로 앞에는 옅은 김(haze)이 먼저 피어오르고, 이미지는 연기에 밀리듯 일렁인다. */
+const SMOKE_SLOPE = 5;
+const smokeThreshold = (p) => 0.84 - 0.78 * p;         // 구름 값(대략 0.2~0.8) 기준 문턱
+const smokeIntercept = (p, lead = 0) => -(smokeThreshold(p) - lead) * SMOKE_SLOPE;
+const SMOKE_LEAD = 1.5;                                 // 김이 이미지보다 얼마나 앞서 피어나는지
+const SMOKE_WARP = 20;                                   // 드러나는 동안 일렁임(px)
 
 export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused }) {
   const rootRef = useRef(null);
@@ -60,10 +66,11 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   const previewRef = useRef(null);
   previewRef.current = previewIndex;
   const launchingRef = useRef(null);
+  const launchTimerRef = useRef(0);
   const pointer = useRef({ x: 0, y: 0, inside: false, dirty: false });
   const windowRef = useRef(null);
-  const imgGrainRef = useRef(null);
-  const imgNoiseRef = useRef(null);
+  const smokeRefs = useRef({});
+  const smokeRef = (key) => (el) => { smokeRefs.current[key] = el; };
   const grain = useRef({ img: 0 });
 
   // 얼음을 충분히 본 뒤 오른쪽에 미리보기가 열린다.
@@ -137,7 +144,8 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       frame = requestAnimationFrame(tick);
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      drift.setPaused(pausedRef.current);
+      const launchingNow = launchingRef.current !== null;
+      drift.setPaused(pausedRef.current || launchingNow);
       iceFieldRef.current?.setPaused(pausedRef.current);
       if (pausedRef.current || !s.ready) return;
       const prev = s.current;
@@ -178,6 +186,10 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       iceFieldRef.current?.setVelocity(velocity);
       iceFieldRef.current?.setInteraction(hoverRef.current, launchingRef.current);
 
+      // 전환이 시작된 뒤에는 상세 포털과 얼음 장면만 움직이면 된다.
+      // 목록 측 DOM 탐색·SVG 필터 갱신·호버 판정을 계속 돌리면 같은 프레임을 두 번 쓴다.
+      if (launchingNow) return;
+
       // 화면 가운데에 가장 가까운 이름
       const center = s.current + root.clientHeight / 2;
       let best = 0;
@@ -196,20 +208,30 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
 
       drift.setScroll(s.current, velocity);
 
-      // 알갱이 — 이미지는 점이 모이며 나타나고, 가리킨 이름은 점으로 흩어진다
+      // 연기 — 이미지는 연기가 걷히듯 뭉게뭉게 드러나고, 떠날 때는 다시 연기로 흩어진다
       const g = grain.current;
       const hovered = previewRef.current;
-      const launchingNow = launchingRef.current !== null;
       const imgTarget = hovered !== null || launchingNow ? 1 : 0;
-      g.img = reduced ? imgTarget : approach(g.img, imgTarget, dt, imgTarget ? 0.2 : 0.09);
-      const jitter = Math.floor(now / 70) % 97; // 바뀌는 동안 점이 살아서 끓어오르게
+      g.img = reduced ? imgTarget : approach(g.img, imgTarget, dt, imgTarget ? 0.3 : 0.16);
       const win = windowRef.current;
       if (win) {
-        const settledImg = g.img > 0.995;
-        win.style.visibility = g.img < 0.004 ? 'hidden' : 'visible';
-        win.style.filter = settledImg ? 'none' : 'url(#work-grain-img)';
-        imgGrainRef.current?.setAttribute('intercept', grainIntercept(g.img).toFixed(3));
-        if (!settledImg) imgNoiseRef.current?.setAttribute('seed', String(jitter));
+        const k = g.img; // 0 = 연기 속에 숨음, 1 = 다 드러남
+        const settledImg = k > 0.995;
+        win.style.visibility = k < 0.004 ? 'hidden' : 'visible';
+        win.style.filter = settledImg ? 'none' : 'url(#work-smoke-img)';
+        if (!settledImg) {
+          const f = smokeRefs.current;
+          const t = now / 1000;
+          // 구름장 자체가 천천히 흘러야 연기처럼 보인다. 필터 영역 여백(20%) 안에서만 오간다.
+          f.offset?.setAttribute('dx', (Math.sin(t * 0.55) * 22).toFixed(1));
+          f.offset?.setAttribute('dy', (Math.cos(t * 0.4) * 16 - 6).toFixed(1));
+          f.warp?.setAttribute('scale', ((1 - k) * SMOKE_WARP).toFixed(1));
+          f.mask?.setAttribute('intercept', smokeIntercept(k).toFixed(3));
+          f.front?.setAttribute('intercept', smokeIntercept(k, SMOKE_LEAD).toFixed(3));
+          // 김은 전환 한가운데서 가장 짙고, 다 나타났거나 다 사라졌을 땐 없다
+          // 어두운 배경 위라 옅으면 회색 덩어리로 읽힌다 — 한가운데선 거의 불투명한 흰 김으로 올린다
+          f.haze?.setAttribute('flood-opacity', Math.min(1, 1.25 * Math.sin(Math.PI * k)).toFixed(3));
+        }
       }
       // 호버는 글자 위에 있는지로만 판단한다. 글자가 마우스 밑으로 흘러가도 바뀌어야 해서
       // pointerenter 대신 매 프레임(움직임이 있을 때만) 직접 확인한다.
@@ -332,14 +354,34 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   const launch = useCallback((index) => {
     if (launching !== null) return;
     const spec = specs[index];
+
+    // WebGL 장면이 아직 준비되지 않았으면 보이지 않는 2.6초 전환을 기다리지 않는다.
+    // 상세로 즉시 들어가는 편이 늦게 나타나는 얼음보다 안정적이고 예측 가능하다.
+    if (!iceFieldRef.current || prefersReduced()) {
+      onOpen(spec.id);
+      return;
+    }
+
     setHoverIndex(index);
     hoverRef.current = index;
     launchingRef.current = index;
     setLaunching(index);
     // 누르는 즉시 상세 화면을 얼음 속에 준비하고(포털), 얼음을 통과한 뒤 진짜 상세로 넘긴다.
-    if (!prefersReduced()) onEnter?.(spec.id);
-    window.setTimeout(() => onOpen(spec.id), prefersReduced() ? 0 : LAUNCH_MS);
+    onEnter?.(spec.id);
+    window.clearTimeout(launchTimerRef.current);
+    launchTimerRef.current = window.setTimeout(() => {
+      launchTimerRef.current = 0;
+      onOpen(spec.id);
+    }, LAUNCH_MS);
   }, [launching, onEnter, onOpen, specs]);
+
+  useEffect(() => () => window.clearTimeout(launchTimerRef.current), []);
+
+  // 표본 위에 있을 때만 커서가 링 + VIEW PROJECT 로 바뀐다. 누른 뒤에는 바로 거둔다.
+  useEffect(() => {
+    setCursor(hoverIndex !== null && launching === null && !paused ? { active: true, label: 'VIEW PROJECT' } : null);
+  }, [hoverIndex, launching, paused]);
+  useEffect(() => () => setCursor(null), []);
 
   // 상세에서 돌아오면 창이 다시 작아진다
   useEffect(() => {
@@ -388,13 +430,31 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       <div ref={iceHostRef} className="work__ice-field" aria-hidden="true" />
 
       <svg className="work__filters" aria-hidden="true" focusable="false">
-        <filter id="work-grain-img" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
-          <feTurbulence ref={imgNoiseRef} type="fractalNoise" baseFrequency="0.62" numOctaves="1" seed="2" result="noise" />
-          <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="field" />
-          <feComponentTransfer in="field" result="mask">
-            <feFuncA ref={imgGrainRef} type="linear" slope={GRAIN_SLOPE} intercept={grainIntercept(0)} />
+        {/* 연기 — 구름 노이즈 하나로 ① 드러날 자리(mask) ② 그 앞의 김(haze) ③ 이미지 일렁임(warp)을 모두 만든다.
+            영역을 20% 넓혀서 김이 창 밖으로 조금 번지고, 구름장이 흘러도 가장자리가 비지 않게 한다. */}
+        <filter id="work-smoke-img" x="-20%" y="-20%" width="140%" height="140%" colorInterpolationFilters="sRGB">
+          <feTurbulence type="fractalNoise" baseFrequency="0.0065 0.011" numOctaves="4" seed="11" result="cloud" />
+          <feOffset ref={smokeRef('offset')} in="cloud" dx="0" dy="0" result="drift" />
+          <feDisplacementMap ref={smokeRef('warp')} in="SourceGraphic" in2="drift" scale={SMOKE_WARP} xChannelSelector="R" yChannelSelector="G" result="warped" />
+          <feColorMatrix in="drift" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" result="density" />
+          <feComponentTransfer in="density" result="mask">
+            <feFuncA ref={smokeRef('mask')} type="linear" slope={SMOKE_SLOPE} intercept={smokeIntercept(0)} />
           </feComponentTransfer>
-          <feComposite in="SourceGraphic" in2="mask" operator="in" />
+          <feComponentTransfer in="density" result="front">
+            <feFuncA ref={smokeRef('front')} type="linear" slope={SMOKE_SLOPE} intercept={smokeIntercept(0, SMOKE_LEAD)} />
+          </feComponentTransfer>
+          <feComposite in="front" in2="mask" operator="out" result="band" />
+          <feFlood ref={smokeRef('haze')} floodColor="#e4ecef" floodOpacity="0" />
+          <feComposite in2="band" operator="in" />
+          <feGaussianBlur stdDeviation="6" result="hazeRaw" />
+          {/* 창 모양을 크게 흐린 범위 안에서만 김이 남는다 — 필터 영역의 직선 경계가 드러나지 않게 */}
+          <feGaussianBlur in="SourceAlpha" stdDeviation="26" result="spread" />
+          <feComposite in="hazeRaw" in2="spread" operator="in" result="haze" />
+          <feComposite in="warped" in2="mask" operator="in" result="image" />
+          <feMerge>
+            <feMergeNode in="image" />
+            <feMergeNode in="haze" />
+          </feMerge>
         </filter>
       </svg>
 
@@ -430,7 +490,8 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         <strong className="sys">{String(activeIndex + 1).padStart(2, '0')} / {String(specs.length).padStart(2, '0')}</strong>
       </div>
 
-      <div className="work__viewport">
+      {/* 줄 전체가 버튼이라 DOM 으로 판단하면 빈 곳에서도 링이 뜬다. 표본 위(hoverIndex)일 때만 직접 알린다. */}
+      <div className="work__viewport" data-cursor-off="">
         <div ref={trackRef} className="work__track">
           {Array.from({ length: SETS }, (_, set) => (
             <ul key={set} className="work__set">

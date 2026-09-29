@@ -94,6 +94,79 @@ export function attachScrollVelocity(el, { max = 2400, tau = 0.07 } = {}) {
 }
 
 /**
+ * 스크롤 트리거 — 덩어리가 화면에 들어오면 한 번 올라오며 드러나고,
+ * 사진은 지나가는 동안 프레임 안에서 스크롤보다 느리게 흐른다(패럴랙스).
+ *
+ * GSAP ScrollTrigger 를 들이지 않는 이유: 관성 스크롤·속도 울렁임이 이미 이 파일에 있고,
+ * 필요한 건 "들어왔다(is-in)"와 "지금 어디쯤(--py)" 두 값뿐이다.
+ *
+ * --py   -1(화면 아래) ~ 1(화면 위). 사진이 화면 가운데일 때 0.
+ *
+ * @returns {() => void} 해제 함수
+ */
+export function attachScrollReveal(el, {
+  selector = '[data-reveal]',
+  parallax = '.shot',
+} = {}) {
+  if (!el || prefersReduced()) return () => {};
+
+  el.classList.add('has-reveal');
+  const items = [...el.querySelectorAll(selector)];
+
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-in');
+      io.unobserve(entry.target);   // 한 번 드러난 건 다시 숨기지 않는다 — 되돌아 읽을 때 방해된다
+    });
+  }, { root: el, rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+  items.forEach((item) => io.observe(item));
+
+  /* 패럴랙스는 화면 안에 있는 사진만 계산한다 */
+  const shots = [...el.querySelectorAll(parallax)];
+  const visible = new Set();
+  const vio = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) visible.add(entry.target);
+      else visible.delete(entry.target);
+    });
+    schedule();
+  }, { root: el, rootMargin: '20% 0px' });
+  shots.forEach((shot) => vio.observe(shot));
+
+  let raf = 0;
+  const sync = () => {
+    raf = 0;
+    const view = el.getBoundingClientRect();
+    const mid = view.top + view.height / 2;
+    visible.forEach((shot) => {
+      const box = shot.getBoundingClientRect();
+      const center = box.top + box.height / 2;
+      const p = clamp((mid - center) / ((view.height + box.height) / 2), -1, 1);
+      shot.style.setProperty('--py', p.toFixed(4));
+    });
+  };
+  function schedule() {
+    if (!raf) raf = requestAnimationFrame(sync);
+  }
+
+  el.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('resize', schedule);
+  schedule();
+
+  return () => {
+    if (raf) cancelAnimationFrame(raf);
+    io.disconnect();
+    vio.disconnect();
+    el.removeEventListener('scroll', schedule);
+    window.removeEventListener('resize', schedule);
+    el.classList.remove('has-reveal');
+    items.forEach((item) => item.classList.remove('is-in'));
+    shots.forEach((shot) => shot.style.removeProperty('--py'));
+  };
+}
+
+/**
  * 스크롤 컨테이너에 관성을 입힌다.
  * 휠만 가로챈다 — 터치는 OS 관성이 이미 좋아서 건드리지 않는다.
  *

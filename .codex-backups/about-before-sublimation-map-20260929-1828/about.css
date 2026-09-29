@@ -33,15 +33,24 @@
   transition: transform 1380ms cubic-bezier(.22, .72, .18, 1);
   will-change: transform;
 }
-/* 옆으로 미끄러지지 않는다 — 하강은 캔버스가 보여주고, 전등이 켜지는 순간(impact) 방 앞으로 바로 옮긴다.
-   돌아올 때도 바로 지도 자리로 옮기고, 판이 위에서 내려와 제자리에 앉는 건 캔버스가 맡는다 */
+.about--travel .about-world,
 .about--impact .about-world,
 .about--reveal .about-world {
   transform: translate3d(var(--camera-x), var(--camera-y), 0);
-  transition: none;
 }
-.about--return .about-world { transition: none; }
+.about--return .about-world {
+  transform: translate3d(-80vw, -4vh, 0);
+  transition-duration: 1100ms;
+}
 
+.about-route {
+  position: absolute;
+  inset: 0;
+  width: 260vw;
+  height: 310vh;
+  overflow: visible;
+  pointer-events: none;
+}
 
 .about-node {
   --node-color: var(--frost);
@@ -58,32 +67,26 @@
   transform: translate(-50%, -50%);
   cursor: pointer;
   white-space: nowrap;
-  /* 지도 위 자리는 About.jsx(useIceSlab)가 translate 속성에 매 프레임 쓴다 — transform 과 따로 합성된다 */
+  /* 별자리 위 자리는 About.jsx(useConstellation)가 translate 속성에 매 프레임 쓴다 — transform 과 따로 합성된다 */
   user-select: none;
   will-change: translate;
   transition: color 280ms ease, opacity 440ms ease, filter 440ms ease, transform 520ms var(--ease);
 }
-/* 지도에서 이름표는 균열 입구의 핀 줄기 끝에 달린다 — 번호 위, 이름 아래.
-   핀(원과 줄기)은 캔버스가 그리므로 버튼 자체의 점·링은 숨긴다. 모든 키워드가 같은 크기다.
-   내려가거나 올라오는 동안에도 판과 함께 움직이므로 같은 모양을 유지한다 */
-:is(.about--map, .about--travel, .about--return) .about-node {
-  grid-template-columns: auto;
-  row-gap: 5px;
-  padding: 6px;
-  transform: translate(-7px, calc(-100% - 34px));
+/* 지도에서는 앞에 있을수록 크고 또렷하다. 뒤로 돌아간 키워드는 누를 수 없다 — 앞으로 돌려서 고른다 */
+.about--map .about-node {
+  opacity: calc(.22 + .78 * var(--depth, 1));
+  scale: calc(.8 + .2 * var(--depth, 1));
+  filter: blur(calc((1 - var(--depth, 1)) * 1.4px));
   transition: color 280ms ease;
 }
-:is(.about--map, .about--travel, .about--return) .about-node::before,
-:is(.about--map, .about--travel, .about--return) .about-node::after { display: none; }
-:is(.about--map, .about--travel, .about--return) .about-node strong,
-:is(.about--map, .about--travel, .about--return) .about-node--identity strong {
-  font: 500 clamp(12px, .95vw, 14px) var(--display);
-  letter-spacing: .16em;
-}
-:is(.about--map, .about--travel, .about--return) .about-node > i { margin: 2px 0 0; }
-:is(.about--map, .about--travel, .about--return) .about-node__visited { position: static; transform: none; margin-top: 2px; }
+.about--map .about-node[data-behind] { pointer-events: none; }
+/* 격자 위 키워드는 표식(캔버스의 점과 원) 오른쪽 옆에 이름을 단다 — 글자가 표식을 가리지 않게.
+   표식은 캔버스가 그리므로 버튼 자체의 점·링은 지도에서 숨긴다 */
+.about--map .about-node:not(.about-node--identity) { transform: translate(-4px, -50%); }
+.about--map .about-node:not(.about-node--identity)::before,
+.about--map .about-node:not(.about-node--identity)::after { display: none; }
 
-/* 드라이아이스 판과 균열 — 키워드 버튼(.about-world)보다 아래에 깔린다 */
+/* 관측실과 결정 — 바닥·조명·격자. 키워드 버튼(.about-world)보다 아래에 깔린다 */
 .about-constellation {
   position: absolute;
   inset: 0;
@@ -93,10 +96,14 @@
   pointer-events: none;
   transition: opacity 700ms ease;
 }
-/* 내려가는 동안엔 그대로 보이고, 방의 전등이 켜지는 순간 빠르게 사라진다 */
-.about--impact .about-constellation { transition-duration: 240ms; }
+/* 방으로 가는 동안 격자는 풀리며 빠르게 사라진다 — 방 위에 겹쳐 남지 않게 */
+.about--travel .about-constellation { opacity: 0; transition: opacity 820ms cubic-bezier(.4, 0, .2, 1); }
 .about--impact .about-constellation,
 .about--reveal .about-constellation { opacity: 0; }
+.about--map { cursor: grab; touch-action: none; }
+.is-dragging-map,
+.is-dragging-map .about,
+.is-dragging-map .about-node { cursor: grabbing; }
 .about-node::before {
   content: '';
   position: absolute;
@@ -181,6 +188,48 @@
   opacity: .58;
 }
 .about-node--identity .about-node__visited { top: calc(50% + 53px); }
+
+.about-route path {
+  fill: none;
+  stroke: rgba(202, 226, 233, .68);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 6px rgba(181, 220, 231, .6));
+}
+.about--travel .about-route path { animation: route-draw 1380ms cubic-bezier(.28, .65, .18, 1) forwards; }
+.about--impact .about-route path,
+.about--reveal .about-route path { stroke-dashoffset: 0; opacity: .18; }
+.about--return .about-route path { stroke-dashoffset: 1; transition: stroke-dashoffset 900ms ease, opacity 600ms ease; opacity: 0; }
+@keyframes route-draw {
+  0% { stroke-dashoffset: 1; opacity: .08; }
+  25% { opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: .55; }
+}
+
+.about-probe {
+  position: absolute;
+  z-index: 8;
+  left: var(--probe-x);
+  top: var(--probe-y);
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: #effcff;
+  opacity: 0;
+  box-shadow: 0 0 10px #e9faff, 0 0 30px rgba(188, 229, 240, .88), 0 0 90px rgba(188, 229, 240, .4);
+}
+.about--travel .about-probe { animation: probe-travel 1380ms cubic-bezier(.26, .64, .18, 1) forwards; }
+.about--impact .about-probe { opacity: 1; transform: translate(var(--probe-dx), var(--probe-dy)) scale(2.2); }
+.about--reveal .about-probe { opacity: .3; transform: translate(var(--probe-dx), var(--probe-dy)) scale(.8); transition: opacity 800ms ease, transform 800ms ease; }
+@keyframes probe-travel {
+  0% { opacity: 0; transform: translate(0, 0) scale(.4); }
+  8% { opacity: 1; }
+  78% { opacity: 1; }
+  100% { opacity: 1; transform: translate(var(--probe-dx), var(--probe-dy)) scale(2.2); }
+}
 
 .about-impact {
   position: absolute;
@@ -373,6 +422,21 @@
   border-right: 1px solid rgba(175, 194, 200, .12);
   background: rgba(175, 194, 200, .018);
 }
+
+.about-room-visual--identity { display: grid; place-items: center; }
+.about-room-visual--identity span {
+  color: rgba(225, 239, 243, .88);
+  font: 650 clamp(72px, 10vw, 142px)/1 var(--display);
+  letter-spacing: -.08em;
+  opacity: 0;
+  filter: blur(18px);
+}
+.about--reveal .about-room.is-active .about-room-visual--identity span { animation: identity-focus 1100ms var(--ease) 120ms forwards; }
+@keyframes identity-focus { to { opacity: 1; filter: blur(0); } }
+.about-room-visual--identity i { position: absolute; border: 1px solid rgba(175, 194, 200, .13); border-radius: 50%; }
+.about-room-visual--identity i:nth-child(2) { width: 48%; aspect-ratio: 1; }
+.about-room-visual--identity i:nth-child(3) { width: 73%; aspect-ratio: 1; }
+.about-room-visual--identity i:nth-child(4) { width: 98%; aspect-ratio: 1; }
 
 .about-room-visual--observe i {
   position: absolute;
@@ -573,7 +637,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .about-world { transition-duration: .01ms; }
-  .about-impact { display: none; }
+  .about-route, .about-probe, .about-impact { display: none; }
   .about-room *, .about-room *::before, .about-room *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; }
 }
 
@@ -694,128 +758,12 @@
   opacity: .72;
 }
 
-/* ABOUT — 왼쪽은 문장, 오른쪽 조명 아래에는 온도계 눈금 위의 이력 기록 */
-.about-room--identity { --beam-x: 70%; }
-.about-room--identity .about-room__content {
-  width: calc(100vw - var(--scene-left) - 6vw);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
-  column-gap: clamp(40px, 6vw, 110px);
-  align-items: start;
-}
-.about-room--identity .about-room__main { max-width: 560px; }
-
-/* 이력 기록 — 세로 축 하나에 잔 눈금, 항목마다 굵은 눈금. 박스 없이 선과 글자만 쓴다 */
-.profile-record {
-  --scale-x: 72px;
-  position: relative;
-  margin-top: 34px;
-}
-.profile-record::before,
-.profile-record::after {
-  content: '';
-  position: absolute;
-  top: 6px;
-  bottom: 34px;
-  transform: scaleY(0);
-  transform-origin: 50% 0;
-}
-.profile-record::before { left: var(--scale-x); width: 1px; background: rgba(175, 194, 200, .28); }
-.profile-record::after {
-  left: calc(var(--scale-x) - 5px);
-  width: 5px;
-  background: repeating-linear-gradient(180deg, rgba(175, 194, 200, .22) 0 1px, transparent 1px 9px);
-}
-.about--reveal .about-room.is-active .profile-record::before,
-.about--reveal .about-room.is-active .profile-record::after { animation: record-scale 900ms var(--ease) 260ms forwards; }
-@keyframes record-scale { to { transform: scaleY(1); } }
-
-.profile-record ul { margin: 0; padding: 0; list-style: none; }
-.profile-record__row {
-  position: relative;
-  display: grid;
-  grid-template-columns: var(--scale-x) minmax(0, 1fr);
-  column-gap: 24px;
-  padding: 9px 0;
-  opacity: 0;
-  transform: translateY(8px);
-}
-.about--reveal .about-room.is-active .profile-record__row {
-  animation: record-row-in 620ms var(--ease) calc(360ms + var(--i, 0) * 70ms) forwards;
-}
-@keyframes record-row-in { to { opacity: 1; transform: none; } }
-/* 항목 눈금 — 축을 가로지르는 짧은 민트 선 */
-.profile-record__row::before {
-  content: '';
-  position: absolute;
-  left: calc(var(--scale-x) - 8px);
-  top: 18px;
-  width: 16px;
-  height: 1px;
-  background: rgba(157, 222, 215, .62);
-}
-.profile-record__temp {
-  padding-right: 16px;
-  color: var(--muted);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  line-height: 20px;
-}
-.profile-record__body {
-  display: grid;
-  grid-template-columns: 70px minmax(0, 1fr);
-  column-gap: 14px;
-}
-.profile-record__date { color: var(--muted); line-height: 20px; font-variant-numeric: tabular-nums; }
-.profile-record__body b {
-  display: block;
-  color: var(--text);
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 20px;
-  letter-spacing: .01em;
-  word-break: keep-all;
-}
-.profile-record__body small {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-.profile-record__label {
-  margin: 20px 0 2px calc(var(--scale-x) + 24px);
-  color: var(--frost);
-  opacity: .72;
-}
-
-/* 지금 — 승화점. 눈금 대신 빛나는 점, 온도와 상태만 민트로 */
-.profile-record__row--now::before { width: 22px; left: calc(var(--scale-x) - 11px); background: var(--accent); }
-.profile-record__row--now::after {
-  content: '';
-  position: absolute;
-  left: calc(var(--scale-x) - 4px);
-  top: 14px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 12px rgba(157, 222, 215, .7);
-}
-.profile-record__row--now .profile-record__temp,
-.profile-record__row--now .profile-record__date { color: var(--accent); }
-.profile-record__row--now a {
-  display: inline-block;
-  margin-top: 4px;
-  color: var(--accent);
-  font-size: 13px;
-  text-decoration: none;
-  border-bottom: 1px solid rgba(157, 222, 215, .32);
-  transition: border-color 200ms ease;
-}
-.profile-record__row--now a:hover,
-.profile-record__row--now a:focus-visible { border-color: var(--accent); }
-.profile-record__legend { margin: 16px 0 0 calc(var(--scale-x) + 24px); color: var(--muted); opacity: .6; }
+/* ABOUT — 문장이 중심이고, 이니셜은 조명 속 잔상처럼 남는다. */
+.about-room--identity { --beam-x: 68%; }
+.about-room--identity .about-room__content { width: min(51vw, 790px); }
+.about-room--identity .about-room-visual { right: 4vw; width: 38vw; opacity: .3; }
+.about-room--identity .about-room-visual--identity span { font-size: clamp(110px, 15vw, 250px); }
+.about-room--identity .about-room-visual--identity i { border-color: rgba(157, 222, 215, .11); }
 
 /* BACKGROUND — 관찰점은 우측에서 천천히 스캔되는 이력의 흔적이 된다. */
 .about-room--observe { --beam-x: 72%; }
@@ -934,20 +882,9 @@
   .about-skills { grid-template-columns: 1fr; gap: 0; }
   .about-skill { padding: 13px 0 15px; }
   .about-room__return { right: 22px; bottom: 22px; }
-  /* ABOUT — 문장 아래로 이력을 쌓는다. 날짜는 제목 위로 올린다 */
-  .about-room--identity .about-room__content { display: block; width: calc(100vw - 44px); }
-  .profile-record { --scale-x: 54px; margin-top: 30px; }
-  .profile-record__row { column-gap: 18px; }
-  .profile-record__temp { padding-right: 12px; }
-  .profile-record__body { grid-template-columns: 1fr; row-gap: 2px; }
-  .profile-record__label,
-  .profile-record__legend { margin-left: calc(var(--scale-x) + 18px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-record::before,
-  .profile-record::after,
-  .profile-record__row { opacity: 1; transform: none; animation: none !important; }
   .about-room__light::before { opacity: 1; transform: translateX(-50%) scaleY(1); }
   .about-room__light::after { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }

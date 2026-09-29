@@ -39,7 +39,13 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transition: opacity 240ms var(--ease), visibility 0s linear 240ms;
 }
+/* 얼음 속으로 들어가는 동안에는 전역 네비만 보인다. 상세의 로고·닫기는 포털이 풀린 뒤에 나온다 —
+   둘이 동시에 보이면 로고가 두 겹, 닫기 X 가 CONTACT 위에 겹친다. */
+.detail.is-portal > .detail__chrome { opacity: 0; visibility: hidden; }
+/* 로고는 같은 자리라 교차해도 티가 안 나지만, X 는 CONTACT 자리라 네비가 다 빠진 뒤에 나온다. */
+.detail.is-portal .detail__dismiss { opacity: 0; transition: none; }
 /* 얼음 속 상세 화면(포털) — 얼음 모양의 부드러운 창 안에서만 보이고, 얼음 크기에 맞춘 미니어처로 시작한다.
    변수는 workIceScene 이 매 프레임 넣는다. 전환이 끝나면 창이 화면 밖까지 넓어지고 크기가 1 이 되어,
    포털이 풀려도 화면이 한 픽셀도 튀지 않는다. */
@@ -57,7 +63,9 @@
   opacity: var(--portal-o, 0);
   transform: scale(var(--portal-s, 0.3));
   transform-origin: var(--portal-x, 50%) var(--portal-y, 50%);
-  filter: blur(var(--portal-blur, 6px));
+  /* 전체 상세 DOM 블러는 매 프레임 큰 오프스크린 텍스처를 다시 만든다.
+     부드러운 mask 가장자리만으로 깊이를 표현해 GPU 합성 비용을 줄인다. */
+  filter: none;
 }
 
 /* 스크롤한 이미지가 nav 와 알약 아래로 사라진다 */
@@ -74,15 +82,13 @@
     rgba(11, 13, 14, 0)
   );
 }
-.detail--cinematic::before {
-  height: calc(var(--nav-h) + 42px);
-  background: linear-gradient(
-    to bottom,
-    rgba(11, 13, 14, .82) 0 44%,
-    rgba(11, 13, 14, .24) 72%,
-    transparent 100%
-  );
-}
+/* 밝은 표지 위에 검은 띠를 깔지 않는다. 대신 로고·닫기를 difference 로 섞어
+   밝은 보드 위에선 어둡게, 어두운 본문 위에선 밝게 저절로 뒤집히게 한다. */
+.detail--cinematic::before { display: none; }
+.detail--cinematic .detail__chrome { mix-blend-mode: difference; }
+.detail--cinematic .detail__brand { text-shadow: none; }
+.detail--cinematic .detail__dismiss { background: transparent; backdrop-filter: none; }
+.detail--cinematic .detail__dismiss:hover { background: rgba(255, 255, 255, .14); }
 
 /* 얼음이 녹고 남은 표본 — 로고를 흐릿하고 크게, 스크롤과 상관없이 배경에 남긴다.
    얼음 속으로 들어온 직후처럼 크고 흐리게 시작해 제자리로 가라앉는다. */
@@ -150,7 +156,7 @@
   position: absolute;
   inset: 0 0 auto;
   height: var(--nav-h);
-  padding: 0 var(--dg);
+  padding: 0 var(--nav-gutter);   /* 전역 .nav 와 같은 여백 — 로고가 제자리에서 이어진다 */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -159,14 +165,8 @@
   transition: opacity 420ms var(--ease);
 }
 .detail.is-revealed .detail__chrome { opacity: 1; }
-.detail__brand {
-  font-family: var(--display);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: .13em;
-  color: var(--text);
-  text-shadow: 0 1px 14px rgba(0, 0, 0, .78);
-}
+/* 글꼴·크기는 .nav__mark 를 그대로 쓴다. 그림자만 .nav 에서 물려받던 걸 옮겨 둔다. */
+.detail__brand { text-shadow: 0 1px 14px rgba(0, 0, 0, .78); }
 .detail__dismiss {
   position: relative;
   width: 44px;
@@ -178,7 +178,7 @@
   background: rgba(11, 13, 14, .18);
   color: var(--text);
   cursor: pointer;
-  transition: background 260ms var(--ease), transform 260ms var(--ease);
+  transition: background 260ms var(--ease), transform 260ms var(--ease), opacity 280ms var(--ease) 240ms;
   backdrop-filter: blur(7px);
 }
 .detail__dismiss::before,
@@ -322,8 +322,9 @@
 .dhero.dhero--cinematic {
   position: relative;
   display: block;
-  height: 225svh;
-  min-height: 225svh;
+  /* 화면 높이만큼 붙잡는다 — 이 구간 전체가 축소에 쓰인다(ProjectDetail.jsx 의 travel) */
+  height: 200svh;
+  min-height: 200svh;
   padding: 0;
 }
 .dhero__cinema-pin {
@@ -389,10 +390,10 @@
    불투명도로 더 죽이지 않는다 — muted 에 0.55 를 곱하면 대비가 2.7:1 로 떨어져서
    작은 글씨 기준(4.5:1)을 못 넘긴다. 색만으로도 6.4:1 이고, 값(흰색 500)과의
    위계는 굵기가 아니라 색 차이가 만든다. */
-.dmeta__label {
+.dmeta__label.sys {
   margin: 0 0 16px;
   font-weight: 400;
-  color: var(--muted);
+  color: var(--accent);
 }
 /* 레벨 2 — 값. 라벨보다 크고 두껍다. 역할과 분류가 여기서 읽힌다. */
 .dmeta__value {
@@ -674,8 +675,11 @@
 .shot__slot {
   /* 1.06 만큼 미리 키워 두는 건 여백을 만들기 위해서다.
      그래야 안에서 밀거나 기울여도 프레임 가장자리에 빈틈이 안 생긴다. */
+  /* --py 는 스크롤 트리거의 패럴랙스(smooth.js attachScrollReveal).
+     사진이 프레임보다 느리게 흘러 깊이가 생긴다. 흐르는 폭만큼 더 키워 둔다. */
   transform:
-    scale(1.06)
+    scale(1.12)
+    translateY(calc(var(--py, 0) * 4%))
     translateY(calc(var(--sv, 0) * -18px))
     scaleY(calc(1 + var(--sva, 0) * 0.05))
     skewY(calc(var(--sv, 0) * 0.9deg));
@@ -721,56 +725,100 @@
 }
 .dconcept__body p:last-child { margin-bottom: 0; }
 
-/* ── 다음 표본 ── */
+/* ── 다음 프로젝트 — 한 화면, 작은 카드 한 장 ──
+   왼쪽: 라벨·이름·한 줄 소개 / 가운데: 카드 / 오른쪽: 역할·연도·이동
+   화면을 사진으로 채우지 않고, 글자도 사진 위에 얹지 않는다. 어둠 위에 카드만 떠 있다. */
 .dnext {
   position: relative;
+  z-index: 1;
+  border-top: 1px solid rgba(157, 222, 215, .13);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(to right, rgba(157, 222, 215, .035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(157, 222, 215, .035) 1px, transparent 1px);
+  background-size: clamp(90px, 8vw, 150px) clamp(90px, 8vw, 150px);
+}
+.dnext__stage {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: end;
-  column-gap: var(--dg);
-  padding: clamp(90px, 12vw, 190px) var(--dg) clamp(40px, 5vw, 70px);
-}
-.dnext__mark {
-  justify-self: start;
-  align-self: end;
-  color: var(--muted);
-  opacity: 0.5;
-}
-.dnext__plate {
-  display: grid;
-  place-items: center;
-  gap: 18px;
-  width: clamp(150px, 19vw, 260px);
-  padding: 0;
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.dnext__plate img {
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 30vw) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--dg);
   width: 100%;
-  height: auto;
-  opacity: 0.72;
-  transition: opacity 420ms var(--ease), transform 620ms var(--ease);
-}
-.dnext__plate:hover img { opacity: 1; transform: translateY(-6px); }
-.dnext__name {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--muted);
-}
-.dnext__plate:hover .dnext__name { color: var(--text); }
-.dnext__go {
-  justify-self: end;
-  align-self: end;
-  padding: 0;
-  background: none;
+  min-height: 100svh;
+  padding: calc(var(--nav-h) + 40px) var(--dg) 56px;
   border: 0;
-  color: var(--muted);
+  background: none;
+  color: var(--text);
+  text-align: left;
   cursor: pointer;
-  transition: color 260ms var(--ease);
 }
-.dnext__go:hover { color: var(--text); }
+.dnext__label {
+  display: grid;
+  gap: clamp(16px, 1.6vw, 24px);
+  align-content: center;
+  min-width: 0;
+}
+.dnext__eyebrow { color: var(--accent); }
+.dnext__title {
+  color: var(--text);
+  font: 500 clamp(40px, 5.4vw, 92px)/.92 var(--display);
+  letter-spacing: -.055em;
+  word-break: keep-all;
+  transition: letter-spacing 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dnext__lead {
+  max-width: 26ch;
+  color: var(--muted);
+  font: 400 clamp(13px, 1vw, 15px)/1.65 var(--kr);
+  word-break: keep-all;
+}
+.dnext__card {
+  position: relative;
+  display: block;
+  justify-self: center;
+  width: 100%;
+  max-height: 64svh;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: clamp(18px, 2.2vw, 34px);
+  background: var(--surface);
+  box-shadow: 0 40px 90px rgba(0, 0, 0, .34);
+  transition: transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dnext__card img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+  transform: scale(1.06);
+  filter: saturate(.86) brightness(.92);
+  transition: transform 1200ms cubic-bezier(0.16, 1, 0.3, 1), filter 600ms var(--ease);
+}
+.dnext__side {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  align-self: center;
+  text-align: right;
+}
+.dnext__side > span:not(.dnext__go) { color: var(--muted); }
+.dnext__go {
+  margin-top: 18px;
+  color: var(--accent-bright);
+}
+.dnext__go i {
+  display: inline-block;
+  font-style: normal;
+  transition: transform 420ms var(--ease);
+}
+
+/* 가리키면 카드가 살짝 떠오르고 사진이 제 색으로 돌아온다. 이름은 조금 벌어진다 */
+.dnext__stage:hover .dnext__card { transform: translateY(-10px); }
+.dnext__stage:hover .dnext__card img { transform: scale(1); filter: none; }
+.dnext__stage:hover .dnext__title { letter-spacing: -.035em; }
+.dnext__stage:hover .dnext__go i { transform: translateX(6px); }
+.dnext__stage:focus-visible { outline: 2px solid var(--accent); outline-offset: -10px; }
 
 @media (max-width: 860px) {
   .dhero {
@@ -790,8 +838,9 @@
   .downership__item:nth-child(odd) { border-left: 0; }
   .row--duo, .row--split, .row--trio { grid-template-columns: 1fr; }
   .dconcept { grid-template-columns: 1fr; }
-  .dnext { grid-template-columns: 1fr; justify-items: center; row-gap: 22px; }
-  .dnext__mark, .dnext__go { justify-self: center; }
+  .dnext__stage { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .dnext__label, .dnext__side { justify-items: center; text-align: center; }
+  .dnext__card { width: min(78%, 380px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -802,8 +851,13 @@
   .dmeta--cinematic > * { opacity: 1; transform: none; transition: none; }
 }
 
+@media (max-width: 620px) {
+  /* 전역 .nav 의 모바일 배치와 맞춘다 */
+  .detail__chrome { align-items: flex-start; padding-top: 14px; }
+  .detail__dismiss { margin-top: -10px; }
+}
+
 @media (max-width: 700px) {
-  .detail__brand { font-size: 12px; }
   .detail__dismiss { width: 40px; height: 40px; margin-right: -8px; }
   .detail__dismiss::before,
   .detail__dismiss::after { width: 21px; }
@@ -824,6 +878,9 @@
   .dhero--project .dhero__title { justify-self: start; }
   .dhero--project .dhero__plate { aspect-ratio: 4 / 3; }
   .dhero--project .dhero__year { font-size: 9px; }
+  .dnext__stage { min-height: auto; padding-top: 84px; gap: 28px; }
+  .dnext__title { font-size: clamp(40px, 13vw, 72px); }
+  .dnext__card { border-radius: 16px; }
   .dhero.dhero--cutout {
     grid-template-columns: minmax(0, 1fr) auto;
     text-align: left;
@@ -833,3 +890,27 @@
     aspect-ratio: 2601 / 2579;
   }
 }
+
+/* ── 스크롤 트리거 ──
+   smooth.js 의 attachScrollReveal 이 .has-reveal 을 붙였을 때만 숨긴다.
+   스크립트가 안 돌거나 모션 축소 설정이면 처음부터 다 보인다.
+   아래에서 올라오며, 사진 덩어리는 위쪽부터 서리가 걷히듯 열린다. */
+.has-reveal [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 72px, 0);
+  transition:
+    opacity 900ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.has-reveal [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+/* 한 줄에 사진이 여럿이면 왼쪽부터 조금씩 늦게 */
+.has-reveal .row[data-reveal] > .shot {
+  clip-path: inset(18% 0 0 0);
+  transition: clip-path 1300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.has-reveal .row[data-reveal] > .shot:nth-child(2) { transition-delay: 90ms; }
+.has-reveal .row[data-reveal] > .shot:nth-child(3) { transition-delay: 180ms; }
+.has-reveal .row[data-reveal].is-in > .shot { clip-path: inset(0 0 0 0); }

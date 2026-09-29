@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
-import { attachSmoothScroll, attachScrollVelocity } from '../lib/smooth';
+import { attachSmoothScroll, attachScrollVelocity, attachScrollReveal } from '../lib/smooth';
 import RollText from '../components/RollText';
 import CaseStudyBoards from '../components/CaseStudyBoards';
 import './detail.css';
@@ -68,25 +68,25 @@ function Device({ video, poster, alt }) {
 
 /* 이미지 리듬. 한 줄에 최대 셋까지만 간다. */
 function Row({ block }) {
-  if (block.type === 'device') return <div className="row row--device"><Device {...block} /></div>;
-  if (block.type === 'full') return <div className="row row--full"><Shot {...block} /></div>;
+  if (block.type === 'device') return <div className="row row--device" data-reveal><Device {...block} /></div>;
+  if (block.type === 'full') return <div className="row row--full" data-reveal><Shot {...block} /></div>;
   if (block.type === 'duo') {
     return (
-      <div className="row row--duo">
+      <div className="row row--duo" data-reveal>
         {block.items.map((it, i) => <Shot key={i} {...it} />)}
       </div>
     );
   }
   if (block.type === 'split') {
     return (
-      <div className="row row--split">
+      <div className="row row--split" data-reveal>
         {block.items.map((it, i) => <Shot key={i} {...it} />)}
       </div>
     );
   }
   if (block.type === 'trio') {
     return (
-      <div className="row row--trio">
+      <div className="row row--trio" data-reveal>
         {block.items.map((it, i) => <Shot key={i} {...it} />)}
       </div>
     );
@@ -146,6 +146,13 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
     const i = SPECIMENS.findIndex((s) => s.id === renderSpec.id);
     return SPECIMENS[(i + 1) % SPECIMENS.length];
   }, [renderSpec]);
+  const nextData = next ? getCase(next.id) : null;
+  const nextPreview = nextData?.cinematicHero || nextData?.hero || (next?.id === 'odit' ? {
+    src: '/cases/odit-preview.jpg',
+    width: 2400,
+    height: 1500,
+    alt: 'ODIT 관심사 탐색 서비스의 주요 모바일 화면',
+  } : null);
 
   /* concept 자리표가 없으면 리듬 맨 끝에 붙인다 — 글이 사라지는 일은 없게 */
   const blocks = useMemo(() => {
@@ -161,6 +168,12 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
   // 이걸 의존성에 넣으면 스크롤 위치가 계속 0 으로 되돌아간다. ref 로 고정한다.
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+
+  // 상세는 App 의 go 를 모른다. 주소를 메인으로 바꾸고 App 의 popstate 처리에 맡긴다.
+  const goMain = () => {
+    window.history.pushState(null, '', window.location.pathname);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
 
   useEffect(() => {
     if (!spec) return undefined;
@@ -185,7 +198,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
      안쪽으로 축소하고 모서리를 만든다. DOM을 다시 그리지 않고 CSS 변수만 갱신한다. */
   useEffect(() => {
     const scroller = scrollRef.current;
-    if (!spec || !cinematicCover || !scroller) return undefined;
+    if (!spec || portal || !cinematicCover || !scroller) return undefined;
 
     let frame = 0;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -193,8 +206,13 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
     const sync = () => {
       frame = 0;
       const compact = scroller.clientWidth <= 700;
-      const travel = Math.max(1, scroller.clientHeight * 0.72);
-      const progress = reduced ? 1 : Math.min(1, Math.max(0, scroller.scrollTop / travel));
+      // 축소는 표지가 붙잡혀 있는 구간(히어로 높이 − 화면 높이) 전체에 걸쳐 진행한다.
+      // 더 일찍 끝나면 남은 구간 동안 화면이 멈춘 채 스크롤만 먹어서 한 번 걸린 느낌이 난다.
+      const hero = scroller.querySelector('.dhero--cinematic');
+      const travel = Math.max(1, (hero?.offsetHeight || scroller.clientHeight * 1.72) - scroller.clientHeight);
+      const linear = reduced ? 1 : Math.min(1, Math.max(0, scroller.scrollTop / travel));
+      // 끝으로 갈수록 살짝만 느려진다 — 완전히 멈추는 구간 없이 고정이 풀리며 위로 이어진다
+      const progress = 1 - (1 - linear) ** 1.6;
       const shrink = compact ? 0.055 : 0.105;
       const radius = compact ? 28 : 64;
 
@@ -222,11 +240,11 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
       scroller.style.removeProperty('--cinema-cue');
       scroller.style.removeProperty('--cinema-shadow');
     };
-  }, [cinematicCover, spec]);
+  }, [cinematicCover, portal, spec]);
 
   /* 이미지가 축소되어 자리를 잡은 다음, 메타 정보가 짧은 간격으로 이어서 등장한다. */
   useEffect(() => {
-    if (!spec || !cinematicCover) {
+    if (!spec || portal || !cinematicCover) {
       setMetaRevealed(true);
       return undefined;
     }
@@ -244,16 +262,25 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
     }, { root, threshold: 0.16 });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [cinematicCover, spec]);
+  }, [cinematicCover, portal, spec]);
 
   // 상세 스크롤에 관성을 준다. 휠 한 칸이 그대로 한 칸 점프하지 않는다.
   // 거기에 속도를 CSS 로 흘려보내서, 빠르게 내릴수록 이미지가 울렁이게 한다.
   useEffect(() => {
-    if (!spec) return undefined;
+    if (!spec || portal) return undefined;
     const off1 = attachSmoothScroll(scrollRef.current, { tau: 0.2 });
     const off2 = attachScrollVelocity(scrollRef.current, { max: 2400, tau: 0.07 });
     return () => { off1(); off2(); };
-  }, [spec]);
+  }, [portal, spec]);
+
+  // 덩어리마다 화면에 들어올 때 올라오며 드러나고, 사진은 프레임 안에서 느리게 흐른다.
+  // 내용이 새 프로젝트로 바뀐 뒤(renderSpec)에 붙여야 새 블록을 잡는다.
+  useEffect(() => {
+    if (!spec || portal || renderSpec?.id !== spec.id) return undefined;
+    return attachScrollReveal(scrollRef.current);
+    // spec 객체 대신 id 로 건다 — 부모가 자주 다시 그려져 매번 새로 붙였다 떼면 관찰 결과가 오기 전에 지워진다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portal, spec?.id, renderSpec?.id]);
 
   return (
     <article
@@ -265,7 +292,10 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
       {renderSpec && data && (
         <>
           <header className="detail__chrome">
-            <span className="detail__brand">PARK HYOMIN</span>
+            {/* 전역 네비의 로고와 같은 버튼 — 자리·글꼴·롤 효과까지 그대로 이어진다. */}
+            <button type="button" className="detail__brand nav__mark roll" onClick={goMain} aria-label="메인으로 이동">
+              <RollText text="PARK HYOMIN" />
+            </button>
             <button
               type="button"
               className="detail__dismiss"
@@ -276,7 +306,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
             </button>
           </header>
 
-          {GHOST[renderSpec.id] && (
+          {!portal && GHOST[renderSpec.id] && (
             <div className="detail__ghost" aria-hidden="true" key={renderSpec.id}>
               <img src={GHOST[renderSpec.id]} alt="" draggable="false" />
             </div>
@@ -319,6 +349,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
               </header>
             )}
 
+            {!portal && <>
             {/* ── 메타 — 라벨은 깨알, 값은 보통. 자세한 건 전부 링크로. ── */}
             <section
               ref={metaRef}
@@ -337,7 +368,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
                   <ul className="dmeta__links">
                     {links.map((v) => (
                       <li key={v.label}>
-                        <a className="sys roll" href={v.href} target="_blank" rel="noreferrer"
+                        <a className="ui-pill ui-pill--external sys roll" href={v.href} target="_blank" rel="noreferrer"
                           aria-label={v.label}>
                           <RollText text={v.label} />
                         </a>
@@ -380,7 +411,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
               {blocks.map((b, i) => (
                 b.type === 'concept'
                   ? (data.concept || []).length > 0 && (
-                      <section className="dconcept" key={i}>
+                      <section className="dconcept" key={i} data-reveal>
                         <p className="dmeta__label sys">CONCEPT</p>
                         <div className="dconcept__body">
                           {data.concept.map((t, j) => <p key={j}>{t}</p>)}
@@ -391,18 +422,42 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false 
               ))}
             </div>}
 
-            {/* ── 다음 표본 ── */}
-            <footer className="dnext">
-              <span className="sys dnext__mark">{renderSpec.no}</span>
-              <button type="button" className="dnext__plate" onClick={() => onSwitch(next.id)}>
-                <img src={next.imageCut || next.image} alt="" />
-                <span className="dnext__name">{next.ko}</span>
-              </button>
-              <button type="button" className="sys dnext__go roll" onClick={() => onSwitch(next.id)}
-                aria-label="다음 프로젝트">
-                <RollText text="NEXT PROJECT →" />
+            {/* ── 다음 프로젝트 — 한 화면에 작은 카드 한 장. 이름은 사진 밖 왼쪽에 둔다.
+                 꽉 찬 미리보기는 다음 이야기가 이미 시작된 것처럼 보여서 '끝 → 다음'의 쉼표가 사라졌다. ── */}
+            <footer className="dnext" data-reveal>
+              <button
+                type="button"
+                className="dnext__stage"
+                onClick={() => onSwitch(next.id)}
+                data-cursor="NEXT PROJECT"
+                aria-label={`다음 프로젝트 ${next.ko} 보기`}
+              >
+                <span className="dnext__label">
+                  <span className="sys dnext__eyebrow">NEXT PROJECT / {next.no}</span>
+                  <span className="dnext__title">{next.ko}</span>
+                  <span className="dnext__lead">{next.lead}</span>
+                </span>
+
+                <span className="dnext__card" aria-hidden="true">
+                  {nextPreview?.src && (
+                    <img
+                      src={nextPreview.src}
+                      alt=""
+                      width={nextPreview.width}
+                      height={nextPreview.height}
+                      loading="lazy"
+                    />
+                  )}
+                </span>
+
+                <span className="dnext__side sys" aria-hidden="true">
+                  <span>{next.role}</span>
+                  <span>{next.year}</span>
+                  <span className="dnext__go">VIEW PROJECT <i>→</i></span>
+                </span>
               </button>
             </footer>
+            </>}
           </div>
         </>
       )}

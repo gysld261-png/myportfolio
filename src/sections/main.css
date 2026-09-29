@@ -404,24 +404,44 @@
 .main__thermal {
   position: absolute;
   z-index: 9;
-  left: var(--gutter);
-  right: var(--gutter);
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--frost) 18%, var(--frost) 82%, transparent);
-  box-shadow: 0 0 18px rgba(175, 194, 200, 0.34);
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent) 8%, var(--accent) 92%, transparent);
+  box-shadow: 0 0 12px var(--accent-glow), 0 0 30px rgba(157, 222, 215, .16);
   opacity: 0;
   pointer-events: none;
-  transition: bottom 90ms linear, opacity 180ms var(--ease);
+  /* 위치 자체가 이미 매 프레임 부드럽게 계산된다. bottom 에 transition 을 또 걸면
+     매 프레임 시작점이 갱신돼 숫자보다 선이 한참 뒤처진다. */
+  transition: opacity 160ms linear;
 }
-.main.is-sublimating .main__thermal { opacity: calc(0.7 * max(0, 1 - var(--fog, 0) * 1.6)); }
+.main.is-sublimating .main__thermal { opacity: var(--front-opacity, 0); }
+.main__thermal::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: linear-gradient(180deg, rgba(157, 222, 215, .13), transparent);
+  filter: blur(5px);
+}
 .main__thermal .sys {
   position: absolute;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  color: var(--frost);
-  font-size: 8px;
+  left: var(--gutter);
+  bottom: 13px;
+  padding: 5px 8px 4px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: rgba(11, 13, 14, .78);
+  color: var(--accent-bright);
+  font-size: 10px;
+  box-shadow: 0 0 18px rgba(11, 13, 14, .42), 0 0 16px var(--accent-glow);
   white-space: nowrap;
+}
+.main__thermal.is-upper .sys {
+  top: 13px;
+  bottom: auto;
 }
 
 .main.is-sublimating .ticks { opacity: var(--ticks-opacity); }

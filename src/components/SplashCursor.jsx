@@ -860,6 +860,7 @@ function SplashCursor({
   return (
     <div
       aria-hidden="true"
+      className="splash-cursor"
       style={{
         position: 'fixed', top: 0, left: 0,
         zIndex: Z_INDEX, pointerEvents: 'none',

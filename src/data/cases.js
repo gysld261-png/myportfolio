@@ -130,9 +130,9 @@ export const CASES = {
       { label: 'DECK (PDF)', href: '' },
     ],
     cinematicHero: {
-      src: '/cases/walga/boards/main.png',
-      width: 3840,
-      height: 2160,
+      src: '/cases/walga/boards/main.webp',
+      width: 2560,
+      height: 1440,
       alt: '왈가왈봇 프로젝트 메인 비주얼',
     },
     /* 케이스 스터디 보드 — Figma에서 2x PNG로 내보낸 16:9 슬라이드.

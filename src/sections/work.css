@@ -50,7 +50,7 @@
   border-radius: clamp(14px, 1.5vw, 26px);
   /* 이미지가 점으로 모이기 전 잠깐 보이던 불투명 사각형을 없앤다. */
   background: transparent;
-  /* 나타나고 사라지는 건 점 필터(#work-grain-img)가 맡는다 — 여기선 살짝 다가오기만 한다 */
+  /* 나타나고 사라지는 건 연기 필터(#work-smoke-img)가 맡는다 — 여기선 살짝 다가오기만 한다 */
   visibility: hidden;
   transform: translate(-50%, -50%) scale(0.94);
   transition:

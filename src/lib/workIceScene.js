@@ -246,9 +246,11 @@ export function createSparkles(seed) {
   return { object: new THREE.Points(geometry, material), geometry, material };
 }
 
-/* 레퍼런스의 호버 스캔 — 마우스가 닿은 자리 주변에만 얼음 표면을 덮은 가는 삼각망이
-   옅게 드러나고, 몇몇 꼭짓점에서만 작은 십자 반짝임이 깜빡인다.
-   망은 얼음과 같은 씨앗·같은 변형으로 만든 성긴 격자라 실제 표면의 굴곡을 그대로 따라간다. */
+/* 호버 스캔 — 커서가 닿은 자리에서 빛이 얼음 표면의 잔 삼각망을 타고 번져 나간다.
+   · 망은 잘고(얼음 크기의 1/30) 옅어서 가만히 있을 땐 거의 안 보인다.
+   · 닿는 순간 빛의 앞선이 망을 따라 바깥으로 달려 나가고(uStrength 가 0→1 로 자라는 동안),
+     그 뒤로는 잔물결 같은 빛 띠가 주기적으로 선을 타고 퍼진다.
+   · 범위는 작게(얼음 크기의 약 1/5) — 커서 주변만 살짝 살아난다. */
 const SCAN_LINE_VERTEX = `
   varying vec3 vPos;
   void main() {
@@ -262,56 +264,38 @@ const SCAN_LINE_FRAGMENT = `
   uniform float uStrength;
   uniform float uRadius;
   uniform float uOpacity;
-  void main() {
-    float f = 1.0 - smoothstep(0.0, uRadius, distance(vPos, uHit));
-    float a = f * f * uStrength * uOpacity * 0.42;
-    if (a < 0.003) discard;
-    gl_FragColor = vec4(vec3(0.94, 0.97, 1.0), a);
-  }
-`;
-const SCAN_GLINT_VERTEX = `
-  attribute float aSeed;
-  varying vec3 vPos;
-  varying float vSeed;
-  uniform float uSize;
-  void main() {
-    vPos = position;
-    vSeed = aSeed;
-    gl_PointSize = uSize * (0.7 + aSeed * 0.6);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-const SCAN_GLINT_FRAGMENT = `
-  varying vec3 vPos;
-  varying float vSeed;
-  uniform vec3 uHit;
-  uniform float uStrength;
-  uniform float uRadius;
-  uniform float uOpacity;
   uniform float uTime;
   void main() {
-    vec2 c = gl_PointCoord - 0.5;
-    float core = exp(-dot(c, c) * 220.0);
-    float star = exp(-abs(c.x) * 70.0) * exp(-abs(c.y) * 8.0) + exp(-abs(c.y) * 70.0) * exp(-abs(c.x) * 8.0);
-    float twinkle = 0.25 + 0.75 * pow(0.5 + 0.5 * sin(uTime * (1.6 + vSeed * 2.0) + vSeed * 40.0), 3.0);
-    float f = 1.0 - smoothstep(0.0, uRadius * 0.85, distance(vPos, uHit));
-    float a = (core + star * 0.8) * f * uStrength * uOpacity * twinkle;
-    if (a < 0.004) discard;
-    gl_FragColor = vec4(1.0, 1.0, 1.0, min(1.0, a));
+    float s = uStrength;
+    float d = distance(vPos, uHit);
+    float falloff = 1.0 - smoothstep(0.0, uRadius, d);
+    if (falloff <= 0.0) discard;
+    // 빛이 번져 나간 자리 — 앞선(front)이 커서에서 바깥으로 자란다
+    float front = uRadius * s;
+    float lit = 1.0 - smoothstep(front * 0.65, front + uRadius * 0.04, d);
+    // 앞선 자체는 밝게 빛나며 달려가고, 다 퍼지면 가라앉는다
+    float w = uRadius * 0.1;
+    float leading = exp(-pow((d - front) / w, 2.0)) * (1.0 - s * 0.7);
+    // 다 퍼진 뒤엔 선을 타고 잔물결이 계속 바깥으로 흐른다
+    float ph = fract(d / (uRadius * 0.5) - uTime * 0.55);
+    float ripple = exp(-ph * ph * 70.0) + exp(-(1.0 - ph) * (1.0 - ph) * 70.0);
+    float a = uOpacity * falloff * (lit * (0.05 + 0.22 * ripple) + leading * 0.5);
+    a *= smoothstep(0.0, 0.08, s);
+    if (a < 0.003) discard;
+    gl_FragColor = vec4(vec3(0.9, 0.95, 1.0), a);
   }
 `;
-
 function createScanMesh(shape, seed) {
   const [w, h, d] = shape;
-  // 화면에서 삼각형 한 변이 20~30px 정도가 되도록 얼음 크기의 1/16 격자를 쓴다.
-  const cell = Math.max(w, h) / 16;
+  // 삼각형 한 변이 화면에서 10~15px 남짓 — 예전(1/16)보다 두 배 가까이 잘게 나눠 망이 튀지 않게 한다.
+  const cell = Math.max(w, h) / 30;
   const surface = createIceShard({
     width: w,
     height: h,
     depth: d,
     seed,
     segments: [Math.round(w / cell), Math.round(h / cell), Math.round(d / cell)],
-    jitter: cell * 0.7,
+    jitter: cell * 0.55,
     flat: false,
   });
   // 굴절면에 묻히지 않도록 표면 바로 바깥에 띄운다.
@@ -320,42 +304,25 @@ function createScanMesh(shape, seed) {
   const uniforms = {
     uHit: { value: new THREE.Vector3(0, 0, 999) },
     uStrength: { value: 0 },
-    uRadius: { value: Math.max(w, h) * 0.4 },
+    // 예전 0.4 → 0.2. 두께보다 작아서 반대편 면의 망까지 비쳐 보이지 않는다.
+    uRadius: { value: Math.max(w, h) * 0.2 },
     uOpacity: { value: 0 },
     uTime: { value: 0 },
-    uSize: { value: 11 * Math.min(window.devicePixelRatio || 1, 1.45) },
   };
-  const common = {
+  const lineGeometry = new THREE.WireframeGeometry(surface);
+  const lineMaterial = new THREE.ShaderMaterial({
     uniforms,
+    vertexShader: SCAN_LINE_VERTEX,
+    fragmentShader: SCAN_LINE_FRAGMENT,
     transparent: true,
     depthWrite: false,
     depthTest: false,
     blending: THREE.AdditiveBlending,
-  };
-  const lineGeometry = new THREE.WireframeGeometry(surface);
-  const lineMaterial = new THREE.ShaderMaterial({ ...common, vertexShader: SCAN_LINE_VERTEX, fragmentShader: SCAN_LINE_FRAGMENT });
+  });
   const lines = new THREE.LineSegments(lineGeometry, lineMaterial);
-
-  // 모든 꼭짓점에 점을 찍으면 징그러워 보여서, 16개 중 하나꼴로만 반짝이게 한다.
-  const rand = seeded(seed + 311);
-  const source = surface.attributes.position;
-  const picked = [];
-  const seeds = [];
-  for (let i = 0; i < source.count; i += 1) {
-    if (rand() > 0.06) continue;
-    picked.push(source.getX(i), source.getY(i), source.getZ(i));
-    seeds.push(rand());
-  }
-  const glintGeometry = new THREE.BufferGeometry();
-  glintGeometry.setAttribute('position', new THREE.Float32BufferAttribute(picked, 3));
-  glintGeometry.setAttribute('aSeed', new THREE.Float32BufferAttribute(seeds, 1));
-  const glintMaterial = new THREE.ShaderMaterial({ ...common, vertexShader: SCAN_GLINT_VERTEX, fragmentShader: SCAN_GLINT_FRAGMENT });
-  const glints = new THREE.Points(glintGeometry, glintMaterial);
-
   lines.renderOrder = 6;
-  glints.renderOrder = 7;
   const object = new THREE.Group();
-  object.add(lines, glints);
+  object.add(lines);
   return {
     object,
     uniforms,
@@ -363,8 +330,6 @@ function createScanMesh(shape, seed) {
       surface.dispose();
       lineGeometry.dispose();
       lineMaterial.dispose();
-      glintGeometry.dispose();
-      glintMaterial.dispose();
     },
   };
 }
@@ -515,7 +480,8 @@ export function createSmokeTexture() {
 }
 
 // count·strength·spread 로 김의 양을 늘린다 (메인 첫 화면은 포트폴리오보다 훨씬 많이 낸다)
-export function createSmoke(shape, seed, texture, { count = 16, strength = 1, spread = 1 } = {}) {
+// wisps: 얼음을 건드린 자리에서 피어나는 김 줄기 수(0 이면 없음) — 메인 얼음만 쓴다
+export function createSmoke(shape, seed, texture, { count = 16, strength = 1, spread = 1, wisps: wispCount = 0 } = {}) {
   const [w, h] = shape;
   const rand = seeded(seed + 55);
   const group = new THREE.Group();
@@ -575,10 +541,90 @@ export function createSmoke(shape, seed, texture, { count = 16, strength = 1, sp
     });
   }
 
+  // 건드리면: 손이 닿은 자리의 열로 드라이아이스가 승화하듯, 닿은 점에서 김이 뿜어져 나와
+  // 얼음 표면을 타고 옆·아래로 흘러내린다. 미리 만들어 둔 스프라이트를 돌려 쓴다.
+  const wisps = [];
+  for (let i = 0; i < wispCount; i += 1) {
+    const { sprite, material } = makeSprite();
+    sprite.renderOrder = 6; // 얼음 앞 — 표면에서 피어오르는 게 보이게
+    sprite.visible = false;
+    wisps.push({ sprite, material, age: 0, life: 1, alive: false, x: 0, y: 0, vx: 0, vy: 0, seed: rand(), size1: 1 });
+  }
+  let spawnDebt = 0;
+  let nextWisp = 0;
+  let spawnCount = 0;
+  const spawn = (source) => {
+    const wisp = wisps[nextWisp];
+    nextWisp = (nextWisp + 1) % wisps.length;
+    spawnCount += 1;
+    // 둘 중 하나는 밑동에서 — 손의 열이 전해진 얼음 아래로 김이 쏟아져 바닥을 타고 번진다
+    if (spawnCount % 2 === 0) {
+      const side = rand() - 0.5;
+      Object.assign(wisp, {
+        alive: true,
+        age: 0,
+        life: 2.4 + rand() * 1.6,
+        x: side * w * 0.7,
+        y: -h * (0.3 + rand() * 0.1),
+        vx: side * (0.28 + rand() * 0.2) + (rand() - 0.5) * 0.06,
+        vy: -(0.1 + rand() * 0.1),
+        seed: rand(),
+        size1: 0.9 + rand() * 0.8,
+      });
+      wisp.sprite.visible = true;
+      return;
+    }
+    const a = rand() * Math.PI * 2;
+    // 닿은 점에서 사방으로 번지되, 이산화탄소 김이라 무겁게 아래로 가라앉는다
+    const out = 0.12 + rand() * 0.16;
+    Object.assign(wisp, {
+      alive: true,
+      age: 0,
+      life: 1.6 + rand() * 1.4,
+      x: source.x + Math.cos(a) * 0.04,
+      y: source.y + Math.sin(a) * 0.04,
+      vx: Math.cos(a) * out,
+      vy: Math.sin(a) * out * 0.6 - (0.05 + rand() * 0.08),
+      seed: rand(),
+      size1: 0.55 + rand() * 0.55,
+    });
+    wisp.sprite.visible = true;
+  };
+
   return {
     group,
     // fade: 얼음과 함께 나타나고 사라짐, burst: 클릭 뒤 김이 피어오르는 정도(0~1)
-    update(dt, fade, burst = 0) {
+    // stir: 얼음을 건드리는 세기(0~1), source: 닿은 점(연기 그룹 좌표)
+    update(dt, fade, burst = 0, stir = 0, source = null) {
+      if (wisps.length) {
+        // 초당 최대 약 26줄기 — 가볍게 스치면 몇 가닥, 문지르면 뭉게뭉게
+        if (source && stir > 0.02 && fade > 0.05) {
+          spawnDebt += dt * stir * 26;
+          while (spawnDebt >= 1) { spawnDebt -= 1; spawn(source); }
+        } else {
+          spawnDebt = 0;
+        }
+        wisps.forEach((wisp) => {
+          if (!wisp.alive) return;
+          wisp.age += dt;
+          const t = wisp.age / wisp.life;
+          if (t >= 1) { wisp.alive = false; wisp.sprite.visible = false; return; }
+          // 처음엔 빠르게 뿜어지고 공기에 막혀 금방 느려진다
+          const drag = Math.exp(-dt * 1.6);
+          wisp.vx *= drag;
+          wisp.vy = wisp.vy * drag - dt * 0.05;
+          wisp.x += wisp.vx * dt + Math.sin(wisp.age * 2.1 + wisp.seed * 9) * 0.02 * dt;
+          wisp.y += wisp.vy * dt;
+          wisp.sprite.position.set(wisp.x, wisp.y, 0.9);
+          const grow = 1 - (1 - t) * (1 - t);
+          const size = THREE.MathUtils.lerp(0.12, wisp.size1, grow);
+          wisp.sprite.scale.set(size * 1.3, size, 1);
+          wisp.material.rotation = wisp.seed * 6 + wisp.age * (wisp.seed - 0.5) * 0.8;
+          const envelope = THREE.MathUtils.smoothstep(t, 0, 0.12) * (1 - THREE.MathUtils.smoothstep(t, 0.35, 1));
+          // 겹겹이 쌓이면 하얗게 타므로 한 줄기는 옅게 — 뭉쳐야 비로소 김으로 보인다
+          wisp.material.opacity = envelope * 0.14 * fade;
+        });
+      }
       puffs.forEach((puff) => {
         puff.age += dt;
         if (puff.age > puff.life) puff.age -= puff.life;
@@ -590,11 +636,12 @@ export function createSmoke(shape, seed, texture, { count = 16, strength = 1, sp
           puff.y0 + puff.vy * puff.life * ease,
           0.2,
         );
-        const size = THREE.MathUtils.lerp(puff.size0, puff.size1, ease) * (1 + burst * 0.6);
+        // 건드리는 동안엔 밑동의 김도 짙어지고 부푼다
+        const size = THREE.MathUtils.lerp(puff.size0, puff.size1, ease) * (1 + burst * 0.6 + stir * 0.45);
         puff.sprite.scale.set(size * 1.25, size, 1);
         puff.material.rotation = puff.spin * puff.age + puff.seed * 6;
         const envelope = THREE.MathUtils.smoothstep(t, 0, 0.18) * (1 - THREE.MathUtils.smoothstep(t, 0.55, 1));
-        puff.material.opacity = envelope * 0.3 * strength * fade * (1 + burst * 1.2);
+        puff.material.opacity = envelope * 0.3 * strength * fade * (1 + burst * 1.2 + stir * 1.6);
       });
       wraps.forEach((wrap) => {
         const grow = burst;
@@ -614,6 +661,7 @@ export function createSmoke(shape, seed, texture, { count = 16, strength = 1, sp
     dispose() {
       puffs.forEach((puff) => puff.material.dispose());
       wraps.forEach((wrap) => wrap.material.dispose());
+      wisps.forEach((wisp) => wisp.material.dispose());
     },
   };
 }
@@ -1206,6 +1254,10 @@ export async function createWorkIceField(host, root, ids) {
   };
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
+  // 구르기 계산용 — 매 프레임 새로 만들지 않는다
+  const rollEuler = new THREE.Euler();
+  const rollAxisVec = new THREE.Vector3();
+  const rollQuat = new THREE.Quaternion();
   let width = 1;
   let height = 1;
   let frame = 0;
@@ -1218,7 +1270,11 @@ export async function createWorkIceField(host, root, ids) {
     width = Math.max(1, bounds.width);
     height = Math.max(1, bounds.height);
     const mobile = width <= 860;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.15 : 1.45));
+    const launching = state.launching !== null;
+    // 화면을 가득 덮는 후처리 구간은 픽셀 수가 곧 비용이다. 움직이는 동안만 DPR과
+    // 굴절 버퍼를 낮추고, 정지한 탐색 화면으로 돌아오면 원래 선명도를 복구한다.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, launching ? (mobile ? 0.85 : 1) : (mobile ? 1.15 : 1.45)));
+    renderer.transmissionResolutionScale = launching ? 0.46 : 0.72;
     renderer.setSize(width, height, false);
     composer.setPixelRatio(renderer.getPixelRatio());
     composer.setSize(width, height);
@@ -1233,6 +1289,17 @@ export async function createWorkIceField(host, root, ids) {
   const observer = new ResizeObserver(resize);
   observer.observe(root);
   resize();
+
+  // 첫 클릭 때 셰이더를 컴파일하면 얼음이 한 박자 늦게 나타난다.
+  // 장면을 만드는 유휴 구간에서 미리 컴파일하고, 준비가 끝난 뒤에만 field 를 노출한다.
+  try {
+    if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
+    else renderer.compile(scene, camera);
+    composer.render(0);
+    renderer.clear();
+  } catch {
+    // 일부 WebGL 구현은 비동기 컴파일을 지원하지 않는다. 첫 프레임 fallback 은 그대로 둔다.
+  }
   const onLeave = () => { state.pointerInside = false; };
 
   /* ── 얼음 속 상세 화면(포털) ──
@@ -1313,13 +1380,22 @@ export async function createWorkIceField(host, root, ids) {
     let launchCenterX = 0;
     let launchCenterY = 0;
     specimens.forEach((item, index) => {
+      const launching = state.launching !== null;
+      const selectedForLaunch = launching && index === state.launching;
+      // 전환 중에는 선택한 얼음 하나만 남긴다. 다른 표본 둘의 DOM 측정·레이캐스트·
+      // 연기 시뮬레이션까지 계속 계산할 이유가 없다.
+      if (launching && !selectedForLaunch) {
+        item.alpha = 0;
+        item.group.visible = false;
+        item.smoke.group.visible = false;
+        item.backdrop.visible = false;
+        return;
+      }
       const match = nearestAnchor(item.id);
       item.anchor = match;
       const row = match?.node.closest('.work-row');
       item.entered = Boolean(row?.hasAttribute('data-in'));
       const inRange = Boolean(match) && match.rect.bottom > match.rootBounds.top && match.rect.top < match.rootBounds.bottom;
-      const launching = state.launching !== null;
-      const selectedForLaunch = launching && index === state.launching;
       const rowCenter = match ? (match.rect.top + match.rect.bottom) * 0.5 : 0;
       const viewportCenter = match ? (match.rootBounds.top + match.rootBounds.bottom) * 0.5 : 0;
       // -1: 위로 빠져나간 표본, 0: 현재 표본, +1: 아래에서 기다리는 다음 표본.
@@ -1392,9 +1468,10 @@ export async function createWorkIceField(host, root, ids) {
       } else {
         const time = (now - started) / 1000;
         const focus = 1 - THREE.MathUtils.smoothstep(distance, 0.08, 0.72);
-        // 화면 아래 -> 중앙, 중앙 -> 위 구간마다 1/3 바퀴 정도만 돈다. 한 바퀴씩 구르면
-        // 공처럼 가볍게 보여서, 무거운 덩어리가 천천히 기울며 지나가는 정도로 줄였다.
-        const roll = travel * Math.PI * 2 * 0.32;
+        // Igloo 처럼 화면 아래 -> 중앙, 중앙 -> 위 구간마다 한 바퀴(360°)씩 구른다.
+        // 가운데(travel 0)에서 정확히 제자리로 돌아와 로고가 정면을 본다.
+        // 오일러 각에 나눠 더하면 크게 돌 때 궤적이 비틀리므로, 기울어진 축 하나를 기준으로 쿼터니언으로 돌린다.
+        const roll = travel * Math.PI * 2;
         const axis = item.config.rollAxis;
         const hold = focus * (1 - launchProgress);
         // 커서 쪽으로 무겁게 고개를 돌린다. 스프링이라 멈출 때 살짝 지나쳤다 돌아오며 자리를 잡는다.
@@ -1416,9 +1493,15 @@ export async function createWorkIceField(host, root, ids) {
         // 떠 있는 물체의 느린 흔들림 — 서로 다른 주기를 섞어 기계적으로 반복되지 않게 한다
         const swayX = (Math.sin(time * 0.31 + index * 2.1) * 0.6 + Math.sin(time * 0.17 + index) * 0.4) * 0.028;
         const swayY = (Math.sin(time * 0.23 + index * 1.7) * 0.6 + Math.sin(time * 0.13 + index * 0.6) * 0.4) * 0.045;
-        item.group.rotation.x = base[0] + roll * axis[0] + tilt.x.x + swayX * hold + inertia * axis[0];
-        item.group.rotation.y = base[1] + roll * axis[1] + tilt.y.x + swayY * hold + inertia * axis[1];
-        item.group.rotation.z = base[2] + roll * axis[2] + tilt.z.x + inertia * axis[2] + launchProgress * 0.12;
+        rollEuler.set(
+          base[0] + tilt.x.x + swayX * hold + inertia * axis[0],
+          base[1] + tilt.y.x + swayY * hold + inertia * axis[1],
+          base[2] + tilt.z.x + inertia * axis[2] + launchProgress * 0.12,
+        );
+        rollAxisVec.set(axis[0], axis[1], axis[2]).normalize();
+        // 화면(월드) 기준 축으로 구르게 먼저 곱한다 — 표본마다 기울기가 달라도 구르는 방향은 같다
+        rollQuat.setFromAxisAngle(rollAxisVec, roll);
+        item.group.quaternion.setFromEuler(rollEuler).premultiply(rollQuat);
         // 둥실 뜬 높이와, 커서 쪽으로 아주 조금 끌려가는 시차
         spring(item.drift.x, state.pointerInside ? state.pointerX * 14 : 0, 12, 5.5, dt);
         spring(item.drift.y, state.pointerInside ? -state.pointerY * 9 : 0, 12, 5.5, dt);
@@ -1426,7 +1509,7 @@ export async function createWorkIceField(host, root, ids) {
         item.group.position.y += (Math.sin(time * 0.46 + index * 1.4) * 3.2 + item.drift.y.x) * hold;
       }
 
-      // 마우스가 얼음 표면에 닿은 지점을 표본 좌표로 옮겨 격자를 그 주변만 밝힌다.
+      // 마우스가 얼음 표면에 닿은 지점을 표본 좌표로 옮겨, 그 자리에서 서리가 번지게 한다.
       const uniforms = item.scan.uniforms;
       let touching = false;
       if (state.pointerInside && !launching && !reduced) {
@@ -1441,7 +1524,8 @@ export async function createWorkIceField(host, root, ids) {
       item.touching = touching;
       if (touching && uniforms.uStrength.value < 0.05) uniforms.uHit.value.copy(item.scanHit);
       else uniforms.uHit.value.lerp(item.scanHit, touching ? Math.min(1, dt * 14) : 0);
-      uniforms.uStrength.value = damp(uniforms.uStrength.value, touching ? 1 : 0, touching ? 6 : 2.4, dt);
+      // 켜질 땐 천천히(약 0.9초) — 빛의 앞선이 망을 타고 번져 나가는 게 보이게. 꺼질 땐 조금 더 빨리 걷힌다.
+      uniforms.uStrength.value = damp(uniforms.uStrength.value, touching ? 1 : 0, touching ? 3.2 : 4, dt);
       uniforms.uOpacity.value = item.alpha;
       uniforms.uTime.value = now / 1000;
       item.scan.object.visible = uniforms.uStrength.value > 0.004;
@@ -1488,9 +1572,11 @@ export async function createWorkIceField(host, root, ids) {
 
   return {
     setInteraction(hovered, launching) {
+      const wasLaunching = state.launching !== null;
       state.hovered = hovered;
       if (launching !== null && state.launching === null) state.launchStarted = performance.now();
       state.launching = launching;
+      if (wasLaunching !== (launching !== null)) resize();
     },
     setPointer(x, y) {
       const at = performance.now();

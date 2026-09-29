@@ -7,6 +7,7 @@ import Portfolio from './sections/Portfolio';
 import Contact from './sections/Contact';
 import SplashCursor from './components/SplashCursor';
 import SmokePassage from './components/SmokePassage';
+import CustomCursor from './components/CustomCursor';
 import { approach, clamp, prefersReduced } from './lib/smooth';
 
 const routeFromLocation = () => {
@@ -25,9 +26,7 @@ const routeFor = (view) => {
 /* 휠 한 번에 진행되는 양. 작을수록 길게 밀어야 넘어간다. */
 const WHEEL_SCALE = 1 / 1150;
 /* 승화가 목표값을 따라가는 시간 상수. 클수록 더 미끄러진다. */
-const EXIT_TAU = 0.26;
-/* ABOUT 에서 이만큼 위로 밀어야 MAIN 으로 돌아간다 */
-const BACK_THRESHOLD = 150;
+const EXIT_TAU = 0.34;
 
 /**
  * 세로 문서가 아니라 하나의 고정된 전시 공간이다.
@@ -55,7 +54,35 @@ export default function App() {
   const exitTimer = useRef(0);
   const mainReadyAt = useRef(0);
   const touchPrev = useRef(null);
-  const backAccum = useRef(0);   // ABOUT 에서 위로 민 양
+
+  /* 프로젝트를 누르는 순간 모듈 다운로드·대형 이미지 디코딩·셰이더 컴파일이 한꺼번에
+     겹치지 않도록, 메인 화면의 유휴 시간에 다음 장면과 표지를 미리 준비한다. */
+  useEffect(() => {
+    let idleId = 0;
+    let timerId = 0;
+    const images = [];
+    const warm = () => {
+      import('./lib/workIceScene').catch(() => {});
+      [
+        '/cases/walga/boards/main.webp',
+        '/cases/tchaikim/hero-mockup.webp',
+        '/cases/odit-preview.jpg',
+      ].forEach((src) => {
+        const image = new Image();
+        image.decoding = 'async';
+        image.src = src;
+        image.decode?.().catch(() => {});
+        images.push(image);
+      });
+    };
+
+    if ('requestIdleCallback' in window) idleId = window.requestIdleCallback(warm, { timeout: 1800 });
+    else timerId = window.setTimeout(warm, 900);
+    return () => {
+      if (idleId) window.cancelIdleCallback(idleId);
+      window.clearTimeout(timerId);
+    };
+  }, []);
 
   /**
    * rewind: MAIN 으로 되돌아갈 때 승화를 거꾸로 재생한다.
@@ -73,7 +100,6 @@ export default function App() {
     setCurrent(id);
     setArrival(id === 'about' && via === 'ice' ? 'ice' : null);
     setPassage(id === 'about' && via === 'ice');
-    backAccum.current = 0;
     if (id === 'main' && rewind) {
       exitValue.current = 1;
       exitTarget.current = 0;
@@ -138,12 +164,13 @@ export default function App() {
 
       // 연기가 화면을 다 덮은 뒤에 ABOUT 이 그 자리에 나타난다.
       // 목표가 1 일 때만 — 되감는 중에 1 을 지나며 다시 넘어가면 무한 왕복이 된다.
-      if (next >= 0.975 && exitTarget.current >= 0.999 && !exitTimer.current) {
-        // 하얗게 덮인 채 오래 멈춰 있으면 끊긴 것처럼 느껴진다 — 짧게 머물고 바로 통과한다
+      // 지수 추적은 1 근처에서 아주 느려져, 0.975 까지 기다리면 연기가 덮인 채 한동안 정지해 보인다.
+      // 연기는 0.94 에서 이미 화면을 다 덮으므로(SmokeVeil gather ≈ 0.996) 거기서 바로 넘긴다.
+      if (next >= 0.94 && exitTarget.current >= 0.999 && !exitTimer.current) {
         exitTimer.current = window.setTimeout(() => {
           exitTimer.current = 0;
           go('about', { via: 'ice' });
-        }, 280);
+        }, 40);
       } else if (next < 0.9 && exitTimer.current) {
         window.clearTimeout(exitTimer.current);
         exitTimer.current = 0;
@@ -185,10 +212,6 @@ export default function App() {
         event.preventDefault();
         exitTarget.current = 0;
       }
-      if (current === 'about' && ['ArrowUp', 'PageUp'].includes(event.key)) {
-        event.preventDefault();
-        go('main', { rewind: true });
-      }
       if (event.key === 'Escape' && current !== 'main') {
         go('main', { rewind: current === 'about' });
       }
@@ -201,18 +224,6 @@ export default function App() {
     if (contactOpen || intro !== 'done') return;
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
     const delta = clamp(event.deltaY * unit, -180, 180);
-
-    // ABOUT 에서 위로 밀면 MAIN 으로 되돌아간다.
-    // 트랙패드 한 번 튕긴 것으로 넘어가지 않도록 일정량을 모은다.
-    if (current === 'about') {
-      if (delta < 0) {
-        backAccum.current += -delta;
-        if (backAccum.current > BACK_THRESHOLD) go('main', { rewind: true });
-      } else {
-        backAccum.current = 0;
-      }
-      return;
-    }
 
     if (current !== 'main') return;
     if (performance.now() - mainReadyAt.current < 550) return;
@@ -229,15 +240,6 @@ export default function App() {
     const delta = touchPrev.current - y;
     touchPrev.current = y;
 
-    if (current === 'about') {
-      if (delta < 0) {
-        backAccum.current += -delta;
-        if (backAccum.current > 90) go('main', { rewind: true });
-      } else {
-        backAccum.current = 0;
-      }
-      return;
-    }
     if (current !== 'main') return;
     exitTarget.current = clamp(exitTarget.current + delta / 420, 0, 1);
   }, [current, go, intro]);
@@ -257,7 +259,11 @@ export default function App() {
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      <Nav current={contactOpen ? 'contact' : current} onGo={go} />
+      <Nav
+        current={contactOpen ? 'contact' : current}
+        onGo={go}
+        progress={current === 'main' ? mainExit : 0}
+      />
 
       <main key={current} className={`app-stage app-stage--${current}`}>
         {current === 'main' && (
@@ -299,6 +305,8 @@ export default function App() {
 
       <Contact open={contactOpen} onClose={() => setContactOpen(false)} />
       {intro !== 'done' && <Intro phase={intro} onSkip={() => setIntro('leaving')} />}
+      {/* 따라다니는 점 — 링크 위에서 링, 표본·보드 위에서 라벨이 붙는다 */}
+      <CustomCursor />
     </div>
   );
 }

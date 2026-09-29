@@ -1,0 +1,170 @@
+/* ── ACTION SYSTEM ────────────────────────────────────────────
+   텍스트 정보와 조작 요소가 섞이지 않도록, 실제 액션만 캡슐 안에 넣는다.
+   형태는 공유하고 선택/외부 링크/보조 액션의 상태만 달리한다. */
+
+.ui-pill {
+  --pill-border: var(--accent-border);
+  --pill-bg: rgba(11, 13, 14, 0.34);
+  --pill-hover: rgba(157, 222, 215, 0.1);
+  position: relative;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 0 19px;
+  border: 1px solid var(--pill-border);
+  border-radius: 999px;
+  background: var(--pill-bg);
+  color: var(--text);
+  text-decoration: none;
+  box-shadow: inset 0 0 0 1px rgba(241, 242, 239, 0.025);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    color 260ms var(--ease),
+    border-color 260ms var(--ease),
+    background 260ms var(--ease),
+    transform 260ms var(--ease),
+    box-shadow 260ms var(--ease);
+}
+
+.ui-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+  background: var(--pill-hover);
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 0 1px rgba(194, 255, 245, 0.05),
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    0 0 20px var(--accent-glow);
+}
+
+.ui-pill:active { transform: translateY(0) scale(0.985); }
+.ui-pill:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* 외부 링크: 레퍼런스의 점 + VIEW 캡슐 문법을 가져온다. */
+.dmeta__links a.ui-pill {
+  padding: 0 16px;
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  color: var(--text);
+}
+.dmeta__links a.ui-pill::before {
+  content: '';
+  position: static;
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent);
+  opacity: 1;
+  filter: none;
+  transform: none;
+  transition: transform 260ms var(--ease), box-shadow 260ms var(--ease);
+}
+.dmeta__links a.ui-pill::after {
+  content: '↗';
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0 0 0 2px;
+  border-radius: 0;
+  background: none;
+  color: currentColor;
+  opacity: 0.62;
+  filter: none;
+  transform: none;
+  animation: none;
+  font-size: 14px;
+  line-height: 1;
+  transition: opacity 260ms var(--ease), transform 260ms var(--ease);
+}
+.dmeta__links a.ui-pill:hover::before {
+  opacity: 1;
+  filter: none;
+  transform: scale(1.24);
+  box-shadow: 0 0 17px color-mix(in srgb, var(--accent) 78%, transparent);
+}
+.dmeta__links a.ui-pill:hover::after {
+  opacity: 1;
+  animation: none;
+  transform: translate(2px, -2px);
+}
+
+/* SCROLL / LIST — 하나의 캡슐 안에서 활성 면이 미끄러진다. */
+.viewtoggle.ui-segmented {
+  width: auto;
+  height: 48px;
+  gap: 0;
+  padding: 4px;
+  border: 1px solid rgba(175, 194, 200, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(11, 13, 14, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(241, 242, 239, 0.025);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.viewtoggle.ui-segmented::before {
+  content: '';
+  position: absolute;
+  display: block;
+  inset: 4px auto 4px 4px;
+  width: 92px;
+  border-radius: 999px;
+  background: rgba(241, 242, 239, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(241, 242, 239, 0.04);
+  transform: translateX(0);
+  transition: transform 420ms var(--ease), background 260ms var(--ease);
+}
+.viewtoggle.ui-segmented.is-list::before { transform: translateX(92px); }
+.viewtoggle.ui-segmented button {
+  width: 92px;
+  height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 10px;
+  color: rgba(175, 194, 200, 0.58);
+  box-shadow: none;
+  transition: color 280ms var(--ease);
+}
+.viewtoggle.ui-segmented button.is-on {
+  color: var(--text);
+  box-shadow: none;
+}
+.viewtoggle.ui-segmented button:focus-visible {
+  outline: 1px solid var(--text);
+  outline-offset: -3px;
+}
+
+/* 다음 프로젝트는 같은 형식의 보조 액션으로 두되, 링크보다 한 단계 조용하게. */
+.dnext__go.ui-pill {
+  padding: 0 18px;
+  border-color: rgba(175, 194, 200, 0.26);
+  background: rgba(11, 13, 14, 0.2);
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .ui-pill { min-height: 42px; padding-inline: 16px; }
+  .viewtoggle.ui-segmented { height: 44px; }
+  .viewtoggle.ui-segmented::before { width: 78px; }
+  .viewtoggle.ui-segmented.is-list::before { transform: translateX(78px); }
+  .viewtoggle.ui-segmented button { width: 78px; height: 34px; padding-inline: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-pill,
+  .ui-pill::before,
+  .ui-pill::after,
+  .viewtoggle.ui-segmented::before { transition: none; }
+}

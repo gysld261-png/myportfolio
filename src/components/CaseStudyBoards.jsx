@@ -64,6 +64,7 @@ export default function CaseStudyBoards({ blocks, active }) {
             className="case-boards__page"
             key={item.src}
             onClick={() => open(index)}
+            data-cursor="ZOOM"
             aria-label={`보드 ${index + 1} 확대 보기`}
             aria-haspopup="dialog"
           >

@@ -8,7 +8,11 @@
   --surface-2: #1c2022;
   --text: #f1f2ef;        /* 완전한 흰색보다 부드러운 본문 */
   --muted: #8c969a;       /* 메타데이터와 상태값 */
-  --frost: #afc2c8;       /* 아주 제한적인 회청색 포인트 */
+  --accent: #9dded7;      /* 얼음의 온도를 닮은 전역 아이스 민트 */
+  --accent-bright: #c2fff5;
+  --accent-border: rgba(157, 222, 215, 0.42);
+  --accent-glow: rgba(157, 222, 215, 0.2);
+  --frost: var(--accent);  /* 기존 서리 UI도 같은 포인트 체계로 통일 */
   --line: #2a2f31;        /* 보일 듯 말 듯한 좌표와 정렬 */
 
   /* project color — Field 에서는 쓰지 않는다. Detail 에서만 등장. */
@@ -33,6 +37,7 @@
 
   /* layout */
   --gutter: clamp(20px, 5.5vw, 80px);
+  --nav-gutter: clamp(20px, 5.5vw, 80px);   /* 네비 전용 — 화면별 --gutter 재정의에 흔들리지 않는다 */
   --nav-h: 64px;
 
   /* motion — 프로토타입에서 찾은 값 */

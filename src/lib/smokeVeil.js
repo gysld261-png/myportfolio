@@ -32,8 +32,9 @@ float fbm(vec2 p) {
 
 void main() {
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
-  // 빠져나오기(uProgress) — 시작과 끝 모두 느리게
-  float e = uProgress * uProgress * (3.0 - 2.0 * uProgress);
+  // 빠져나오기(uProgress) — 넘어오자마자 움직이기 시작하되, 급하지 않게 끝까지 고르게 스르르 걷힌다.
+  // (smoothstep 은 출발이 느려 멈춰 보였고, 지수 2.4 는 초반에 확 걷혀 빨랐다)
+  float e = 1.0 - pow(1.0 - uProgress, 1.15);
   // 차오르기(uGather) — 1 이면 빠져나오기의 첫 장면과 같다
   float g = uGather * uGather * (3.0 - 2.0 * uGather);
   float rest = 1.0 - g;
@@ -52,12 +53,18 @@ void main() {
 
   // 찢어지지 않고 옅어진다: 경계 폭을 넓게 잡아 얇은 곳부터 천천히 투명해지고,
   // 위쪽이 먼저 맑아져 연기가 아래로 흘러내려 빠지는 것처럼 보인다
-  float cover = d + 0.55 - e * 1.35 - (p.y + 0.2) * 0.4 * e;
+  // 여유분(0.55) 때문에 한참 짙은 채로 버티다 옅어졌다("멈췄다가 스르륵").
+  // sqrt(e) 항이 그 여유분을 초반에 먼저 녹여 곧바로 얇은 곳이 비치기 시작하고,
+  // 그 뒤로는 e 항이 느린 속도로 고르게 걷어 낸다. 둘 다 e=0 에서 0 이라 MAIN 의 마지막 장면과 이어진다.
+  // (GLSL 은 float 에 정수를 곱할 수 없다 — 계수는 꼭 1.0 처럼 소수로 쓴다)
+  float cover = d + 0.55 - sqrt(e) * 0.35 - e * 0.55 - (p.y + 0.2) * 0.4 * e;
   // 차오르기: 얼음 자리와 바닥에서 먼저 피어올라 위로, 가장자리로 번진다
   float bloom = 1.0 - length((p - uOrigin) * vec2(0.8, 1.0)) * 1.3;
   cover -= rest * 1.75;
   cover += rest * (bloom * 0.7 + (-p.y - 0.15) * 0.9);
-  float alpha = smoothstep(0.0, 0.6, cover);
+  // 걷히는 동안 경계 폭을 넓힌다 — 한 덩어리가 한꺼번에 빠지지 않고 연기 전체가 조금씩 반투명해져
+  // 처음부터 끝까지 고르게 스르르 옅어진다. e=0 에서는 0.6 그대로라 MAIN 과 이어진다.
+  float alpha = smoothstep(0.0, 0.6 + sqrt(e) * 0.9, cover);
   alpha *= 1.0 - smoothstep(0.82, 1.0, uProgress);
 
   // 빛을 머금은 연기 — 두꺼운 곳은 밝고, 옅어지는 가장자리는 살짝 그늘진다
@@ -75,9 +82,12 @@ export const smokeTime = () => (performance.now() / 1000) % 600;
 
 function compile(gl, type, source) {
   const shader = gl.createShader(type);
+  if (!shader) return null;
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-  return gl.getShaderParameter(shader, gl.COMPILE_STATUS) ? shader : null;
+  if (gl.getShaderParameter(shader, gl.COMPILE_STATUS)) return shader;
+  gl.deleteShader(shader);
+  return null;
 }
 
 /** WebGL 을 못 쓰면 null */
@@ -86,10 +96,28 @@ export function createSmokeRenderer(canvas) {
   if (!gl) return null;
   const vs = compile(gl, gl.VERTEX_SHADER, VERT);
   const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+  // GPU 컨텍스트가 부족하거나 셰이더를 지원하지 않는 환경에서는 연기만 생략한다.
+  // null 셰이더를 attach 하면 React 트리 전체가 중단되므로 여기서 조용히 폴백한다.
+  if (!vs || !fs) {
+    if (vs) gl.deleteShader(vs);
+    if (fs) gl.deleteShader(fs);
+    return null;
+  }
   const program = gl.createProgram();
+  if (!program) {
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    return null;
+  }
   gl.attachShader(program, vs);
   gl.attachShader(program, fs);
   gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    return null;
+  }
   gl.useProgram(program);
 
   const buffer = gl.createBuffer();

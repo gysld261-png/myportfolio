@@ -1,11 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { createSmokeRenderer } from '../lib/smokeVeil';
-
-const smooth = (edge0, edge1, x) => {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-};
+import { sublimationFront, sublimationSmoke } from '../lib/sublimation';
 
 /**
  * MAIN 스크롤 승화 — 얼음 자리와 바닥에서 연기가 피어올라 화면을 채운다.
@@ -20,15 +16,21 @@ export default function SmokeVeil({ progress = 0 }) {
   useEffect(() => {
     const canvas = canvasRef.current;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const smoke = !reduced && createSmokeRenderer(canvas);
+    let smoke = null;
+    try {
+      smoke = !reduced && createSmokeRenderer(canvas);
+    } catch {
+      // 연기는 보조 효과다. WebGL 실패가 메인 화면과 내비게이션까지 멈추게 하지 않는다.
+      smoke = null;
+    }
     if (!smoke) return undefined;
 
     let raf = 0;
     let drawn = false;
     const frame = () => {
       raf = requestAnimationFrame(frame);
-      // 글자가 빠지기 시작할 즈음부터 차올라, ABOUT 으로 넘어가는 지점(0.975)에서 꽉 찬다
-      const gather = smooth(0.2, 0.97, progressRef.current);
+      // 기준선이 출발하는 순간부터 아래쪽에 연기가 모이고, 화면 위를 통과하면 꽉 찬다.
+      const gather = sublimationSmoke(progressRef.current);
       if (gather <= 0.001) {
         if (drawn) smoke.clear();
         drawn = false;
@@ -45,7 +47,11 @@ export default function SmokeVeil({ progress = 0 }) {
   }, []);
 
   return createPortal(
-    <div className="smoke-passage smoke-veil" aria-hidden="true">
+    <div
+      className="smoke-passage smoke-veil"
+      style={{ '--smoke-front': `${sublimationFront(progress) * 100}%` }}
+      aria-hidden="true"
+    >
       <canvas ref={canvasRef} />
     </div>,
     document.body,

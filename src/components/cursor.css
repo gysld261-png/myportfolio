@@ -1,0 +1,77 @@
+/* ── CURSOR — K95 의 점/링을 옮겨 오고, 라벨만 이 사이트의 서리 유리로 맞췄다. ── */
+.cursor,
+.cursor-label {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cursor {
+  width: 14px;
+  height: 14px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 14px var(--accent-glow);
+  mix-blend-mode: normal;
+  opacity: 0;
+  transform: translate3d(-100px, -100px, 0);
+  transition:
+    width 300ms var(--ease),
+    height 300ms var(--ease),
+    background-color 300ms var(--ease),
+    border-color 300ms var(--ease),
+    opacity 240ms var(--ease);
+}
+.cursor.is-on { opacity: 1; }
+.cursor.is-hovering {
+  width: 46px;
+  height: 46px;
+  background-color: transparent;
+  border-color: var(--accent);
+  box-shadow: 0 0 22px var(--accent-glow), inset 0 0 14px rgba(157, 222, 215, .06);
+}
+
+.cursor-label {
+  padding: 9px 15px 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: rgba(20, 24, 26, .18);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--accent-bright);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  line-height: 1;
+  white-space: nowrap;
+  text-transform: uppercase;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(-200px, -200px, 0);
+  transition: opacity 300ms var(--ease), visibility 0s linear 300ms;
+}
+.cursor-label.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 300ms var(--ease), visibility 0s;
+}
+
+/* MAIN 에는 이미 커서를 따라다니는 유체(SplashCursor)가 있다. 점은 숨기고 링·라벨만 남긴다. */
+.app-shell--main .cursor:not(.is-hovering) { opacity: 0; }
+
+/* 커서 유체는 빛을 더하는 방식이라, 밝은 얼음 위에선 하얗게 타서 빛나 보인다.
+   얼음을 만지는 동안(heroIceScene 이 data-ice-touch 를 단다)은 옅게 눌러 얼음의 김이 주인공이 되게 한다. */
+.splash-cursor { transition: opacity 420ms var(--ease); }
+html[data-ice-touch] .splash-cursor { opacity: .3; }
+
+/* 모달(dialog)은 최상위 레이어라 커서가 그 아래로 깔린다. 열려 있는 동안은 화살표만 쓴다. */
+body:has(dialog[open]) .cursor,
+body:has(dialog[open]) .cursor-label { display: none; }
+
+@media (hover: none), (pointer: coarse) {
+  .cursor, .cursor-label { display: none; }
+}

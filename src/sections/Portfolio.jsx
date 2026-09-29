@@ -211,6 +211,7 @@ export default function Portfolio() {
                     onMouseEnter={() => { if (!zooming) setActiveIndex(index); }}
                     onFocus={() => { if (!zooming) setActiveIndex(index); }}
                     onClick={() => openFromList(s.id)}
+                    data-cursor="VIEW PROJECT"
                   >
                     <span className="plist__no sys">{s.no}</span>
                     <span className="plist__name">{s.ko}</span>
@@ -238,7 +239,7 @@ export default function Portfolio() {
         />
 
         {/* 두 모드는 동일한 프로젝트와 선택 상태를 공유한다 */}
-        <div className={`viewtoggle ${mode === 'list' ? 'is-list' : 'is-field'}`} role="group" aria-label="보기 방식">
+        <div className={`viewtoggle ui-segmented ${mode === 'list' ? 'is-list' : 'is-field'}`} role="group" aria-label="보기 방식">
           <button type="button" className={mode === 'field' ? 'is-on' : ''} onClick={() => setMode('field')}>
             SCROLL
           </button>

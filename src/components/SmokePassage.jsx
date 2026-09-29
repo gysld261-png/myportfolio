@@ -10,7 +10,8 @@ import { createSmokeRenderer } from '../lib/smokeVeil';
  *
  * MAIN 에서 차오른 연기(SmokeVeil)와 같은 셰이더·같은 시계라 첫 장면이 그대로 이어진다.
  */
-const DURATION = 2700;
+// global.css 의 ice-focus(ABOUT 이 초점을 찾는 시간)와 같아야 한다
+const DURATION = 3400;
 
 export default function SmokePassage({ onDone }) {
   const canvasRef = useRef(null);
