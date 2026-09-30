@@ -184,8 +184,9 @@ export default function Ending({ active, onExit, onGoMain, onDrawn }) {
       {/* 마지막 장면엔 메인의 커서 연기가 다시 — 처음 얼음을 문지르던 손길로 끝난다. 가루 위·글자 아래에 깔린다 */}
       <SplashCursor active={active && final && !reduced} Z_INDEX={0} />
       <div className="ending__message" aria-hidden={phase !== 'statement' && !reduced}>
-        <p className="ending__say">Always learning, always making</p>
-        <p className="ending__sub">계속 배우고, 계속 만듭니다</p>
+        {/* 엔딩 크레딧처럼 — 누가 만들었는지만 남긴다 */}
+        <p className="ending__say">Designed &amp; built by Park Hyomin</p>
+        <p className="ending__sub">기획부터 구현까지, 박효민이었습니다</p>
       </div>
       <nav className="ending__contact" aria-label="연락처" aria-hidden={!final} inert={final ? undefined : ''}>
         <strong>PARK HYOMIN</strong>
