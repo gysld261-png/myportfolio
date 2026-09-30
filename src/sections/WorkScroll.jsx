@@ -47,9 +47,10 @@ const SMOKE_WARP = 20;                                   // 드러나는 동안 
 /* 엔딩 — 마지막 프로젝트 뒤로 더 내리는 구간. 마지막 얼음도 앞의 얼음처럼 위로 빠져나가 빈 공간이 되고,
    그만큼 관측창(App)이 닫힌다. 되돌아가지 않는다 — 멈추면 민 만큼 그 자리에 머문다.
    END_WHEEL 휠 px 을 밀면 끝까지(=1). 구간 길이는 화면 높이의 END_TRAVEL 배 */
-const END_WHEEL = 1100;
+const END_WHEEL = 2400;  // 승화를 천천히 지켜보게 — 예전(1100)의 두 배 넘게 밀어야 끝난다
 const END_TRAVEL = 0.95;
-const END_GLIDE = 0.7;   // 이만큼 넘게 밀면 나머지는 저절로 끝까지
+const END_GLIDE = 0.92;  // 이만큼 넘게 밀면 나머지는 저절로 끝까지 — 거의 끝까지 손으로 민다
+const END_OMEGA = 1.6;   // 엔딩 구간의 따라붙는 속도 — 목록(4.2)보다 훨씬 무겁게, 민 뒤에도 천천히 풀린다
 
 export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused, onEndProgress, endControlRef }) {
   // 엔딩 진행도(0 열림 → 1 닫힘)를 App 에 알린다
@@ -162,7 +163,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         s.current = s.target;
         s.vel = 0;
       } else {
-        const omega = s.snapped ? 3 : 4.2;
+        const omega = (s.over || 0) > 0 || s.current > Math.max(0, s.setHeight - root.clientHeight) + 1 ? END_OMEGA : (s.snapped ? 3 : 4.2);
         const accel = omega * omega * (s.target - s.current) - 2 * omega * (s.vel || 0);
         s.vel = (s.vel || 0) + accel * dt;
         s.current += s.vel * dt;
@@ -195,7 +196,9 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         s.endV = endV;
         endProgressRef.current?.(endV);
       }
-      track.style.transform = `translate3d(0, ${-s.current}px, 0)`;
+      iceFieldRef.current?.setEnd(endV);
+      // 엔딩 구간에서는 목록을 더 올리지 않는다 — 마지막 얼음이 가운데 머문 채 승화한다
+      track.style.transform = `translate3d(0, ${-Math.min(s.current, max)}px, 0)`;
       root.style.setProperty('--sv', velocity.toFixed(4));
       iceFieldRef.current?.setVelocity(velocity);
       iceFieldRef.current?.setInteraction(hoverRef.current, launchingRef.current);
@@ -558,17 +561,25 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         <p className="work__caption">{previewSpec.ko} /<br />{previewSpec.role.replace(' + ', ', ')}</p>
       </div>
 
-      <div className="work__depth" aria-label={`프로젝트 ${activeIndex + 1} / ${specs.length}`}>
+      {/* 깊이 눈금 — 세로 선이 지금 프로젝트까지 차오르고, 눈금 옆 번호·이름을 누르면 그 깊이로 간다 */}
+      <nav className="work__depth" aria-label={`프로젝트 ${activeIndex + 1} / ${specs.length}`}>
         <span className="work__depth-label sys">DEPTH</span>
-        <ol>
+        <ol style={{ '--depth-fill': specs.length > 1 ? activeIndex / (specs.length - 1) : 0 }}>
           {specs.map((spec, index) => (
             <li key={spec.id} className={index === activeIndex ? 'is-active' : ''}>
-              <button type="button" onClick={() => goTo(index)} aria-label={`${spec.ko}로 이동`}>0</button>
+              <button
+                type="button"
+                onClick={() => goTo(index)}
+                aria-label={`${spec.no} ${spec.ko}로 이동`}
+                aria-current={index === activeIndex ? 'step' : undefined}
+              >
+                <span className="work__depth-no sys">{spec.no}</span>
+                <span className="work__depth-name">{spec.ko}</span>
+              </button>
             </li>
           ))}
         </ol>
-        <strong className="sys">{String(activeIndex + 1).padStart(2, '0')} / {String(specs.length).padStart(2, '0')}</strong>
-      </div>
+      </nav>
 
       {/* 줄 전체가 버튼이라 DOM 으로 판단하면 빈 곳에서도 링이 뜬다. 표본 위(hoverIndex)일 때만 직접 알린다. */}
       <div className="work__viewport" data-cursor-off="">

@@ -11,6 +11,7 @@
   scrollbar-color: #89aaa230 transparent;
   color: #dae2df;
 }
+.skills-toolkit.is-settling { overflow-y: hidden; }
 
 .skills-toolkit__intro {
   padding-bottom: 46px;
@@ -159,7 +160,7 @@
 .sdemo-ux__fill--4 { --c: #0d99ff; }
 @keyframes sdemo-ux-fill { 0%, 44% { opacity: .14; fill: #b7cec1; } 54%, 84% { opacity: 1; fill: var(--c); } 100% { opacity: .14; fill: #b7cec1; } }
 
-/* FRONTEND — 코드가 한 줄씩 쳐지고, 그려진 버튼이 눌린다 */
+/* FRONTEND — HTML 로 CONTACT 버튼이 한 줄씩 쳐지고, 그려진 버튼이 눌리며 체온 색(주황)으로 바뀐다 */
 .sdemo--front { display: grid; align-content: center; gap: 8px; }
 .sdemo-front__code {
   display: grid;
@@ -174,11 +175,11 @@
   white-space: pre;
 }
 .sdemo-front__line { display: block; width: 0; overflow: hidden; }
-.sdemo-front__line--1 { color: #7cc4ff; animation: sdemo-type-1 4s steps(22) infinite; }
-.sdemo-front__line--2 { color: #dae2df; animation: sdemo-type-2 4s steps(6) infinite; }
+.sdemo-front__line--1 { color: #7cc4ff; animation: sdemo-type-1 4s steps(24) infinite; }
+.sdemo-front__line--2 { color: #dae2df; animation: sdemo-type-2 4s steps(9) infinite; }
 .sdemo-front__line--3 { color: #7cc4ff; animation: sdemo-type-3 4s steps(9) infinite; }
-@keyframes sdemo-type-1 { 0% { width: 0; } 22%, 100% { width: 22ch; } }
-@keyframes sdemo-type-2 { 0%, 22% { width: 0; } 30%, 100% { width: 6ch; } }
+@keyframes sdemo-type-1 { 0% { width: 0; } 22%, 100% { width: 24ch; } }
+@keyframes sdemo-type-2 { 0%, 22% { width: 0; } 30%, 100% { width: 9ch; } }
 @keyframes sdemo-type-3 { 0%, 30% { width: 0; } 40%, 100% { width: 9ch; } }
 .sdemo-front__button {
   justify-self: start;
@@ -192,11 +193,11 @@
   animation: sdemo-front-btn 4s cubic-bezier(.2, 1.2, .4, 1) infinite;
 }
 @keyframes sdemo-front-btn {
-  0%, 42% { opacity: 0; transform: translateY(6px) scale(.9); }
-  50% { opacity: 1; transform: none; }
-  64% { transform: scale(.9); background: #bff0ea; }
-  70%, 92% { opacity: 1; transform: none; background: #9dded7; }
-  100% { opacity: 0; }
+  0%, 42% { opacity: 0; transform: translateY(6px) scale(.9); background: #9dded7; }
+  50% { opacity: 1; transform: none; background: #9dded7; }
+  64% { transform: scale(.9); background: #f2b27a; }
+  70%, 92% { opacity: 1; transform: none; background: #f2b27a; }
+  100% { opacity: 0; background: #f2b27a; }
 }
 
 /* VISUAL — 흑백 원본 위로 보정된 색이 쓸려 들어오고, 옷에서 색 세 개를 뽑는다(차이킴 상품 카드의 색상 스와치) */

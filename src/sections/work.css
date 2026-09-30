@@ -344,31 +344,90 @@
   z-index: 5;
   left: var(--gutter);
   top: 50%;
-  display: grid;
-  grid-template-columns: auto auto;
-  grid-template-rows: auto auto;
-  gap: 12px 18px;
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
   transform: translateY(-50%);
   color: var(--muted);
 }
-.work__depth-label { align-self: start; padding-top: 5px; writing-mode: vertical-rl; transform: rotate(180deg); }
-.work__depth ol { display: flex; align-items: center; gap: 0; margin: 0; padding: 0; list-style: none; }
-.work__depth li { display: flex; align-items: center; }
-.work__depth li:not(:last-child)::after { content: ''; width: clamp(18px, 2vw, 34px); height: 1px; background: rgba(175, 194, 200, .24); }
-.work__depth button {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid rgba(175, 194, 200, .35);
-  border-radius: 50%;
-  background: rgba(11, 13, 14, .76);
-  color: rgba(175, 194, 200, .48);
-  font: 400 9px var(--mono);
-  cursor: pointer;
-  transition: color 260ms ease, border-color 260ms ease, box-shadow 260ms ease;
+.work__depth-label { align-self: start; writing-mode: vertical-rl; transform: rotate(180deg); }
+/* 세로 눈금자 — 옅은 선 위로 지금 깊이까지 서리색이 차오른다 */
+.work__depth ol {
+  --depth-pad: 9px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  list-style: none;
 }
-.work__depth li.is-active button { color: #f1fbfe; border-color: var(--frost); box-shadow: 0 0 18px rgba(185, 220, 230, .45); }
-.work__depth strong { grid-column: 2; font-weight: 400; color: var(--frost); }
+.work__depth ol::before,
+.work__depth ol::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--depth-pad);
+  width: 1px;
+}
+.work__depth ol::before { bottom: var(--depth-pad); background: rgba(175, 194, 200, 0.2); }
+.work__depth ol::after {
+  height: calc((100% - var(--depth-pad) * 2) * var(--depth-fill, 0));
+  background: linear-gradient(180deg, rgba(157, 222, 215, 0.25), var(--frost));
+  box-shadow: 0 0 8px var(--accent-glow);
+  transition: height 560ms var(--ease);
+}
+.work__depth li { position: relative; }
+.work__depth button {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: rgba(175, 194, 200, 0.5);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 260ms var(--ease);
+}
+/* 눈금 — 선에서 글자 쪽으로 뻗는 짧은 가로선 */
+.work__depth button::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  width: 7px;
+  height: 1px;
+  background: rgba(175, 194, 200, 0.4);
+  transition: width 260ms var(--ease), background 260ms var(--ease);
+}
+/* 지금 깊이 — 선 위에 맺힌 점 */
+.work__depth button::after {
+  content: '';
+  position: absolute;
+  left: -23px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: var(--frost);
+  box-shadow: 0 0 0 3px var(--accent-glow), 0 0 12px var(--accent-glow);
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 260ms var(--ease), transform 260ms var(--ease);
+}
+.work__depth-no { font-size: 9.5px; color: inherit; }
+.work__depth-name { font-size: 11.5px; letter-spacing: 0.02em; }
+.work__depth button:hover { color: var(--text); }
+.work__depth button:hover::before { width: 11px; background: rgba(241, 242, 239, 0.7); }
+.work__depth li.is-active button { color: var(--text); }
+.work__depth li.is-active .work__depth-no { color: var(--frost); }
+.work__depth li.is-active button::before { width: 11px; background: var(--frost); }
+.work__depth li.is-active button::after { opacity: 1; transform: none; }
 
 /* 클릭하면 선택한 얼음이 확대된 뒤 냉기가 시야를 덮는다. */
 .work__ice-entry {
@@ -410,7 +469,7 @@
   .work-row__meta { left: 16%; top: 24%; max-width: 64vw; flex-wrap: wrap; }
   .work__depth { left: 18px; top: auto; bottom: 34px; transform: none; }
   .work__depth-label { display: none; }
-  .work__depth strong { grid-column: 1; }
+  .work__depth ol { gap: 16px; }
   .work__foot { display: none; }
 }
 

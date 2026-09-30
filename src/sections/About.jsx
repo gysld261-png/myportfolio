@@ -50,10 +50,12 @@ const CHAMBERS = [
     /* Figma 화면의 Section — 하나가 한 시기. 여기는 최근 순으로 적고, 화면에는 뒤집어 오래된 것부터 위에서 아래로 놓는다.
        at     시작한 달 — 기록의 온도(00 ABOUT 이력과 같은 눈금)
        images 필름에 담긴 작업물 { src, label } — 왼쪽 기록에도 크게 뜨고, 누르면 확대된다
-       [초안] 문구·날짜는 확정 전이다. 전공 이미지는 화질 낮은 임시본(-tmp) — 원본으로 바꿔야 한다 */
+              thumb·focus 는 가로로 넓은 Figma 캔버스 칸 전용 — 따로 자른 이미지 / 채울 때 기준점(object-position)
+       [초안] 문구·날짜는 확정 전이다. */
     strips: [
       {
-        id: 'team', at: '2026.06', period: '2026 — NOW', name: '팀 프로젝트',
+        /* parent — 그 시기 안에서 한 일. 번호가 02-1 처럼 붙고, 레이어 패널에서 한 칸 들어간다 */
+        id: 'team', parent: 'bootcamp', at: '2026.05', period: '2026.05 — 09', name: '팀 프로젝트',
         kept: '제 생각을 정답으로 두지 않고, 사용자의 행동을 근거로 문제를 정의하고 고칩니다. 왈가왈봇과 TCHAIKIM은 그 기준으로 기획부터 구현까지 맡은 프로젝트입니다.',
         images: [
           { src: '/cases/walga-screens.jpg', label: '왈가왈봇' },
@@ -63,7 +65,7 @@ const CHAMBERS = [
       },
       {
         id: 'bootcamp', at: '2026.04', period: '2026.04 — 10', name: 'AI활용 UI/UX 부트캠프',
-        kept: '6개월 동안 HTML·CSS·JavaScript·React(TypeScript)와 Figma를 익혔습니다. 화면을 그리는 데서 멈추지 않고 직접 만들어 사용자가 실제로 어떻게 쓰는지 확인하게 되었고, 팀·개인 프로젝트로 최우수상을 받았습니다.',
+        kept: '6개월 동안 HTML·CSS·JavaScript·React(TypeScript)와 Figma를 익혔습니다. 화면을 그리는 데서 멈추지 않고 직접 만들어 사용자가 실제로 어떻게 쓰는지 확인하게 되었고, 팀 프로젝트 TCHAIKIM으로 최우수상을 받았습니다.',
         images: [
           { src: '/cases/odit/main-v1.webp', label: 'ODIT · 개인 프로젝트' },
           { src: '/cases/odit-preview.jpg', label: 'ODIT · 주요 화면' },
@@ -74,8 +76,8 @@ const CHAMBERS = [
         id: 'major', at: '2022.03', period: '2022 — 2026.02', name: '시각디자인 전공',
         kept: '캐릭터 · 포스터 · 편집 · 브랜딩처럼 하나의 결과물을 완성하는 과목들 사이에서 UX/UI를 처음 만났습니다. 사용자의 시선과 행동을 기준으로 정보를 구조화하고 계속 고쳐 나간다는 점에 끌렸고, 편집 · 브랜딩 · UX/UI 작업으로 졸업전시 우수상을 받았습니다.',
         images: [
-          { src: '/about/background/editorial-tmp.jpg', label: '편집 디자인' },
-          { src: '/about/background/branding-tmp.jpg', label: '브랜딩 디자인' },
+          { src: '/about/background/editorial.webp', thumb: '/about/background/editorial-row.webp', label: '편집 디자인' },
+          { src: '/about/background/branding.webp', focus: '50% 8%', label: '브랜딩 디자인' },
         ],
       },
     ],
@@ -456,7 +458,24 @@ const tempLabel = (value) => `${value < 0 ? '−' : ''}${Math.abs(value).toFixed
 const tempAt = (ym) => tempLabel(SUBLIMATION_POINT - (monthsOf(RECORD_AS_OF) - monthsOf(ym)) * DEG_PER_MONTH);
 
 /* BACKGROUND 필름 스트립 — 오래된 것부터. 이력 기록과 같은 온도 눈금을 쓴다(오래될수록 차갑다) */
-const STRIPS = [...(CHAMBERS.find((item) => item.strips)?.strips || [])].reverse().map((strip) => ({ ...strip, temp: tempAt(strip.at) }));
+const STRIPS = (() => {
+  const ordered = [...(CHAMBERS.find((item) => item.strips)?.strips || [])].reverse();
+  const numbers = {};
+  const children = {};
+  let top = 0;
+  return ordered.map((strip) => {
+    let no;
+    if (strip.parent && numbers[strip.parent]) {
+      children[strip.parent] = (children[strip.parent] || 0) + 1;
+      no = `${numbers[strip.parent]}-${children[strip.parent]}`;
+    } else {
+      top += 1;
+      no = String(top).padStart(2, '0');
+    }
+    numbers[strip.id] = no;
+    return { ...strip, no, temp: tempAt(strip.at) };
+  });
+})();
 
 function ProfileRecord({ record }) {
   let index = 0;

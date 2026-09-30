@@ -23,7 +23,7 @@
 
 export const CASES = {
   /* ─────────────────────────────────────────────────────────
-     01 ODIT — 진행 중
+     01 ODIT — 프로토타입
      ───────────────────────────────────────────────────────── */
   odit: {
     cinematicHero: {
@@ -34,16 +34,18 @@ export const CASES = {
       alt: '오딧 — 외우는 역사에서 발견하는 재미가 있는 역사로. 홈 화면과 오딧맵을 담은 휴대폰 목업과 탐험 캐릭터',
     },
     year: '2026',
-    categories: ['UX/UI DESIGN', 'FRONTEND'],
-    role: ['UX Research', 'UI Design', 'Frontend'],
-    info: '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 목록을 훑는 대신 하나의 관심에서 옆으로 걸어 들어가게 만드는 것이 목표였고, 설계와 구현을 함께 진행하고 있습니다.',
+    categories: ['UX/UI DESIGN', 'PROTOTYPE'],
+    role: ['UX Research', 'UI Design', 'Prototype'],
+    info: '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 목록을 훑는 대신 하나의 관심에서 옆으로 걸어 들어가게 만드는 것이 목표였고, 리서치부터 Figma 프로토타입까지 설계했습니다.',
     concept: [],
     visit: [
       { label: 'VIEW PROTOTYPE', href: 'https://www.figma.com/proto/hEKHltlCyGEM6LywJ60Ylw/ODIT?page-id=2024%3A572&node-id=2046-2610&starting-point-node-id=2046%3A2610&scaling=scale-down&content-scaling=fixed' },
       { label: 'GITHUB', href: '' },
     ],
+    /* 목업 원본: https://www.figma.com/design/hEKHltlCyGEM6LywJ60Ylw?node-id=2125-1210
+       사용자가 지정한 홈(2024:573) · 오딧맵(2024:878) · 배지(2024:849) 화면을 그대로 사용했다. */
     blocks: [
-      { type: 'full', src: '', alt: '작업 중인 화면' },
+      { type: 'full', src: '/cases/odit/mockups/detail-mockup.webp', alt: '오딧 홈·오딧맵·배지 원본 화면을 담은 휴대폰 목업 3개' },
     ],
   },
 
@@ -52,8 +54,8 @@ export const CASES = {
      ───────────────────────────────────────────────────────── */
   tchaikim: {
     hero: {
-      src: '/cases/tchaikim/hero-mockup.webp',
-      alt: '차이킴 Shop 원통 갤러리와 메인 화면을 담은 노트북 목업',
+      src: '/cases/tchaikim/hero-editorial.webp',
+      alt: '차이킴 Shop 원통 갤러리와 모바일 메인 화면을 담은 브라우저·휴대폰 목업',
       width: 3840,
       height: 2400,
     },

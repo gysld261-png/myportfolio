@@ -61,7 +61,7 @@ export const SPECIMENS = [
     ],
     origin: 'outer',
     color: '#7C6CF0',
-    role: 'UX/UI + FRONTEND',
+    role: 'UX/UI + PROTOTYPE',
     year: '2026',
     lead: '당신의 취향이 새로운 발견이 되는 곳.',
     residue: '중앙 Core 하나만 선명하게 남는다',

@@ -986,6 +986,9 @@
 }
 .figma__panel-title { margin: 0 12px 8px; font-weight: 600; }
 .figma__group { margin-bottom: 6px; }
+/* 그 시기 안에서 한 일(02-1) — Figma 에서 섹션 안의 섹션처럼 한 칸 들어간다 */
+.figma__group.is-child .figma__row--section { padding-left: 26px; }
+.figma__group.is-child .figma__row--frame { padding-left: 44px; }
 .figma__row {
   display: flex;
   align-items: center;

@@ -19,6 +19,10 @@ const hashId = () => {
  */
 export default function Portfolio({ returnTo = null, onEndProgress = null, endControlRef = null, suspended = false }) {
   const [mode, setMode] = useState('field');
+  /* 보기 전환 — 캡슐의 선택 칸이 먼저 넘어가고(pending), 지금 화면이 흐려지며 빠진 뒤 새 화면이 떠오른다 */
+  const [pendingMode, setPendingMode] = useState(null);
+  const [switched, setSwitched] = useState(false);
+  const switchTimer = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selected, setSelected] = useState(hashId);
   // 얼음을 누른 순간부터 통과할 때까지, 상세 화면을 얼음 속에 미리 띄워 둔다(포털).
@@ -51,6 +55,23 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
     }
   }, [restoreFocus]);
 
+  const switchMode = useCallback((next) => {
+    window.clearTimeout(switchTimer.current);
+    if (next === mode) { setPendingMode(null); return; }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setMode(next);
+      return;
+    }
+    setPendingMode(next);
+    switchTimer.current = window.setTimeout(() => {
+      setMode(next);
+      setPendingMode(null);
+      setSwitched(true);
+    }, 340);
+  }, [mode]);
+  useEffect(() => () => window.clearTimeout(switchTimer.current), []);
+  const shownMode = pendingMode ?? mode;
+
   // Warm the case image while the field itself prepares its four textured meshes.
   useEffect(() => {
     const image = new Image();
@@ -74,7 +95,7 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
   return (
     <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''} ${portal && !selected ? 'is-portal' : ''}`}>
       <div
-        className={`portfolio__stage portfolio__stage--${mode}`}
+        className={`portfolio__stage portfolio__stage--${mode} ${pendingMode ? 'is_leaving' : ''} ${switched ? 'is_switched' : ''}`}
         inert={selected ? '' : undefined}
         aria-hidden={selected ? true : undefined}
       >
@@ -115,11 +136,11 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
         />
 
         {/* 두 모드는 동일한 프로젝트와 선택 상태를 공유한다 */}
-        <div className={`viewtoggle ui-segmented ${mode === 'list' ? 'is-list' : 'is-field'}`} role="group" aria-label="보기 방식">
-          <button type="button" className={mode === 'field' ? 'is-on' : ''} onClick={() => setMode('field')}>
+        <div className={`viewtoggle ui-segmented ${shownMode === 'list' ? 'is-list' : 'is-field'}`} role="group" aria-label="보기 방식">
+          <button type="button" className={shownMode === 'field' ? 'is-on' : ''} aria-pressed={shownMode === 'field'} onClick={() => switchMode('field')}>
             SCROLL
           </button>
-          <button type="button" className={mode === 'list' ? 'is-on' : ''} onClick={() => setMode('list')}>
+          <button type="button" className={shownMode === 'list' ? 'is-on' : ''} aria-pressed={shownMode === 'list'} onClick={() => switchMode('list')}>
             LIST
           </button>
         </div>

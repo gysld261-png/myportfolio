@@ -1,152 +1,201 @@
 import { useEffect, useRef, useState } from 'react';
 import { prefersReduced } from '../lib/smooth';
+import SplashCursor from '../components/SplashCursor';
 import './ending.css';
 
-/**
- * ENDING — 마지막 얼음까지 승화하고 남는 것. (레퍼런스: seunghyuk.com/contact)
- *
- * 관측창이 점으로 닫히면 그 점이 가운데 작은 표식으로 남고, 스크롤할수록 드라이아이스 결정 하나가
- * 선(SOLID) → 면(SUBLIMATION) → 점(GAS)으로 승화한다. 아래엔 상태 이름이 하나씩 쌓이고,
- * 점으로 흩어질 때 "THIS IS EVERYTHING I'VE MADE", 마지막엔 점 구름 위에 연락처 한 줄이 남는다.
- * 전부 스크롤이 진행시키고(자동 재생 없음), 드래그로 결정을 돌려 볼 수 있다.
- * 맨 처음에서 위로 더 굴리면 창이 다시 열리며 포트폴리오로 돌아간다(onExit).
- */
-
-const STATES = [['SOLID', 0.1], ['SUBLIMATION', 0.38], ['GAS', 0.62]];
-const LABELS = ['왈가왈봇', 'ODIT', 'TCHAIKIM', 'PM · IA', 'UI DESIGN', 'FRONTEND', 'DESIGN SYSTEM', '2026'];
-const WHEEL_SPAN = 5;        // 처음부터 끝까지 화면 높이의 몇 배를 굴리는지
-const EXIT_PULL = 220;       // 맨 처음에서 위로 이만큼(px) 더 굴리면 돌아간다
-
+/* 같은 눈 가루가 계속 모이고 풀린다. 문장은 지나가고, 만드는 과정은 계속 남는다.
+   진행은 세 정거장 — 모인 가루(0) → 한 번 내리면 퍼지며 문장(STATEMENT) → 한 번 더 내리거나 잠시 머물면 연락처(1).
+   스크롤로 끝까지 끌고 가지 않는다. 한 번의 입력이 한 장면을 연다. */
+const STATEMENT = .74;
+const STOPS = [0, STATEMENT, 1];
+const AUTO_NEXT = 2000;   // 문장에 도착하고 이만큼 머물면 저절로 연락처로
+const STEP_LOCK = 1100;   // 트랙패드 관성 한 번이 두 장면을 넘기지 않게
+const EXIT_PULL = 220;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
-export default function Ending({ active, onExit, onGoMain }) {
-  const hostRef = useRef(null);
+export default function Ending({ active, onExit, onGoMain, onDrawn }) {
   const rootRef = useRef(null);
-  const labelRefs = useRef([]);
-  const [final, setFinal] = useState(false);
-  const p = useRef({ target: 0, value: 0, back: 0 });
-  const exitRef = useRef(onExit);
-  exitRef.current = onExit;
+  const hostRef = useRef(null);
+  const [phase, setPhase] = useState('scene');
+  const [reduced, setReduced] = useState(prefersReduced);
+  // 첫 장면을 그렸는지 — className 은 React 가 다시 쓰므로 classList 가 아니라 상태로 둔다
+  const [drawn, setDrawn] = useState(false);
+  const final = phase === 'contact';
 
   useEffect(() => {
     if (!active) return undefined;
-    const reduced = prefersReduced();
     const root = rootRef.current;
+    const motionReduced = prefersReduced();
+    setReduced(motionReduced);
+    const previousFocus = document.activeElement;
+    const progress = { target: motionReduced ? 1 : 0, value: motionReduced ? 1 : 0, back: 0, stop: motionReduced ? 2 : 0, lockUntil: 0, swipe: 0 };
+    let autoTimer = 0;
+    let firstDrawn = false;
+    // 한 정거장씩 — 문장에 도착하면 잠시 뒤 저절로 연락처로 넘어간다
+    const goTo = (index) => {
+      const next = Math.max(0, Math.min(STOPS.length - 1, index));
+      window.clearTimeout(autoTimer);
+      progress.stop = next;
+      progress.target = STOPS[next];
+      progress.lockUntil = performance.now() + STEP_LOCK;
+      progress.back = 0;
+      if (next === 1) autoTimer = window.setTimeout(() => { if (progress.stop === 1) goTo(2); }, AUTO_NEXT + 1400);   // 1.4s 는 문장까지 미끄러지는 시간
+    };
+    let currentPhase = motionReduced ? 'contact' : 'scene';
+    setPhase(currentPhase);
     let scene = null;
     let cancelled = false;
-    import('../lib/endingScene').then(({ createEndingScene }) => {
-      if (cancelled) return;
-      try { scene = createEndingScene(hostRef.current); } catch { scene = null; }
-    });
-    const s = p.current;
-    s.target = s.value = reduced ? 1 : 0;
+    let frame = 0;
+    let last = performance.now();
+    let drag = null;
+    let exiting = false;
 
-    let raf = 0; let last = performance.now();
-    const tick = (now) => {
-      raf = requestAnimationFrame(tick);
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
-      s.value += (s.target - s.value) * (1 - Math.exp(-dt / 0.32));
-      if (Math.abs(s.target - s.value) < 0.0005) s.value = s.target;
-      const v = s.value;
-      // 글과 표식은 CSS 변수 하나(--p)로 — 각 요소가 자기 구간을 스스로 계산한다
-      root.style.setProperty('--p', v.toFixed(4));
-      STATES.forEach(([, at], i) => root.style.setProperty(`--s${i}`, (smooth(at, at + 0.05, v) * (1 - smooth(0.84, 0.9, v))).toFixed(3)));
-      root.style.setProperty('--mark', (1 - smooth(0.02, 0.09, v)).toFixed(3));
-      root.style.setProperty('--say', (smooth(0.66, 0.71, v) * (1 - smooth(0.8, 0.85, v))).toFixed(3));
-      root.style.setProperty('--end', smooth(0.86, 0.93, v).toFixed(3));
-      setFinal(v > 0.88);
+    const exit = () => { if (!exiting) { exiting = true; onExit(); } };
+    root.classList.remove('is-plain');
+    root.focus({ preventScroll: true });
+
+    const sync = (dt) => {
+      const v = progress.value;
+      root.style.setProperty('--say', (smooth(.61, .69, v) * (1 - smooth(.79, .85, v))).toFixed(4));
+      root.style.setProperty('--contact', smooth(.86, .95, v).toFixed(4));
+      root.style.setProperty('--hint', (1 - smooth(.84, .95, v)).toFixed(4));
+      const nextPhase = v >= .86 ? 'contact' : v >= .61 ? 'statement' : 'scene';
+      if (nextPhase !== currentPhase) { currentPhase = nextPhase; setPhase(nextPhase); }
       if (scene) {
         scene.setProgress(v);
         scene.render(dt);
-        // 떠다니는 글자 — 흩어진 점에 붙어 함께 떠오른다
-        const pts = scene.labels();
-        // 마지막 줄이 나오면 옅어진다 — 연락처 글자와 겹쳐 읽히지 않게
-        const show = smooth(0.66, 0.75, v) * (1 - 0.7 * smooth(0.84, 0.92, v));
-        labelRefs.current.forEach((el, i) => {
-          if (!el) return;
-          const q = pts[i];
-          el.style.transform = `translate3d(${q.x.toFixed(1)}px, ${q.y.toFixed(1)}px, 0)`;
-          el.style.opacity = (show * (0.35 + 0.65 * ((i * 37) % 10) / 10)).toFixed(3);
-        });
+        // 첫 장면을 실제로 그린 그 프레임에 알린다 — 포트폴리오 쪽 가루가 이때 물러나야 겹쳐 밝아지거나 비지 않는다
+        if (!firstDrawn) { firstDrawn = true; setDrawn(true); onDrawn?.(); }
       }
     };
-    raf = requestAnimationFrame(tick);
 
+    const tick = (now) => {
+      const dt = Math.min(.05, (now - last) / 1000);
+      last = now;
+      // 정거장 사이는 천천히 미끄러진다 — 가루가 퍼지는 걸 지켜볼 시간
+      progress.value += (progress.target - progress.value) * (1 - Math.exp(-dt / .55));
+      if (Math.abs(progress.target - progress.value) < .0005) progress.value = progress.target;
+      sync(dt);
+      frame = requestAnimationFrame(tick);
+    };
+    sync(0);
+    if (!motionReduced) frame = requestAnimationFrame(tick);
+
+    import('../lib/endingScene').then(({ createEndingScene }) => {
+      if (cancelled) return;
+      try {
+        scene = createEndingScene(hostRef.current);
+        // 모션 감소 설정에서는 한 프레임만 그리고 반복 루프를 돌리지 않는다.
+        if (motionReduced) sync(0);
+      } catch {
+        root.classList.add('is-plain');
+        setDrawn(true); onDrawn?.();   // WebGL 이 없으면 가루 없이 바로 불투명한 엔딩으로
+      }
+    }).catch(() => { if (!cancelled) { root.classList.add('is-plain'); setDrawn(true); onDrawn?.(); } });
+
+    // 한 번 내리면 다음 장면, 한 번 올리면 앞 장면. 첫 장면에서 더 올리면 포트폴리오로 돌아간다
+    const step = (direction) => {
+      if (motionReduced) { if (direction < 0) exit(); return; }
+      if (performance.now() < progress.lockUntil) return;
+      if (direction > 0 && progress.stop < STOPS.length - 1) goTo(progress.stop + 1);
+      if (direction < 0 && progress.stop > 0) goTo(progress.stop - 1);
+    };
     const onWheel = (event) => {
-      event.preventDefault();
+      if (event.ctrlKey || event.metaKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+      event.preventDefault(); event.stopPropagation();
       const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? window.innerHeight : 1;
-      const d = event.deltaY * unit;
-      // 맨 처음에서 위로 더 — 창을 다시 연다
-      if (d < 0 && s.target <= 0 && s.value < 0.01) {
-        s.back += -d;
-        if (s.back > EXIT_PULL) { s.back = 0; exitRef.current(); }
+      const delta = event.deltaY * unit;
+      if (delta < 0 && progress.stop === 0 && progress.value < .01) {
+        if (performance.now() < progress.lockUntil) return;
+        progress.back += -delta;
+        if (progress.back >= EXIT_PULL) exit();
         return;
       }
-      s.back = 0;
-      s.target = Math.min(1, Math.max(0, s.target + d / (window.innerHeight * WHEEL_SPAN)));
+      if (Math.abs(delta) < 4) return;
+      step(Math.sign(delta));
     };
-    // 드래그 — 가로는 결정을 돌리고, 터치의 세로는 스크롤처럼 진행시킨다
-    let drag = null;
-    const onDown = (event) => { if (event.target.closest('a, button')) return; drag = { x: event.clientX, y: event.clientY, touch: event.pointerType !== 'mouse' }; root.classList.add('is-dragging'); };
+    const onDown = (event) => {
+      if (event.target.closest('a, button') || event.isPrimary === false || event.button > 0) return;
+      drag = { x: event.clientX, y: event.clientY, touch: event.pointerType !== 'mouse' };
+      root.classList.add('is-dragging');
+    };
     const onMove = (event) => {
       if (!drag) return;
       const dx = event.clientX - drag.x; const dy = event.clientY - drag.y;
       drag.x = event.clientX; drag.y = event.clientY;
-      scene?.drag(dx, drag.touch ? 0 : dy);
-      if (drag.touch) s.target = Math.min(1, Math.max(0, s.target - dy / (window.innerHeight * WHEEL_SPAN * 0.5)));
-    };
-    const onUp = () => { drag = null; root.classList.remove('is-dragging'); };
-    const onKey = (event) => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); exitRef.current(); }
-      if (['ArrowDown', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); event.stopImmediatePropagation(); s.target = Math.min(1, s.target + 0.1); }
-      if (['ArrowUp', 'PageUp'].includes(event.key)) {
-        event.preventDefault(); event.stopImmediatePropagation();
-        if (s.target <= 0) exitRef.current(); else s.target = Math.max(0, s.target - 0.1);
+      if (!motionReduced) {
+        scene?.drag(dx, drag.touch ? 0 : dy);
+        // 손가락으로 쓸어 올리면 다음 장면(한 번에 한 장면)
+        if (drag.touch) {
+          progress.swipe += dy;
+          if (Math.abs(progress.swipe) > 48) { step(progress.swipe < 0 ? 1 : -1); progress.swipe = 0; }
+        }
       }
     };
+    const onUp = () => { drag = null; progress.swipe = 0; root.classList.remove('is-dragging'); };
+    const onKey = (event) => {
+      if (event.key === 'Tab') {
+        const controls = [...root.querySelectorAll('a[href], button:not([disabled])')].filter(el => !el.closest('[inert]'));
+        const first = controls[0]; const end = controls[controls.length - 1];
+        if (!first) return;
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === root || !root.contains(document.activeElement))) {
+          event.preventDefault(); end.focus();
+        } else if (!event.shiftKey && (document.activeElement === end || !root.contains(document.activeElement))) {
+          event.preventDefault(); first.focus();
+        }
+        return;
+      }
+      if (event.key === 'Escape') { event.preventDefault(); event.stopImmediatePropagation(); exit(); }
+      if (['ArrowDown', 'PageDown'].includes(event.key) || (event.key === ' ' && !event.target.closest('a, button'))) {
+        event.preventDefault(); event.stopImmediatePropagation(); step(1);
+      }
+      if (['ArrowUp', 'PageUp'].includes(event.key)) {
+        event.preventDefault(); event.stopImmediatePropagation();
+        if (motionReduced || progress.stop === 0) exit(); else step(-1);
+      }
+      if (event.key === 'End') { event.preventDefault(); event.stopImmediatePropagation(); goTo(STOPS.length - 1); }
+    };
+
     root.addEventListener('wheel', onWheel, { passive: false });
     root.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     window.addEventListener('keydown', onKey, true);
     return () => {
       cancelled = true;
-      cancelAnimationFrame(raf);
+      window.clearTimeout(autoTimer);
+      cancelAnimationFrame(frame);
       root.removeEventListener('wheel', onWheel);
       root.removeEventListener('pointerdown', onDown);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
       window.removeEventListener('keydown', onKey, true);
       scene?.dispose();
+      if (root.contains(document.activeElement) && previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [active]);
+  }, [active, onExit, onDrawn]);
 
   return (
-    <section ref={rootRef} className={`ending ${active ? 'is-active' : ''} ${final ? 'is-final' : ''}`} aria-label="엔딩">
+    <section ref={rootRef} className={`ending ${active ? 'is-active' : ''} ${drawn ? 'is-drawn' : ''} ${final ? 'is-final' : ''} ${reduced ? 'is-reduced' : ''}`}
+      role="dialog" aria-modal={active ? true : undefined} aria-label="엔딩" aria-hidden={!active} inert={active ? undefined : ''} tabIndex={-1}>
       <div ref={hostRef} className="ending__scene" aria-hidden="true" />
-      <span className="ending__mark" aria-hidden="true" />
-
-      <div className="ending__labels" aria-hidden="true">
-        {LABELS.map((t, i) => <span key={t} ref={(el) => { labelRefs.current[i] = el; }} className="sys">{t}</span>)}
+      {/* 마지막 장면엔 메인의 커서 연기가 다시 — 처음 얼음을 문지르던 손길로 끝난다. 가루 위·글자 아래에 깔린다 */}
+      <SplashCursor active={active && final && !reduced} Z_INDEX={0} />
+      <div className="ending__message" aria-hidden={phase !== 'statement' && !reduced}>
+        <p className="ending__say">Always learning, always making</p>
+        <p className="ending__sub">계속 배우고, 계속 만듭니다</p>
       </div>
-
-      <p className="ending__say">
-        <span>Always learning, always making</span>
-        <small>계속 배우고, 계속 만듭니다</small>
-      </p>
-
-      <ul className="ending__states sys" aria-hidden="true">
-        {STATES.map(([name], i) => <li key={name} style={{ opacity: `var(--s${i})` }}>{name}</li>)}
-      </ul>
-
-      <nav className="ending__contact" aria-label="연락처" aria-hidden={!final}>
+      <nav className="ending__contact" aria-label="연락처" aria-hidden={!final} inert={final ? undefined : ''}>
         <strong>PARK HYOMIN</strong>
-        <a href="mailto:gysld261@gmail.com" tabIndex={final ? 0 : -1}>gysld261@gmail.com</a>
-        <a href="https://github.com/gysld261-png" target="_blank" rel="noreferrer" tabIndex={final ? 0 : -1}>GITHUB</a>
-        <button type="button" onClick={onGoMain} tabIndex={final ? 0 : -1}>↺ MAIN</button>
+        <div className="ending__links">
+          <a href="mailto:gysld261@gmail.com">gysld261@gmail.com</a>
+          <a href="https://github.com/gysld261-png" target="_blank" rel="noreferrer">GITHUB ↗</a>
+        </div>
       </nav>
-
       <button type="button" className="ending__esc sys" onClick={onExit} aria-label="엔딩 닫고 포트폴리오로">← PORTFOLIO</button>
+      <button type="button" className="ending__main sys" onClick={onGoMain} aria-hidden={!final} inert={final ? undefined : ''}>↺ MAIN</button>
       <p className="ending__hint sys" aria-hidden="true">SCROLL · DRAG</p>
     </section>
   );

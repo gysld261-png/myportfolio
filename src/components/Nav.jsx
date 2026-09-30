@@ -1,25 +1,29 @@
 import RollText from './RollText';
+import useWarmth, { COLD, WARM, formatTemp, warmthOf } from '../lib/useWarmth';
 
 const TABS = [
   { id: 'about', label: 'ABOUT ME' },
   { id: 'portfolio', label: 'PORTFOLIO' },
 ];
 
-/* 드라이아이스가 1기압에서 승화하는 온도 — 헤더도 같은 관찰 계기의 일부다 */
-const SUBLIMATION_POINT = '−78.5°C';
-
-export default function Nav({ current, onGo, progress = 0 }) {
-  const state = progress > 0.01 ? 'SUBLIMATING' : 'SOLID';
+/* 헤더도 같은 관찰 계기의 일부다 — 평소엔 드라이아이스의 승화점(−78.5°C),
+   CONTACT 가 열리면 사람의 체온(36.5°C)까지 올라간다 */
+export default function Nav({ current, onGo, progress = 0, suspended = false }) {
+  const warm = current === 'contact';
+  const temp = useWarmth(warm);
+  const heating = warm && temp < WARM;
+  const cooling = !warm && temp > COLD;
+  const state = heating ? 'RISING' : warm ? 'WARM' : cooling ? 'COOLING' : progress > 0.01 ? 'SUBLIMATING' : 'SOLID';
 
   return (
-    <header className="nav" style={{ '--nav-progress': progress }}>
+    <header className={`nav ${warm ? 'is_warm' : ''}`} style={{ '--nav-progress': progress, '--warmth': warmthOf(temp).toFixed(3) }} inert={suspended ? '' : undefined}>
       <div className="nav__left">
         <button type="button" className="nav__mark roll" onClick={() => onGo('main')} aria-label="메인으로 이동">
           <RollText text="Park Hyomin" />
         </button>
         <p className="nav__status sys" aria-hidden="true">
           <span className="nav__dot" />
-          {SUBLIMATION_POINT}
+          <span className="nav__temp">{formatTemp(temp)}</span>
           <span className="nav__state">/ {state}</span>
         </p>
       </div>

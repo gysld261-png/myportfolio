@@ -1,119 +1,125 @@
-/* CONTACT — a letter, not another scene. 전체 화면 blur/WebGL 없이 종이만 움직인다. */
+/* CONTACT — 상자가 아니라 네비 CONTACT 아래에 떠오르는 글자 묶음.
+   메인의 관찰 계기판처럼 테두리 없이, 뒤쪽만 가운데가 짙고 가장자리로 풀리는 어둠이 받쳐 준다.
+   따뜻함은 온도 숫자와 구분선에만 — 나머지는 사이트와 같은 차가운 재질이다. */
 .contact {
+  --warm: #f2b27a;
+  --warm-bright: #ffd9b3;
+
   position: fixed;
-  inset: 0;
-  width: 100%;
+  inset: calc(var(--nav-h) + 26px) var(--nav-gutter) auto auto;
+  z-index: 45;
+  width: min(340px, calc(100vw - 40px));
   max-width: none;
-  height: 100%;
   max-height: none;
   margin: 0;
-  padding: 24px;
+  padding: 0;
+  overflow: visible;
   border: 0;
-  outline: none;
   background: transparent;
-  color: #272f2e;
-  overflow: auto;
-  overscroll-behavior: contain;
+  color: var(--text);
+  outline: none;
 }
-.contact[open] { display: grid; align-items: safe center; justify-items: center; }
-.contact::backdrop { background: transparent; }
-.contact__scrim {
-  position: fixed;
-  inset: 0;
-  border: 0;
-  background: rgba(7, 12, 13, .72);
+.contact[open] { display: block; }
+/* 열릴 때 묶음 자체로 옮기는 포커스는 테두리를 그리지 않는다 — 안의 링크·버튼은 그대로 표시 */
+.contact:focus-visible { outline: none; }
+/* 받침 어둠 — 모서리 없이 가장자리로 번져 사라진다. 뒤의 얼음 위에서도 글자가 읽히게 */
+.contact::before {
+  content: '';
+  position: absolute;
+  inset: -64px -72px -72px -72px;
+  z-index: -1;
+  pointer-events: none;
+  /* 체온이 오르는 만큼 CONTACT 쪽(오른쪽 위)부터 어둠에 온기가 스민다 */
+  background:
+    radial-gradient(70% 55% at 85% 12%, rgba(242, 150, 90, calc(var(--warmth, 0) * 0.16)), transparent 70%),
+    radial-gradient(closest-side, rgba(7, 9, 10, 0.94), rgba(7, 9, 10, 0.82) 55%, rgba(7, 9, 10, 0.4) 80%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent);
+  mask-image: radial-gradient(closest-side, #000 62%, transparent);
   opacity: 0;
-  transition: opacity 300ms ease;
-  cursor: default;
+  transition: opacity 300ms var(--ease);
 }
-.contact.is-open .contact__scrim { opacity: 1; animation: contact-shade-in 300ms ease both; }
-@keyframes contact-shade-in { from { opacity: 0; } to { opacity: 1; } }
-.contact__letter {
-  --letter-ink: #272f2e;
-  --letter-muted: #626c67;
-  position: relative;
-  width: min(940px, 100%);
-  padding: 26px clamp(28px, 5vw, 64px) 32px;
-  border: 1px solid rgba(255, 255, 255, .6);
-  background: #f3f2eb;
-  box-shadow: 0 28px 100px rgba(0, 0, 0, .24), 0 2px 6px rgba(0, 0, 0, .12);
-  opacity: 0;
-  transform: translateY(28px) rotate(-1.4deg);
-  transform-origin: 48% 65%;
-  transition: opacity 240ms ease, transform 300ms var(--ease);
+.contact.is_revealed::before { opacity: 1; transition: opacity 900ms var(--ease); }
+
+/* 글자 묶음 — 위에서 아래로 스르륵. 부드러운 경계(18%)가 천천히 내려오며 드러낸다.
+   닫을 때는 같은 길을 빠르게 거슬러 올라간다 */
+@property --contact-reveal {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
 }
-.contact.is-open .contact__letter {
-  opacity: 1;
-  transform: translateY(0) rotate(0deg);
-  transition: opacity 360ms ease, transform 680ms cubic-bezier(.16, 1, .3, 1);
-  animation: contact-unfold 680ms cubic-bezier(.16, 1, .3, 1) both;
+.contact__body {
+  --contact-reveal: 0%;
+  -webkit-mask-image: linear-gradient(180deg, #000 calc(var(--contact-reveal) - 18%), transparent var(--contact-reveal));
+  mask-image: linear-gradient(180deg, #000 calc(var(--contact-reveal) - 18%), transparent var(--contact-reveal));
+  transform: translateY(-10px);
+  transition: --contact-reveal 360ms var(--ease), transform 360ms var(--ease);
 }
-@keyframes contact-unfold {
-  from { opacity: 0; transform: translateY(28px) rotate(-1.4deg); }
-  to { opacity: 1; transform: translateY(0) rotate(0deg); }
+/* 아직 드러나지 않은 글자는 눌리지 않게 */
+.contact:not(.is_revealed) .contact__body { pointer-events: none; }
+.contact.is_revealed .contact__body {
+  --contact-reveal: 118%;
+  transform: none;
+  transition: --contact-reveal 800ms cubic-bezier(0.37, 0, 0.2, 1), transform 800ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.contact__header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid #d7dad2; }
-.contact__recipient { margin: 0; color: var(--letter-ink); font-size: 11px; letter-spacing: .14em; }
-.contact__recipient > span { margin-right: 14px; color: var(--letter-muted); }
-.contact__close { display: inline-flex; align-items: center; gap: 14px; min-width: 56px; min-height: 36px; padding: 0 0 0 8px; border: 0; background: none; color: var(--letter-muted); cursor: pointer; }
-.contact__close .sys { font-size: 9px; }
-.contact__cross { position: relative; width: 16px; height: 16px; transition: transform 220ms ease; }
-.contact__cross::before, .contact__cross::after { content: ''; position: absolute; top: 7px; left: 0; width: 16px; height: 1px; background: currentColor; transform: rotate(45deg); }
+
+.contact__head { display: flex; align-items: center; justify-content: space-between; margin: 0 0 28px; font-size: 10px; }
+.contact__temp { margin: 0; }
+.contact__temp_value {
+  margin-left: 10px;
+  color: color-mix(in oklab, var(--warm-bright) calc(var(--warmth, 0) * 100%), var(--muted));
+  text-shadow: 0 0 calc(var(--warmth, 0) * 12px) rgba(242, 178, 122, calc(var(--warmth, 0) * 0.6));
+}
+.contact__close { display: inline-flex; align-items: center; gap: 10px; padding: 6px 0 6px 8px; border: 0; background: none; color: var(--muted); font: inherit; letter-spacing: inherit; cursor: pointer; }
+.contact__close:hover { color: var(--text); }
+.contact__cross { position: relative; width: 11px; height: 11px; transition: transform 220ms ease; }
+.contact__cross::before, .contact__cross::after { content: ''; position: absolute; top: 5px; left: 0; width: 11px; height: 1px; background: currentColor; transform: rotate(45deg); }
 .contact__cross::after { transform: rotate(-45deg); }
 .contact__close:hover .contact__cross { transform: rotate(90deg); }
-.contact__body { padding-top: clamp(24px, 4vh, 42px); }
-.contact__eyebrow { margin: 0 0 18px; color: var(--letter-muted); font-size: 9px; letter-spacing: .15em; }
-.contact__title { margin: 0; font-family: var(--serif); font-size: clamp(34px, 4.2vw, 56px); font-weight: 400; line-height: 1.3; letter-spacing: -.045em; }
-.contact__lead { margin: 20px 0 30px; color: var(--letter-muted); font-size: 14px; line-height: 1.8; }
-.contact__mobile-break { display: none; }
-.contact__address-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
-.contact__address { color: var(--letter-ink); font-family: var(--serif); font-size: clamp(28px, 3.5vw, 45px); line-height: 1.2; text-decoration: none; letter-spacing: -.015em; overflow-wrap: anywhere; }
-.contact__address:hover { color: #42655b; }
-.contact__copy { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 120px; min-height: 40px; border: 1px solid #b8c2b8; border-radius: 2px; background: none; color: #536358; padding: 8px 10px; font: inherit; font-size: 11px; cursor: pointer; transition: background 180ms ease; }
-.contact__copy:hover { background: #e3e9de; }
-.contact__feedback { min-height: 18px; margin: 9px 0 24px; color: #496352; font-size: 11px; line-height: 1.65; }
-.contact__feedback.is-error { color: #8b452e; }
-.contact__footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px; border-top: 1px solid #d7dad2; padding-top: 24px; }
-.contact__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 28px; }
-.contact__send { display: inline-flex; align-items: center; justify-content: space-between; gap: 28px; min-height: 48px; padding: 0 22px; background: #344b44; color: #fafbf5; font-size: 13px; text-decoration: none; transition: background 180ms ease; }
-.contact__send:hover { background: #243c35; }
-.contact__arrow { display: inline-block; transition: transform 200ms ease; }
-.contact__send:hover .contact__arrow, .contact__github:hover .contact__arrow { transform: translate(2px, -2px); }
-.contact__github { display: inline-flex; align-items: center; gap: 12px; min-height: 44px; color: var(--letter-muted); font-size: 10px; letter-spacing: .12em; text-decoration: none; }
-.contact__github:hover { color: var(--letter-ink); }
-.contact__signature { margin: 0; font-family: var(--serif); font-size: 23px; font-style: italic; letter-spacing: -.035em; transform: rotate(-4deg); }
-.contact__signature > span { margin-left: 4px; font-size: 15px; }
-.contact__letter a:focus-visible, .contact__letter button:focus-visible { outline: 2px solid #3f7062; outline-offset: 5px; }
 
-@media (max-width: 560px) {
-  .contact { padding: 16px; }
-  .contact__letter { padding: 16px 24px 24px; }
-  .contact__header { padding-bottom: 10px; }
-  .contact__close { min-height: 44px; }
-  .contact__body { padding-top: 28px; }
-  .contact__eyebrow { font-size: 8px; letter-spacing: .1em; }
-  .contact__title { font-size: 36px; }
-  .contact__lead { margin: 18px 0 24px; font-size: 13px; }
-  .contact__mobile-break { display: initial; }
-  .contact__address { font-size: clamp(24px, 7vw, 35px); }
-  .contact__address-row { gap: 14px; }
-  .contact__copy { min-height: 44px; }
-  .contact__feedback { margin-bottom: 20px; }
-  .contact__actions { gap: 22px; }
-  .contact__signature { font-size: 20px; margin-left: auto; }
+.contact__title { margin: 0 0 26px; font-family: var(--serif); font-size: 30px; font-weight: 400; line-height: 1.2; letter-spacing: -0.02em; }
+
+.contact__address {
+  display: inline-block;
+  color: var(--text);
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.2;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat;
+  transition: background-size 320ms var(--ease), color 200ms var(--ease);
 }
-@media (max-height: 640px) and (min-width: 561px) {
-  .contact { padding: 16px; }
-  .contact__letter { padding-top: 12px; padding-bottom: 20px; }
-  .contact__header { padding-bottom: 10px; }
-  .contact__body { padding-top: 18px; }
-  .contact__eyebrow { margin-bottom: 12px; }
-  .contact__title { font-size: 40px; }
-  .contact__lead { margin: 14px 0 20px; }
-  .contact__feedback { margin-bottom: 14px; }
-  .contact__footer { padding-top: 16px; }
+.contact__address:hover { color: var(--warm-bright); background-size: 100% 1px; }
+
+.contact__links { position: relative; display: flex; flex-wrap: wrap; gap: 22px; margin: 16px 0 0; padding: 14px 0 0; list-style: none; font-size: 10px; }
+/* 구분선 — 네비 서리선과 같은 모양, 체온 색. 왼쪽에서 시작해 오른쪽으로 풀린다 */
+.contact__links::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, rgba(242, 178, 122, 0.6), rgba(242, 178, 122, 0.25) 60%, transparent); }
+.contact__links a,
+.contact__links button { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; letter-spacing: inherit; text-decoration: none; cursor: pointer; transition: color 180ms var(--ease); }
+.contact__links a:hover,
+.contact__links button:hover { color: var(--text); }
+.contact__links a span { display: inline-block; transition: transform 200ms ease; }
+.contact__links a:hover span { transform: translate(2px, -2px); }
+
+/* 평소엔 자리를 차지하지 않는다 — 복사 실패 안내만 눈에 보인다 */
+.contact__feedback:not(.is_error) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.contact__feedback.is_error { margin: 10px 0 0; color: #ffb4a0; font-size: 11px; line-height: 1.5; }
+
+@media (max-width: 620px) {
+  .contact { right: 20px; }
+  /* 좁은 화면은 뒤에 붙은 UI(PROJECTS·토글)가 가까워서, 네비 아래를 가로로 넉넉히 덮고 아래로만 풀린다 */
+  .contact::before {
+    inset: -26px -20px -56px -20px;
+    background: linear-gradient(180deg, rgba(7, 9, 10, 0.97) 72%, transparent);
+    -webkit-mask-image: linear-gradient(180deg, #000 68%, transparent);
+    mask-image: linear-gradient(180deg, #000 68%, transparent);
+  }
+  .contact__title { font-size: 26px; }
+  .contact__address { font-size: 23px; }
+  .contact__links a, .contact__links button, .contact__close { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .contact__letter, .contact__scrim, .contact__arrow, .contact__cross { transition: none !important; animation: none !important; }
-  .contact__letter { transform: none; }
+  .contact, .contact::before, .contact__body, .contact__cross, .contact__links a span { transition: none !important; }
 }

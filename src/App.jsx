@@ -67,6 +67,10 @@ export default function App() {
   /* 엔딩 단계 — idle · pull(미는 중) · closing(끝까지 닫히는 중) · credits · opening(다시 열리는 중) */
   const [ending, setEnding] = useState('idle');
   const endingRef = useRef('idle');
+  /* 엔딩이 첫 장면을 실제로 그렸는지 — 그때 포트폴리오 쪽의 같은 가루를 거둔다 */
+  const [endingDrawn, setEndingDrawn] = useState(false);
+  const markEndingDrawn = useCallback(() => setEndingDrawn(true), []);
+  useEffect(() => { if (ending !== 'credits') setEndingDrawn(false); }, [ending]);
   endingRef.current = ending;
   const shellRef = useRef(null);
 
@@ -399,10 +403,7 @@ export default function App() {
     touchPrev.current = null;
   }, [current, rewinding]);
 
-  /* ── 엔딩: 관측창 ──
-     진행도(0 열림 → 1 닫힘)는 WorkScroll 이 준다 — 마지막 얼음 뒤로 더 내린 양이다. 되돌아가지 않고 민 만큼 머문다.
-     창은 화면 가운데, 마지막 얼음이 위로 빠져나간 빈 자리에서 닫힌다.
-     반지름은 가운데서 모서리까지 × (1 − v)^1.35 — 처음엔 빨리 오므라들고 끝에선 천천히 조여 '슉' 하고 닫힌다 */
+  /* 마지막 얼음 뒤로 더 내린 양을 서리와 암전의 진행도로 연결한다. */
   /* 다시 얼어붙기(EndFreeze) — 인트로에서 깬 얼음이, 끝에서 다시 언다.
      --freeze: 가장자리부터 서리 결정·얼음 막이 안쪽으로. --dark: 거의 다 얼면 얼음 너머가 까맣게 가라앉는다 */
   const applyIris = useCallback((v) => {
@@ -410,7 +411,11 @@ export default function App() {
     if (!shell) return;
     shell.style.setProperty('--iris-p', v.toFixed(4));
     shell.style.setProperty('--freeze', Math.min(1, v * 1.12).toFixed(4));
-    shell.style.setProperty('--dark', (Math.max(0, (v - 0.7) / 0.3) ** 1.4).toFixed(4));
+    // 조명 — 1(켜짐) → 0(꺼짐). 처음엔 아주 천천히 어두워지다 점점 빨라지고, 얼음이 다 풀릴 무렵(85%) 완전히 꺼진다
+    const dim = Math.min(1, Math.max(0, (v - 0.06) / 0.79));
+    shell.style.setProperty('--lights', (1 - dim * dim * (3 - 2 * dim)).toFixed(4));
+    // 암전은 마지막 얼음이 다 풀리고 가루만 떠오를 때(85%)부터 — 흩어지는 가루를 먼저 오래 보게
+    shell.style.setProperty('--dark', (Math.max(0, (v - 0.85) / 0.15) ** 1.4).toFixed(4));
   }, []);
 
   const endControl = useRef(null);   // WorkScroll 이 채운다 — rewind(): 빈 공간을 거두고 마지막 얼음으로
@@ -437,19 +442,23 @@ export default function App() {
   return (
     <div
       ref={shellRef}
-      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''} ${ending !== 'idle' ? 'app-shell--ending' : ''}`}
+      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''} ${ending !== 'idle' ? 'app-shell--ending' : ''} ${endingDrawn ? 'app-shell--ending-drawn' : ''}`}
       onWheel={onWheel}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
       <Nav
+        suspended={ending === 'credits'}
         current={contactOpen ? 'contact' : current}
         onGo={go}
         progress={current === 'main' ? mainExit : 0}
       />
 
-      <main className={`app-stage app-stage--${current}`}>
+      <main
+        className={`app-stage app-stage--${current}`}
+        inert={ending === 'credits' ? '' : undefined}
+      >
         {mainCached && (
           <Main
             active={current === 'main'}
@@ -484,7 +493,7 @@ export default function App() {
       {/* 다시 얼어붙기와 엔딩 — 끝에서 더 내리기 시작하면 나타난다 */}
       {ending !== 'idle' && <EndFreeze />}
       {(ending === 'credits' || ending === 'opening') && (
-        <Ending active={ending === 'credits'} onExit={exitEnding} onGoMain={endToMain} />
+        <Ending active={ending === 'credits'} onExit={exitEnding} onGoMain={endToMain} onDrawn={markEndingDrawn} />
       )}
 
       {/* 연기 통과 — MAIN 의 마지막 연기 화면을 이어받아 연기 밖으로 빠져나온다 */}

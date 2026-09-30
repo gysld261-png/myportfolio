@@ -176,12 +176,11 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   }, [spec, renderSpec, portal]);
 
   const links = useMemo(() => (data?.visit || []).filter((v) => v.href), [data]);
-  // 사이트 또는 프로토타입 — 떠 있는 버튼과 끝의 큰 링크에서 직접 체험으로 이어진다.
+  // 사이트 또는 프로토타입 — 떠 있는 버튼과 하단 링크에서 직접 체험으로 이어진다.
   const live = links.find((v) => v.label === 'VIEW SITE')
     || links.find((v) => v.label === 'VIEW PROTOTYPE') || null;
   const isPrototype = live?.label === 'VIEW PROTOTYPE';
   const deck = links.find((v) => v.label === 'DECK') || null;   // 기획서(Figma 슬라이드) — 맨 아래 두 번째 출구
-  const liveHost = live ? live.href.replace(/^https?:\/\//, '').split('/')[0] : '';
 
   const next = useMemo(() => {
     if (!renderSpec) return null;
@@ -517,25 +516,23 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
               ))}
             </div>}
 
-            {/* ── 직접 써 보기 — 사이트 또는 프로토타입으로 넘어가는 가장 큰 출구 ── */}
+            {/* ── 프로젝트 링크 — 이미지 리듬 끝에 작은 두 줄로 둔다 ── */}
             {(live || deck) && (
               <section className="dlive" data-reveal>
-                <p className="dmeta__label sys">{live ? (isPrototype ? '(PROTOTYPE)' : '(LIVE)') : '(DECK)'}</p>
+                <p className="dmeta__label sys">(LINKS)</p>
                 <div className="dlive__links">
                   {live && (
-                    <a className="dlive__link" href={live.href} target="_blank" rel="noreferrer">
-                      <span className="dlive__title">{isPrototype ? '프로토타입을 체험해 보세요' : '직접 사용해 보세요'}</span>
-                      <span className="dlive__meta sys">
-                        <span>{isPrototype ? 'FIGMA PROTOTYPE' : liveHost}</span>
-                        <span className="dlive__go">{isPrototype ? 'OPEN PROTOTYPE' : 'OPEN SITE'} <i aria-hidden="true">↗</i></span>
-                      </span>
+                    <a className="dlive__link" href={live.href} target="_blank" rel="noreferrer"
+                      aria-label={`${renderSpec.ko} ${isPrototype ? '프로토타입' : '사이트'} 새 창으로 열기`}>
+                      <span className="dlive__title">{isPrototype ? 'VIEW PROTOTYPE' : 'VIEW SITE'}</span>
+                      <span className="dlive__go" aria-hidden="true"><i>↗</i></span>
                     </a>
                   )}
-                  {/* 기획서 — 사이트보다 한 단계 작게. 링크가 비어 있으면 나오지 않는다 */}
                   {deck && (
-                    <a className="dlive__deck" href={deck.href} target="_blank" rel="noreferrer">
-                      <span className="dlive__deck-title">기획서 보기</span>
-                      <span className="dlive__go sys">FIGMA SLIDES <i aria-hidden="true">↗</i></span>
+                    <a className="dlive__deck" href={deck.href} target="_blank" rel="noreferrer"
+                      aria-label={`${renderSpec.ko} 기획서 새 창으로 열기`}>
+                      <span className="dlive__deck-title">VIEW DECK</span>
+                      <span className="dlive__go" aria-hidden="true"><i>↗</i></span>
                     </a>
                   )}
                 </div>

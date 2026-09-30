@@ -6,6 +6,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createIceShard, icePhysical, loadLogo } from './iceBlockScene';
+import { GRAIN_COUNT, projectEndingGrains } from './endingScene';
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const damp = (from, to, speed, dt) => THREE.MathUtils.damp(from, to, speed, dt);
@@ -1180,6 +1181,131 @@ function finishSpecimen(id, config, group, geometry, material, ice, logoHandle, 
   };
 }
 
+/* ── 승화 가루 — 마지막 얼음이 기체로 풀리며 흩날리는 입자 ──
+   스크롤 진행도(uProgress)로만 정해진다(시간 시뮬레이션이 아님). 그래서 되돌리면 가루가 다시 얼음으로 모인다.
+   얼음 셰이더의 uDissolve 처럼 가장자리부터 먼저 떠난다 — 입자마다 떠나는 때(aBirth)가 가장자리일수록 이르다.
+   떠난 가루는 위로 풀리다가, 마지막에 엔딩 첫 장면의 가루 하나하나의 자리로 모인다(projectEndingGrains).
+   그래서 엔딩은 새 가루를 띄우는 게 아니라 이 알갱이들을 그대로 이어받는다. */
+function createSublimationDust(count = GRAIN_COUNT) {
+  const rand = seeded(7331);
+  const positions = new Float32Array(count * 3);
+  const base = new Float32Array(count * 2);
+  const dir = new Float32Array(count * 2);
+  const seed = new Float32Array(count * 4);
+  const birth = new Float32Array(count);
+  for (let i = 0; i < count; i += 1) {
+    // 얼음 윤곽 안쪽 — 가운데가 조금 더 촘촘한 타원
+    const a = rand() * Math.PI * 2;
+    const r = Math.sqrt(rand());
+    const bx = Math.cos(a) * r * 0.5;
+    const by = Math.sin(a) * r * 0.5;
+    base[i * 2] = bx;
+    base[i * 2 + 1] = by;
+    // 바깥쪽 + 위로 — 기체는 떠오른다
+    dir[i * 2] = bx * (0.8 + rand() * 1.4) + (rand() - 0.5) * 0.35;
+    dir[i * 2 + 1] = 0.35 + rand() * 1.1;
+    seed[i * 4] = rand();
+    seed[i * 4 + 1] = rand();
+    seed[i * 4 + 2] = rand();
+    seed[i * 4 + 3] = rand();
+    birth[i] = (1 - r) * 0.42 + rand() * 0.22;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('aBase', new THREE.BufferAttribute(base, 2));
+  geometry.setAttribute('aDir', new THREE.BufferAttribute(dir, 2));
+  geometry.setAttribute('aSeed', new THREE.BufferAttribute(seed, 4));
+  geometry.setAttribute('aBirth', new THREE.BufferAttribute(birth, 1));
+  // 엔딩 첫 장면에서 이 알갱이가 놓일 자리·크기·옅기 — 화면 크기가 바뀌면 다시 잰다(layout)
+  const target = new THREE.BufferAttribute(new Float32Array(count * 2), 2);
+  const sizeEnd = new THREE.BufferAttribute(new Float32Array(count), 1);
+  const alphaEnd = new THREE.BufferAttribute(new Float32Array(count), 1);
+  geometry.setAttribute('aTarget', target);
+  geometry.setAttribute('aSizeEnd', sizeEnd);
+  geometry.setAttribute('aAlphaEnd', alphaEnd);
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    depthTest: false,
+    uniforms: {
+      uProgress: { value: 0 },
+      uCenter: { value: new THREE.Vector3() },
+      uSize: { value: new THREE.Vector2(1, 1) },
+      uRise: { value: 400 },
+      uTime: { value: 0 },
+      uPixel: { value: 1 },
+      uGather: { value: 0 },
+    },
+    vertexShader: `
+      attribute vec2 aBase;
+      attribute vec2 aDir;
+      attribute vec4 aSeed;
+      attribute float aBirth;
+      attribute vec2 aTarget;
+      attribute float aSizeEnd;
+      attribute float aAlphaEnd;
+      uniform float uProgress;
+      uniform vec3 uCenter;
+      uniform vec2 uSize;
+      uniform float uRise;
+      uniform float uTime;
+      uniform float uPixel;
+      uniform float uGather;
+      varying float vAlpha;
+      void main() {
+        // 이 가루의 삶 — 떠날 때가 되면 0 → 1
+        float life = clamp((uProgress - aBirth) / (0.55 + aSeed.w * 0.3), 0.0, 1.0);
+        float lift = life * life * (3.0 - 2.0 * life);
+        vec2 p = aBase * uSize;
+        p += aDir * vec2(uSize.x * 0.55, uRise) * lift;
+        // 떠오르며 살짝 흔들린다
+        p.x += sin(uTime * (0.4 + aSeed.x * 0.5) + aSeed.y * 30.0) * 10.0 * lift;
+        p.y += cos(uTime * (0.3 + aSeed.z * 0.4) + aSeed.x * 20.0) * 6.0 * lift;
+        vec3 free = uCenter + vec3(p, 60.0);
+        // 마지막엔 엔딩 첫 장면에서 이 알갱이가 있을 바로 그 자리로 모인다
+        vec3 blob = vec3(aTarget, 60.0);
+        float gather = uGather * uGather * (3.0 - 2.0 * uGather);
+        vec4 mv = modelViewMatrix * vec4(mix(free, blob, gather), 1.0);
+        gl_Position = projectionMatrix * mv;
+        // 떠나는 순간 반짝 맺혔다가, 멀어질수록 옅어진다 — 모여들면 엔딩의 가루처럼 고르게 옅다
+        float loose = smoothstep(0.0, 0.05, life) * (1.0 - smoothstep(0.7, 1.0, life) * 0.75) * (0.45 + aSeed.z * 0.55);
+        vAlpha = mix(loose, aAlphaEnd, gather);
+        gl_PointSize = uPixel * mix((2.0 + aSeed.y * 3.2) * (1.0 - life * 0.3), aSizeEnd, gather);
+      }
+    `,
+    fragmentShader: `
+      varying float vAlpha;
+      void main() {
+        // 엔딩의 가루와 같은 알갱이 — 같은 모양, 같은 색(#e5ede9)
+        vec2 p = gl_PointCoord * 2.0 - 1.0;
+        float r = dot(p, p);
+        if (r > 1.0) discard;
+        float a = exp(-r * 1.8) * (1.0 - smoothstep(0.55, 1.0, r)) * vAlpha;
+        if (a < 0.003) discard;
+        gl_FragColor = vec4(0.898, 0.929, 0.914, a);
+      }
+    `,
+  });
+  const object = new THREE.Points(geometry, material);
+  object.frustumCulled = false;
+  object.renderOrder = 7;
+  object.visible = false;
+  return {
+    object,
+    uniforms: material.uniforms,
+    layout(width, height) {
+      const grains = projectEndingGrains(width, height, window.devicePixelRatio);
+      target.array.set(grains.target.subarray(0, count * 2));
+      sizeEnd.array.set(grains.size.subarray(0, count));
+      alphaEnd.array.set(grains.opacity.subarray(0, count));
+      target.needsUpdate = true;
+      sizeEnd.needsUpdate = true;
+      alphaEnd.needsUpdate = true;
+    },
+    dispose() { geometry.dispose(); material.dispose(); },
+  };
+}
+
 /**
  * WorkScroll 전용 단일 렌더러.
  * 세 번 복제된 행 중 화면에 가장 가까운 앵커 하나만 프로젝트별로 선택한다.
@@ -1238,7 +1364,11 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
     pointerVY: 0,
     pointerAt: 0,
     velocity: 0,
+    // 마지막 얼음 뒤로 더 내린 양(0~1) — 마지막 얼음이 승화해 가루로 풀린다
+    end: 0,
   };
+  const dust = createSublimationDust();
+  scene.add(dust.object);
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   // 구르기 계산용 — 매 프레임 새로 만들지 않는다
@@ -1277,6 +1407,7 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
     camera.bottom = -height / 2;
     camera.updateProjectionMatrix();
     trail.resize(width, height);
+    dust.layout(width, height);
   };
   const observer = new ResizeObserver(resize);
   observer.observe(root);
@@ -1363,6 +1494,7 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
     let portalFrame = null;
     let launchCenterX = 0;
     let launchCenterY = 0;
+    let dustVisible = false;
     specimens.forEach((item, index) => {
       const launching = state.launching !== null;
       const selectedForLaunch = launching && index === state.launching;
@@ -1400,10 +1532,13 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
       // 폭발 구간에서 얼음 껍질(과 속 안개·금·반짝임)만 걷히고 로고는 남는다.
       // 클릭하면 얼음이 반쯤 투명해지며 속에 상세 화면이 비치고, 표면을 통과하는 마지막에 껍질이 걷힌다.
       const seeThrough = THREE.MathUtils.smoothstep(launchProgress, 0.08, 0.4);
-      const shell = (1 - seeThrough * 0.55) * (1 - THREE.MathUtils.smoothstep(launchProgress, 0.74, 0.92));
+      // 승화 — 마지막 얼음만, 더 내린 만큼 가장자리부터 얼룩지며 기체로 풀린다(되돌리면 다시 언다)
+      const sublime = !launching && index === ids.length - 1 ? THREE.MathUtils.smoothstep(state.end, 0.04, 0.72) : 0;
+      item.material.userData.ice.uDissolve.value = sublime * 1.08;
+      const shell = (1 - seeThrough * 0.55) * (1 - THREE.MathUtils.smoothstep(launchProgress, 0.74, 0.92)) * (1 - THREE.MathUtils.smoothstep(sublime, 0.7, 1));
       item.material.opacity = item.alpha * shell;
       // 얼음 속 로고는 초반에 흐려지고 그 자리에 상세 화면(이야기)이 떠오른다.
-      const logoFade = 1 - THREE.MathUtils.smoothstep(launchProgress, 0.06, 0.32);
+      const logoFade = (1 - THREE.MathUtils.smoothstep(launchProgress, 0.06, 0.32)) * (1 - THREE.MathUtils.smoothstep(sublime, 0.05, 0.45));
       setLogoOpacity(item, logoFade);
       item.colorMaterials.forEach((material) => { material.opacity = item.alpha * logoFade * (item.colorLogo ? 0.66 : (item.config.overlay ?? 0.45)); });
       item.sparkles.material.opacity = item.alpha * shell * (reduced ? 0.42 : 0.35 + Math.sin(now * 0.0032 + index) * 0.22);
@@ -1524,7 +1659,22 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
       item.smoke.group.scale.setScalar(item.scale);
       // 클릭하면 김이 피어올라 얼음을 감싸고(burst), 얼음 속으로 들어가는 마지막에만 걷힌다.
       const burst = THREE.MathUtils.smoothstep(launchProgress, 0.05, 0.6) * (1 - THREE.MathUtils.smoothstep(launchProgress, 0.88, 1));
-      item.smoke.update(reduced ? 0 : dt * (1 + burst * 2), item.alpha, burst);
+      // 승화하는 동안 김이 얼음을 감싸며 피어올랐다가, 다 풀리면 함께 걷힌다
+      const vapor = Math.sin(sublime * Math.PI) * 0.45;
+      item.smoke.update(reduced ? 0 : dt * (1 + (burst + vapor) * 2), item.alpha * (1 - THREE.MathUtils.smoothstep(sublime, 0.85, 1)), Math.max(burst, vapor));
+
+      if (sublime > 0.001) {
+        const u = dust.uniforms;
+        // 가루는 얼음이 다 풀린 뒤에도 떠오르다가, 마지막에 가운데로 모여 엔딩의 가루 덩어리가 된다
+        u.uProgress.value = THREE.MathUtils.clamp(state.end / 0.98, 0, 1);
+        u.uGather.value = THREE.MathUtils.smoothstep(state.end, 0.66, 0.98);
+        u.uCenter.value.set(item.group.position.x, item.group.position.y, 0);
+        u.uSize.value.set(item.scale * item.config.shape[0], item.scale * item.config.shape[1]);
+        u.uRise.value = height * 0.55;
+        u.uTime.value = now / 1000;
+        u.uPixel.value = renderer.getPixelRatio();
+        dustVisible = true;
+      }
 
       if (selectedForLaunch) {
         portalFrame = {
@@ -1537,6 +1687,8 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
       }
     });
     updatePortal(portalFrame);
+    dust.object.visible = dustVisible;
+    if (dustVisible) anyVisible = true;
 
     if (!anyVisible) {
       renderer.clear();
@@ -1633,6 +1785,9 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
     setVelocity(value) {
       state.velocity = value;
     },
+    setEnd(value) {
+      state.end = value;
+    },
     setPaused(value) {
       if (state.paused === value) return;
       state.paused = value;
@@ -1650,6 +1805,7 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
       observer.disconnect();
       root.removeEventListener('pointerleave', onLeave);
       specimens.forEach(disposeSpecimen);
+      dust.dispose();
       smokeTexture.dispose();
       backdropTexture.dispose();
       trail.dispose();

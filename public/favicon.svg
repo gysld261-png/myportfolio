@@ -1,26 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <title>Park Hyomin — faceted H mark</title>
-  <!-- A1.1: 비대칭 드라이아이스 결정 외곽 + H 음각.
-       밝은 탭에서는 흑연 면이, 어두운 탭에서는 얇은 아이보리 키라인이 형태를 잡는다. -->
-  <path
-    d="M31 3 44 13 50 23 59 32 57 42 46 54 32 61 18 54 5 39 12 23 24 13Z"
-    fill="#242a2b"
-    stroke="#eceeea"
-    stroke-width="1.25"
-    stroke-linejoin="miter"
-  />
-  <!-- 큰 크기에서만 결정을 느끼게 하는 최소한의 절리. 16px에서는 자연스럽게 소실된다. -->
-  <path
-    d="M31 3 25 17M5.5 39 18 34 32 60.5"
-    fill="none"
-    stroke="#eceeea"
-    stroke-width="1.15"
-    stroke-linecap="square"
-    stroke-linejoin="miter"
-  />
-  <!-- 폰트 글자가 아니라 결정 안에서 깎여 나온 H. -->
-  <path
-    d="M24 17 30 21V31H37V23L45 20V48L38 44V38H30V47L24 42Z"
-    fill="#eceeea"
-  />
+  <title>Park Hyomin — ice fragment</title>
+  <!-- 작은 탭에서도 보이는 비대칭 얼음 조각. 세 면의 명도 차이로 부피를 잡는다. -->
+  <path d="M11 19 24 8 44 10 55 25 50 46 34 57 14 51 7 34Z" fill="#e9eeed"/>
+  <path d="M7 34 32 29 34 57 14 51Z" fill="#b7c6c7"/>
+  <path d="M32 29 55 25 50 46 34 57Z" fill="#839a9e"/>
+  <!-- 밝은 탭에서도 외곽이 읽히도록 가는 회색 테두리만 둔다. -->
+  <path d="M11 19 24 8 44 10 55 25 50 46 34 57 14 51 7 34Z" fill="none" stroke="#627a7f" stroke-width="1" stroke-linejoin="round"/>
 </svg>

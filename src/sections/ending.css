@@ -1,218 +1,124 @@
-/* ─────────────────────────────────────────────────────────────
-   ENDING — 관측창이 닫힌 뒤의 장면. 레퍼런스(seunghyuk.com/contact)의 톤을 따른다:
-   검은 화면, 선으로 된 오브젝트, 아래쪽에 쌓이는 단어, 작고 굵은 대문자, 자간 넓게, 마지막엔 연락처 한 줄.
-   진행도는 JS 가 --p 와 구간별 변수(--mark · --s0~2 · --say · --end)로 흘려 준다.
-   ───────────────────────────────────────────────────────────── */
-
+/* 다시 만드는 눈 — 가루의 응집과 풀림 뒤에서 문장과 연락처가 교대한다. */
 .ending {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: #000;
-  color: #f2f4f2;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-  cursor: grab;
+  --say: 0; --contact: 0; --hint: 1;
+  position: fixed; inset: 0; z-index: 60;
+  /* 첫 장면을 그리기 전엔 투명 — 그 사이엔 포트폴리오 쪽의 같은 가루가 비쳐 보인다(App 이 그린 순간 거둔다) */
+  background: transparent; color: var(--text);
+  overflow: hidden; isolation: isolate; overscroll-behavior: contain;
+  opacity: 0; pointer-events: none; cursor: grab; touch-action: none;
   transition: opacity 600ms var(--ease);
-  --mark: 1; --s0: 0; --s1: 0; --s2: 0; --say: 0; --end: 0;
 }
-.ending.is-active { opacity: 1; pointer-events: auto; }
+.ending.is-drawn { background: #050708; }
+.ending:focus { outline: none; }
+/* 들어올 땐 서서히 켜지지 않는다 — 가루가 이미 같은 자리에 있으므로 그대로 이어받는다. 나갈 때만 600ms 에 걸쳐 걷힌다 */
+.ending.is-active { opacity: 1; pointer-events: auto; transition: none; }
+/* 이어받은 뒤 새로 생기는 글자(← PORTFOLIO, SCROLL · DRAG)만 천천히 */
+.ending.is-active .ending__esc,
+.ending.is-active .ending__hint { animation: ending-ui-in 1200ms var(--ease) 400ms both; }
+@keyframes ending-ui-in { from { opacity: 0; } }
 .ending.is-dragging { cursor: grabbing; }
-
-.ending__scene { position: absolute; inset: 0; }
+.ending__scene { position: absolute; inset: 0; pointer-events: none; }
 .ending__scene canvas { display: block; width: 100%; height: 100%; }
-
-/* 가운데 표식 — 관측창이 닫힌 그 점이 작은 사각형으로 남아 있다가, 결정이 자라며 사라진다 */
-.ending__mark {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 9px;
-  height: 9px;
-  margin: -4.5px 0 0 -4.5px;
-  border: 1px solid rgba(242, 244, 242, 0.85);
-  opacity: var(--mark);
-  pointer-events: none;
-}
-
-/* 떠다니는 글자 — 흩어진 점 사이에 제 작업의 이름이 떠오른다 */
-.ending__labels span {
-  position: absolute;
-  left: 0;
-  top: 0;
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  color: #cfd9d6;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-
-/* 한 문장 */
-.ending__say {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  margin: 0;
-  transform: translate(-50%, -50%);
-  display: grid;
-  justify-items: center;
-  gap: 12px;
-  text-align: center;
-  opacity: var(--say);
-  pointer-events: none;
-}
-.ending__say span {
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.ending__say small { max-width: min(86vw, 520px); font-size: 12px; line-height: 1.6; color: #9aa4a1; letter-spacing: 0.04em; text-align: center; word-break: keep-all; }
-
-/* 상태 이름 — 아래쪽에 하나씩 쌓인다 (레퍼런스의 LINE · PLANE · DOT) */
-.ending__states {
-  position: absolute;
-  left: 50%;
-  bottom: clamp(56px, 11vh, 110px);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  gap: 1.8em;
-  transform: translateX(-50%);
-  color: #f2f4f2;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.34em;
-  pointer-events: none;
-}
-
-/* 마지막 — 점 구름 위에 연락처 한 줄 */
+/* 커서 연기 — 연락처가 떠오를 때 함께 천천히 켜진다 */
+.ending .splash-cursor { opacity: 0; transition: opacity 1400ms var(--ease); }
+.ending.is-final .splash-cursor { opacity: 1; }
+.ending__message,
 .ending__contact {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: flex;
-  align-items: baseline;
-  gap: clamp(18px, 2.4vw, 40px);
-  transform: translate(-50%, -50%);
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  opacity: var(--end);
-  pointer-events: none;
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: max-content; max-width: calc(100% - 40px); text-align: center;
 }
+.ending__message { opacity: var(--say); pointer-events: none; text-shadow: 0 2px 24px #000, 0 0 8px #000; }
+.ending__say { margin: 0; font-family: var(--serif); font-size: clamp(25px, 3.3vw, 46px); font-weight: 400; line-height: 1.2; letter-spacing: -.015em; }
+.ending__sub { margin: 14px 0 0; color: #a5b0ae; font-size: 12px; line-height: 1.7; letter-spacing: .03em; }
+.ending__contact { display: grid; justify-items: center; gap: 22px; opacity: var(--contact); pointer-events: none; text-shadow: 0 1px 16px #000, 0 0 7px #000; }
 .ending.is-final .ending__contact { pointer-events: auto; }
-.ending__contact strong { font-weight: 800; letter-spacing: 0.1em; }
-.ending__contact a,
-.ending__contact button {
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-decoration: none;
-  text-transform: inherit;
-  cursor: pointer;
-  background-image: linear-gradient(currentColor, currentColor);
-  background-size: 0 1px;
-  background-position: 0 100%;
-  background-repeat: no-repeat;
-  transition: background-size 320ms var(--ease), color 240ms ease;
+.ending.is-final .ending__contact:focus-within,
+.ending.is-final .ending__main:focus-visible { opacity: 1; }
+.ending__contact strong { font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: .28em; }
+.ending__links { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 14px 32px; }
+.ending__links a {
+  padding: 8px 0; color: var(--text); font-size: 12px; font-weight: 400; letter-spacing: .025em;
+  text-decoration: none; cursor: pointer;
+  background-image: linear-gradient(currentColor, currentColor); background-position: 0 100%; background-repeat: no-repeat; background-size: 0 1px;
+  transition: color 240ms ease, background-size 280ms var(--ease);
 }
-.ending__contact a:hover,
-.ending__contact button:hover { background-size: 100% 1px; color: var(--accent-bright); }
-.ending__contact a { text-transform: none; }
-.ending__contact a[href^='http'] { text-transform: uppercase; }
-
+.ending__links a[href^='https'] { font-size: 11px; letter-spacing: .12em; }
+.ending__links a:hover { color: var(--accent-bright); background-size: 100% 1px; }
 .ending__esc,
-.ending__hint {
-  position: absolute;
-  margin: 0;
-  color: #7d8784;
-  font-size: 10px;
-  letter-spacing: 0.18em;
+.ending__main,
+.ending__hint { position: absolute; margin: 0; color: #8c9997; font-size: 10px; font-weight: 400; letter-spacing: .13em; }
+.ending__esc,
+.ending__main { border: 0; background: none; padding: 10px 0; cursor: pointer; transition: color 220ms ease; }
+.ending__esc { top: max(16px, env(safe-area-inset-top)); right: var(--nav-gutter); }
+.ending__main { bottom: max(18px, env(safe-area-inset-bottom)); right: var(--nav-gutter); opacity: var(--contact); }
+.ending__hint { bottom: max(26px, env(safe-area-inset-bottom)); left: var(--nav-gutter); opacity: var(--hint); pointer-events: none; }
+.ending__esc:hover,
+.ending__main:hover { color: var(--text); }
+.ending.is-plain .ending__scene { background: radial-gradient(ellipse at 50% 50%, rgba(157, 222, 215, .045), transparent 58%); }
+@media (max-width: 600px) {
+  .ending__say { max-width: 300px; font-size: clamp(25px, 6.8vw, 36px); }
+  .ending__contact { gap: 18px; }
+  .ending__links { gap: 8px 24px; }
 }
-.ending__esc { top: 22px; right: var(--nav-gutter); padding: 6px 0; border: 0; background: none; cursor: pointer; }
-.ending__esc:hover { color: #f2f4f2; }
-.ending__hint { right: var(--nav-gutter); bottom: 24px; pointer-events: none; }
-
-@media (max-width: 700px) {
-  .ending__contact { flex-direction: column; align-items: center; gap: 10px; }
-  .ending__say span { font-size: 11px; letter-spacing: 0.22em; }
-  .ending__states { gap: 1.1em; font-size: 10px; letter-spacing: 0.24em; }
+@media (max-height: 420px) {
+  .ending__contact { gap: 10px; }
 }
-
-/* ── 다시 얼어붙기(EndFreeze.jsx) — App 이 --freeze · --dark 를 매 프레임 쓴다 ──
-   가장자리부터 서리 결정이 자라고, 그 뒤로 인트로와 같은 흐릿한 얼음 막이 안쪽으로 번진다.
-   얼음의 앞선(--front)은 화면 가장자리(=바깥 100%)에서 가운데(0%)로 줄어든다 */
-.app-shell--ending { background: #000; }
+.ending.is-reduced .ending__message { top: 35%; opacity: 1; }
+.ending.is-reduced .ending__contact { top: 60%; }
+@media (prefers-reduced-motion: reduce) {
+  .ending,
+  .ending__esc,
+  .ending__main,
+  .ending__links a { transition: none; }
+}
+/* ── 승화 — 엔딩으로 가는 길(EndFreeze.jsx) — App 이 --freeze(진행)·--lights(조명 1→0) 를 매 프레임 쓴다 ──
+   화면을 덮어 암전하지 않는다. 승화하는 얼음(과 가루)을 그리는 캔버스는 그대로 두고,
+   둘레(글자·버튼·떠다니는 선)만 물러나며 바탕이 엔딩과 같은 색으로 가라앉는다.
+   가루가 가운데 모여 엔딩 첫 장면의 가루 덩어리가 되므로, 엔딩은 같은 공간에서 이어진다 */
+.app-shell--ending { background: #050708; }
+/* 보이는 바탕은 .work 다(#0b0d0e + 가운데 옅은 빛). 얼음이 풀리는 만큼 엔딩의 바탕(#050708)으로 가라앉혀,
+   엔딩이 넘겨받는 순간 바탕색이 바뀌지 않게 한다 */
+.app-shell--ending .portfolio__stage,
+.app-shell--ending .work {
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 50%, rgba(175, 194, 200, calc(.035 * var(--lights, 1))), transparent 70%),
+    color-mix(in srgb, #050708 calc((1 - var(--lights, 1)) * 100%), var(--bg));
+}
+/* 물러나는 것 — 평소에 보이는 것만 골라 적는다(숨어 있던 효과 층까지 드러내지 않게) */
+.app-shell--ending .portfolio__head,
+.app-shell--ending .viewtoggle,
+.app-shell--ending .work__drift,
+.app-shell--ending .work__depth,
+.app-shell--ending .work__viewport,
+.app-shell--ending .work__foot,
+.app-shell--ending .work__scroll {
+  opacity: var(--lights, 1);
+  transition: none;
+}
+/* 옆의 영상 미리보기 — 얼음과 같은 속도로(얼음이 다 풀리는 72% 무렵) 흐려지며 김처럼 번져 사라진다.
+   바깥 틀에만 걸어서, 안쪽이 평소에 숨겨 둔 층은 건드리지 않는다 */
+.app-shell--ending .work__preview {
+  opacity: calc(1 - var(--freeze, 0) * 1.25);
+  filter: blur(calc(var(--freeze, 0) * 12px));
+  transition: none;
+}
 .end-freeze {
-  --front: calc((1 - var(--freeze, 0)) * 118%);
   position: fixed;
   inset: 0;
-  z-index: 58;   /* 포트폴리오의 글자·버튼(PROJECTS, 깊이 표시, SCROLL/LIST)까지 함께 얼어붙게 — 엔딩(60) 바로 아래 */
+  z-index: 58;
   pointer-events: none;
 }
-/* 얼음 막 — 인트로의 얼음판과 같은 결. 앞선보다 조금 뒤에서 따라온다 */
-.end-freeze__ice {
+/* 가장자리만 살짝 잠기는 어둠 — 가운데(가루가 모이는 자리)는 끝까지 비워 둔다 */
+.end-freeze__vignette {
   position: absolute;
   inset: 0;
-  -webkit-backdrop-filter: blur(17px) saturate(.8) brightness(1.12);
-  backdrop-filter: blur(17px) saturate(.8) brightness(1.12);
-  background:
-    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
-    radial-gradient(ellipse 80% 75% at 50% 50%, rgba(222, 240, 244, .04), rgba(236, 246, 248, .26));
-  -webkit-mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent calc(var(--front) + 6%), #000 calc(var(--front) + 26%));
-  mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent calc(var(--front) + 6%), #000 calc(var(--front) + 26%));
-  box-shadow: inset 0 0 140px rgba(226, 242, 246, calc(var(--freeze, 0) * .3));
+  background: radial-gradient(ellipse 62% 66% at 50% 50%, transparent 38%, rgba(5, 7, 8, .92) 100%);
+  opacity: calc(1 - var(--lights, 1));
 }
-/* 서리 결정 — 얼음 막보다 한발 앞서 자란다 */
-.end-freeze__crystals {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: rgba(240, 248, 250, .42);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 2px rgba(220, 240, 244, .45));
-  -webkit-mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent var(--front), #000 calc(var(--front) + 8%));
-  mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent var(--front), #000 calc(var(--front) + 8%));
-  opacity: calc(1 - var(--dark, 0) * .6);
-}
-/* 다 얼면 얼음 너머가 까맣게 가라앉는다 — 엔딩으로 */
-.end-freeze__dark {
-  position: absolute;
-  inset: 0;
-  background: #000;
-  opacity: var(--dark, 0);
-}
+/* 엔딩이 첫 장면을 그린 그 프레임 — 같은 자리의 포트폴리오 쪽 가루는 물러난다(겹쳐 밝아지지 않게) */
+.app-shell--ending-drawn .work__ice-field { visibility: hidden; }
 /* 암전되는 동안 네비는 어둠에 묻힌다 */
 .app-shell--ending .nav {
-  opacity: calc(1 - var(--iris-p, 0) * 4);
+  opacity: var(--lights, 1);
   pointer-events: none;
-}
-
-@media (max-width: 700px) {
-  .credits__work dl > div,
-  .credits__pairs > div { grid-template-columns: 1fr; row-gap: 4px; text-align: center; }
-  .credits__work dt,
-  .credits__pairs dt { text-align: center; }
-  .credits__links a { grid-template-columns: 64px 1fr auto; }
-  /* 좁은 화면에선 크레딧이 가운데를 가득 채워 버튼 밑을 지나간다 — 버튼을 위로 올린다 */
-  .ending__controls { top: 16px; bottom: auto; right: 16px; }
-  .credits__work h3 em { display: none; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ending__line, .ending__sub { animation: none !important; }
 }

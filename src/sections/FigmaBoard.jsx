@@ -239,11 +239,11 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
         <aside className="figma__layers">
           <p className="figma__panel-title">Layers</p>
           {strips.map((strip, i) => (
-            <div className="figma__group" key={strip.id}>
+            <div className={`figma__group ${strip.parent ? 'is-child' : ''}`} key={strip.id}>
               <p className={`figma__row figma__row--section ${current === strip.id ? 'is-current' : ''}`}>
                 <span aria-hidden="true">▾</span>
                 <svg viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" rx="1" /></svg>
-                {String(i + 1).padStart(2, '0')} {strip.name}
+                {strip.no ?? String(i + 1).padStart(2, '0')} {strip.name}
               </p>
               {strip.images.map((image, k) => {
                 const key = keyOf(strip, k);
@@ -286,7 +286,7 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
                     onClick={() => onZoom(image)}
                   >
                     <span className="figma-frame__name">{image.label}</span>
-                    <span className="figma-frame__art"><img src={image.src} alt="" draggable="false" /></span>
+                    <span className="figma-frame__art"><img src={image.thumb ?? image.src} alt="" draggable="false" style={image.focus ? { objectPosition: image.focus } : undefined} /></span>
                   </div>
                 ))}
               </div>
@@ -386,16 +386,18 @@ export function StripReadout({ strips, current, onZoom, children }) {
   if (!strip) {
     return (
       <div className="core-readout core-readout--idle">
-        <p className="core-readout__meta sys">SECTION -- / {String(strips.length).padStart(2, '0')}</p>
+        <p className="core-readout__meta sys">SECTION -- / {String(strips.filter((item) => !item.parent).length).padStart(2, '0')}</p>
         <p className="core-readout__hint">오른쪽 Figma 화면에서 Frame을 골라 보세요. 그 시기에 한 일이 여기에 펼쳐집니다.</p>
       </div>
     );
   }
   const index = strips.indexOf(strip);
+  // 하위 섹션(02-1)은 번호를 따로 세지 않는다 — 전체 수는 큰 섹션만
+  const total = strips.filter((item) => !item.parent).length;
   return (
     <div className="core-readout" key={strip.id} aria-live="polite">
       <p className="core-readout__meta sys">
-        SECTION {String(index + 1).padStart(2, '0')} / {String(strips.length).padStart(2, '0')}
+        SECTION {strip.no ?? String(index + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
         <span>{strip.temp}</span>
         <span>{strip.period}</span>
       </p>

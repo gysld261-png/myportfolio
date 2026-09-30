@@ -33,6 +33,28 @@
 }
 .portfolio__stage--field { background: var(--bg); }
 
+/* 보기 전환 — 지금 화면은 흐려지며 살짝 물러나고, 새 화면은 초점이 맞춰지며 떠오른다.
+   HUD(제목·토글·깊이)는 그대로 있어서 '같은 자리에서 보는 방식만 바뀐다'로 읽힌다. */
+.portfolio__stage.is_leaving > .work,
+.portfolio__stage.is_leaving > .project-list {
+  opacity: 0;
+  filter: blur(10px);
+  transform: scale(0.97);
+  transition: opacity 340ms var(--ease), filter 340ms var(--ease), transform 340ms var(--ease);
+  pointer-events: none;
+}
+.portfolio__stage.is_switched > .work,
+.portfolio__stage.is_switched > .project-list {
+  animation: portfolio-view-in 720ms var(--ease) backwards;
+}
+@keyframes portfolio-view-in {
+  from { opacity: 0; filter: blur(10px); transform: scale(1.03); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portfolio__stage.is_switched > .work,
+  .portfolio__stage.is_switched > .project-list { animation: none; }
+}
+
 /* 얼음을 누른 뒤 통과할 때까지: 얼음이 상세 화면(포털) 위에 떠 있어야 하므로 무대를 위로 올리고,
    무대 배경은 비워 얼음 너머로 상세가 비치게 한다. 창 밖은 어차피 가려져 있다. */
 .portfolio.is-portal .portfolio__stage {
@@ -323,6 +345,11 @@
   border-radius: 2px;
   background: var(--surface);
   color: var(--text);
+}
+
+/* 좁은 화면에선 가운데 캡슐이 왼쪽 'PROJECTS / 03' 과 겹친다 — 두 보기 모두 오른쪽 끝으로 */
+@media (max-width: 700px) {
+  .viewtoggle { left: auto; right: var(--gutter); transform: none; }
 }
 
 @media (max-width: 860px) {

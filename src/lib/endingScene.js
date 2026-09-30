@@ -1,181 +1,277 @@
 import * as THREE from 'three';
 
-/* 엔딩 장면 — 드라이아이스 결정 하나가 선(SOLID) → 면(SUBLIMATION) → 점(GAS)으로 승화한다.
-   레퍼런스(seunghyuk.com/contact)의 LINE → PLANE → DOT 흐름을 우리 소재로 옮겼다.
-   진행도 p(0~1)는 스크롤이 정하고, 드래그로 돌려 볼 수 있다.
-
-     0.00–0.06  가운데 작은 표식만
-     0.06–0.38  선 — 결정이 자라며 안을 가로지르는 선이 빽빽해진다
-     0.38–0.62  면 — 면이 차오르고, 한가운데서 결정이 판처럼 눌렸다 다시 펴진다
-     0.62–1.00  점 — 선과 면이 흩어지고 점만 남아 위로 천천히 떠오른다 */
-
-const LINE_COUNT = 420;
-const DOT_COUNT = 2600;
-const seeded = (seed) => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+/* 같은 눈 가루가 덩어리를 만들고, 풀리고, 다시 모인다.
+   연락처에 도착한 뒤에도 각 덩어리의 생성 주기는 서로 다른 속도로 계속된다. */
+export const GRAIN_COUNT = 4800;
+const CLUSTER_COUNT = 6;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const seeded = (seed) => () => { seed = seed * 16807 % 2147483647; return (seed - 1) / 2147483646; };
 
-/* 결정 — 위아래가 뾰족한 불규칙한 쌍뿔. 적도 꼭짓점 아홉 개를 조금씩 흔들어 얼음 조각처럼 */
-function crystal(rand) {
-  const top = new THREE.Vector3(0.05, 1.3, 0.02);
-  const bottom = new THREE.Vector3(-0.04, -1.35, 0);
-  const ring = Array.from({ length: 9 }, (_, i) => {
-    const a = (i / 9) * Math.PI * 2 + (rand() - 0.5) * 0.3;
-    const r = 0.82 + rand() * 0.2;
-    return new THREE.Vector3(Math.cos(a) * r, (rand() - 0.5) * 0.16, Math.sin(a) * r);
-  });
-  const faces = [];
-  ring.forEach((v, i) => {
-    const n = ring[(i + 1) % ring.length];
-    faces.push([top, v, n], [bottom, n, v]);
-  });
-  return { top, bottom, ring, faces };
+function sampleVolume(rand, surface = false) {
+  const y = rand() * 2 - 1;
+  const a = rand() * Math.PI * 2;
+  const radial = Math.sqrt(1 - y * y);
+  const r = surface ? .86 + rand() * .14 : Math.cbrt(rand());
+  return [Math.cos(a) * radial * r, y * r, Math.sin(a) * radial * r];
 }
 
-const onFace = (rand, [a, b, c]) => {
-  let u = rand(); let v = rand();
-  if (u + v > 1) { u = 1 - u; v = 1 - v; }
-  return a.clone().addScaledVector(b.clone().sub(a), u).addScaledVector(c.clone().sub(a), v);
-};
+// 경계가 딱 잘리는 구 대신, 중심에서 바깥으로 자연스럽게 옅어지는 분포.
+function samplePowder(rand) {
+  const normal = () => Math.sqrt(-2 * Math.log(Math.max(rand(), .000001))) * Math.cos(rand() * Math.PI * 2);
+  return [normal(), normal(), normal()];
+}
+
+/* 엔딩의 눈 가루 배치 — 같은 씨앗으로 늘 같은 가루를 만든다.
+   포트폴리오의 마지막 얼음이 승화한 가루(workIceScene)도 이 배치로 모여, 엔딩이 같은 알갱이를 이어받는다. */
+export function createGrainField() {
+  const rand = seeded(261014);
+  const base = new Float32Array(GRAIN_COUNT * 3);
+  const spread = new Float32Array(GRAIN_COUNT * 3);
+  const local = new Float32Array(GRAIN_COUNT * 3);
+  const sizes = new Float32Array(GRAIN_COUNT);
+  const alpha = new Float32Array(GRAIN_COUNT);
+  const seeds = new Float32Array(GRAIN_COUNT);
+  const releaseAt = new Float32Array(GRAIN_COUNT);
+  for (let i = 0; i < GRAIN_COUNT; i++) {
+    const k = i * 3;
+    const b = samplePowder(rand);
+    const l = samplePowder(rand).map(value => value * .45);
+    const s = sampleVolume(rand);
+    const shape = 1 + Math.sin(b[0] * 4 + b[1] * 3) * .065 + Math.cos(b[2] * 5 - b[1]) * .04;
+    base.set([b[0] * .21 * shape, b[1] * .25 * shape, b[2] * .18 * shape], k);
+    // 각 덩어리를 만드는 가루는 넓은 부피 안에서 출발한다.
+    spread.set([s[0] * 1.68, s[1] * 1.37, s[2] * 1.26], k);
+    local.set(l, k);
+    sizes[i] = .011 + rand() * .007;
+    alpha[i] = .36 + rand() * .22;
+    seeds[i] = rand() * Math.PI * 2;
+    releaseAt[i] = .17 + rand() * .18;
+  }
+  return { base, spread, local, sizes, alpha, seeds, releaseAt };
+}
+
+/* 엔딩 카메라 — 장면과 투영 계산이 같은 값을 쓴다 */
+const FOV = 32;
+const START_SPIN = .25;
+const START_TILT = .12;
+const START_SCALE = .73;
+const cameraZ = (aspect) => (aspect < .85 ? 10.5 : 7.8);
+const pixelRatioFor = (width, height, dpr) => Math.min(dpr || 1, 1.7, Math.sqrt(1200000 / (width * height)));
+
+/* 엔딩 첫 장면에서 가루 하나하나가 화면 어디에(가운데 기준 CSS px, 위가 +y), 몇 px 크기로, 얼마나 옅게 보이는지.
+   승화한 가루가 정확히 이 자리로 모이면 엔딩으로 넘어가는 순간이 이어진다. */
+export function projectEndingGrains(width, height, dpr) {
+  const { base, sizes, alpha } = createGrainField();
+  const aspect = width / height;
+  const camera = new THREE.PerspectiveCamera(FOV, aspect, .1, 30);
+  camera.position.set(0, .02, cameraZ(aspect));
+  camera.updateMatrixWorld();
+  const matrix = new THREE.Matrix4().compose(
+    new THREE.Vector3(),
+    new THREE.Quaternion().setFromEuler(new THREE.Euler(START_TILT, START_SPIN, 0)),
+    new THREE.Vector3(START_SCALE, START_SCALE, START_SCALE),
+  );
+  const ratio = pixelRatioFor(width, height, dpr);
+  const pixelFactor = height * ratio / (2 * Math.tan(THREE.MathUtils.degToRad(FOV) / 2));
+  const target = new Float32Array(GRAIN_COUNT * 2);
+  const size = new Float32Array(GRAIN_COUNT);
+  const opacity = new Float32Array(GRAIN_COUNT);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < GRAIN_COUNT; i++) {
+    v.set(base[i * 3], base[i * 3 + 1], base[i * 3 + 2]).applyMatrix4(matrix);
+    const depth = camera.position.z - v.z;
+    v.project(camera);
+    target[i * 2] = v.x * width / 2;
+    target[i * 2 + 1] = v.y * height / 2;
+    // 장면의 gl_PointSize(기기 px)를 CSS px 로 — 받는 쪽이 자기 픽셀 비율을 곱한다
+    size[i] = Math.min(3, Math.max(1.15, sizes[i] * pixelFactor / depth)) / ratio;
+    // 첫 장면의 옅기: aAlpha × 느슨함(.65) × 시작 투명도(.72)
+    opacity[i] = alpha[i] * .65 * .72;
+  }
+  return { count: GRAIN_COUNT, target, size, opacity };
+}
 
 export function createEndingScene(host) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  host.appendChild(renderer.domElement);
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power' });
+  renderer.setClearColor(0x050708, 0);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 50);
-  camera.position.set(0, 0, 7.4);
-
-  const rand = seeded(20260930);
-  const shape = crystal(rand);
+  const camera = new THREE.PerspectiveCamera(FOV, 1, .1, 30);
   const group = new THREE.Group();
   scene.add(group);
-  const white = new THREE.Color(0xe6f1ef);
+  const { base, spread, local, sizes, alpha, seeds, releaseAt } = createGrainField();
+  const positions = new Float32Array(GRAIN_COUNT * 3);
+  const gathered = new Float32Array(GRAIN_COUNT);
+  const clusters = [
+    { x: -.94, y: .55, z: .34, r: .36, phase: .3 },
+    { x: .83, y: .71, z: -.48, r: .33, phase: 2.2 },
+    { x: -1.14, y: -.43, z: -.3, r: .4, phase: 4.4 },
+    { x: .86, y: -.73, z: .25, r: .36, phase: 1.2 },
+    { x: .06, y: 1.03, z: .15, r: .35, phase: 3.3 },
+    { x: -.16, y: -.93, z: .55, r: .32, phase: 5.4 },
+  ];
 
-  // 선 — 겉면의 점들을 잇는 긴 선. 가운데를 가로지르는 선이 많아야 레퍼런스처럼 빽빽한 거미줄이 된다
-  const linePos = new Float32Array(LINE_COUNT * 6);
-  for (let i = 0; i < LINE_COUNT; i++) {
-    const f1 = shape.faces[Math.floor(rand() * shape.faces.length)];
-    const f2 = shape.faces[Math.floor(rand() * shape.faces.length)];
-    const a = i < 60 ? (rand() < 0.5 ? shape.top : shape.bottom) : onFace(rand, f1);   // 꼭짓점에서 뻗는 선을 조금 섞는다
-    const b = onFace(rand, f2);
-    linePos.set([a.x, a.y, a.z, b.x, b.y, b.z], i * 6);
-  }
-  const lineGeo = new THREE.BufferGeometry();
-  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePos, 3));
-  const lineMat = new THREE.LineBasicMaterial({ color: white, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  const lines = new THREE.LineSegments(lineGeo, lineMat);
-  group.add(lines);
-
-  // 윤곽 — 결정의 모서리
-  const edgePos = [];
-  shape.ring.forEach((v, i) => {
-    const n = shape.ring[(i + 1) % shape.ring.length];
-    edgePos.push(v.x, v.y, v.z, n.x, n.y, n.z, shape.top.x, shape.top.y, shape.top.z, v.x, v.y, v.z, shape.bottom.x, shape.bottom.y, shape.bottom.z, v.x, v.y, v.z);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+  geometry.setAttribute('aSize', new THREE.BufferAttribute(sizes, 1));
+  geometry.setAttribute('aAlpha', new THREE.BufferAttribute(alpha, 1));
+  geometry.setAttribute('aGather', new THREE.BufferAttribute(gathered, 1).setUsage(THREE.DynamicDrawUsage));
+  const material = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    uniforms: { uPixelFactor: { value: 1 }, uText: { value: 0 }, uSpread: { value: 0 }, uOpacity: { value: 1 }, uColor: { value: new THREE.Color(0xe5ede9) } },
+    vertexShader: `
+      attribute float aSize;
+      attribute float aAlpha;
+      attribute float aGather;
+      uniform float uPixelFactor;
+      uniform float uSpread;
+      varying float vAlpha;
+      varying float vGather;
+      varying vec2 vScreen;
+      void main() {
+        vec4 view = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * view;
+        float mass = mix(1.0, 0.75 + aGather * 0.1, uSpread);
+        gl_PointSize = clamp(aSize * mass * uPixelFactor / -view.z, 1.15, 3.0);
+        vAlpha = aAlpha;
+        vGather = aGather;
+        vScreen = gl_Position.xy / gl_Position.w;
+      }`,
+    fragmentShader: `
+      uniform float uText;
+      uniform float uSpread;
+      uniform float uOpacity;
+      uniform vec3 uColor;
+      varying float vAlpha;
+      varying float vGather;
+      varying vec2 vScreen;
+      void main() {
+        vec2 p = gl_PointCoord * 2.0 - 1.0;
+        float radius = dot(p, p);
+        if (radius > 1.0) discard;
+        float edge = exp(-radius * 1.8) * (1.0 - smoothstep(0.55, 1.0, radius));
+        float room = smoothstep(0.025, 0.34, length(vScreen * vec2(0.78, 2.3)));
+        float readable = mix(1.0, 0.22 + room * 0.78, uText);
+        // 모여도 불투명한 알갱이 덩어리가 되지 않도록 밀도에 따라 투명도를 낮춘다.
+        float loose = mix(0.65, 0.95 - vGather * 0.45, uSpread);
+        gl_FragColor = vec4(uColor, edge * vAlpha * loose * uOpacity * readable);
+        #include <colorspace_fragment>
+      }`,
   });
-  const edgeGeo = new THREE.BufferGeometry();
-  edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgePos, 3));
-  const edgeMat = new THREE.LineBasicMaterial({ color: white, transparent: true, opacity: 0, depthWrite: false });
-  group.add(new THREE.LineSegments(edgeGeo, edgeMat));
+  const snow = new THREE.Points(geometry, material);
+  snow.frustumCulled = false;
+  group.add(snow);
 
-  // 면 — 반투명하게 겹쳐 쌓인다
-  const facePos = [];
-  shape.faces.forEach(([a, b, c]) => facePos.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z));
-  const faceGeo = new THREE.BufferGeometry();
-  faceGeo.setAttribute('position', new THREE.Float32BufferAttribute(facePos, 3));
-  const faceMat = new THREE.MeshBasicMaterial({ color: white, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false });
-  group.add(new THREE.Mesh(faceGeo, faceMat));
+  // 밝은 가루 사이의 아주 옅은 냉기만 남겨 부피를 잇는다.
+  const hazeGeo = new THREE.BufferGeometry();
+  const hazePositions = new Float32Array(CLUSTER_COUNT * 3);
+  const hazeSize = new Float32Array(CLUSTER_COUNT).fill(.7);
+  hazeGeo.setAttribute('position', new THREE.BufferAttribute(hazePositions, 3).setUsage(THREE.DynamicDrawUsage));
+  hazeGeo.setAttribute('aSize', new THREE.BufferAttribute(hazeSize, 1));
+  const hazeMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    uniforms: { uPixelFactor: material.uniforms.uPixelFactor, uOpacity: { value: 0 }, uText: material.uniforms.uText },
+    vertexShader: `
+      attribute float aSize;
+      uniform float uPixelFactor;
+      varying vec2 vScreen;
+      void main() {
+        vec4 view = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * view;
+        gl_PointSize = aSize * uPixelFactor / -view.z;
+        vScreen = gl_Position.xy / gl_Position.w;
+      }`,
+    fragmentShader: `
+      uniform float uOpacity;
+      uniform float uText;
+      varying vec2 vScreen;
+      void main() {
+        float falloff = exp(-dot(gl_PointCoord - 0.5, gl_PointCoord - 0.5) * 22.0);
+        float room = smoothstep(0.035, 0.32, length(vScreen * vec2(0.78, 2.3)));
+        gl_FragColor = vec4(0.54, 0.64, 0.65, falloff * uOpacity * mix(1.0, room, uText));
+      }`,
+  });
+  group.add(new THREE.Points(hazeGeo, hazeMat));
+  const clusterGather = new Float32Array(CLUSTER_COUNT);
+  const clusterCenters = new Float32Array(CLUSTER_COUNT * 3);
+  let progress = 0, elapsed = 0, spin = START_SPIN, dragY = 0, dragVelocity = 0;
 
-  // 적도의 판 — 결정이 눌릴 때 한 장의 빛나는 판으로 모인다(레퍼런스의 가로 한 줄)
-  const discPos = [];
-  for (let i = 0; i < 90; i++) {
-    const a1 = rand() * Math.PI * 2; const a2 = a1 + Math.PI * (0.4 + rand() * 1.2);
-    const r1 = 0.3 + rand() * 0.75; const r2 = 0.3 + rand() * 0.75;
-    discPos.push(Math.cos(a1) * r1, 0, Math.sin(a1) * r1, Math.cos(a2) * r2, 0, Math.sin(a2) * r2);
-  }
-  const discGeo = new THREE.BufferGeometry();
-  discGeo.setAttribute('position', new THREE.Float32BufferAttribute(discPos, 3));
-  const discMat = new THREE.LineBasicMaterial({ color: white, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
-  group.add(new THREE.LineSegments(discGeo, discMat));
-
-  // 점 — 겉면과 속에 흩어진 알갱이. 승화하며 위로, 바깥으로 풀려난다
-  const dotBase = new Float32Array(DOT_COUNT * 3);
-  const dotDrift = new Float32Array(DOT_COUNT * 3);
-  for (let i = 0; i < DOT_COUNT; i++) {
-    const p = onFace(rand, shape.faces[Math.floor(rand() * shape.faces.length)]).multiplyScalar(i % 3 === 0 ? 0.35 + rand() * 0.6 : 1);
-    dotBase.set([p.x, p.y, p.z], i * 3);
-    dotDrift.set([(rand() - 0.5) * 0.9, 0.4 + rand() * 1.4, (rand() - 0.5) * 0.9], i * 3);
-  }
-  const dotPos = new Float32Array(dotBase);
-  const dotGeo = new THREE.BufferGeometry();
-  dotGeo.setAttribute('position', new THREE.BufferAttribute(dotPos, 3));
-  const dotMat = new THREE.PointsMaterial({ color: white, size: 0.018, sizeAttenuation: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
-  group.add(new THREE.Points(dotGeo, dotMat));
-
-  // 떠다니는 글자가 붙을 점들
-  const labelPoints = Array.from({ length: 8 }, (_, i) => new THREE.Vector3(...dotBase.slice(((i * 331) % DOT_COUNT) * 3, ((i * 331) % DOT_COUNT) * 3 + 3)));
-
-  let width = 1; let height = 1;
   const resize = () => {
-    width = host.clientWidth || window.innerWidth; height = host.clientHeight || window.innerHeight;
+    const width = host.clientWidth || window.innerWidth;
+    const height = host.clientHeight || window.innerHeight;
+    const ratio = pixelRatioFor(width, height, window.devicePixelRatio);
+    renderer.setPixelRatio(ratio);
     renderer.setSize(width, height, false);
     camera.aspect = width / height;
+    camera.position.set(0, .02, cameraZ(camera.aspect));
     camera.updateProjectionMatrix();
+    material.uniforms.uPixelFactor.value = height * ratio / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   };
+  host.appendChild(renderer.domElement);
   resize();
   window.addEventListener('resize', resize);
 
-  let progress = 0;
-  let spin = 0; let dragX = 0; let dragY = 0; let dragVX = 0;
-  const projected = new THREE.Vector3();
-
   return {
-    setProgress(p) { progress = p; },
-    drag(dx, dy) { dragVX += dx * 0.004; dragY = Math.max(-0.6, Math.min(0.6, dragY + dy * 0.003)); },
-    /** 떠다니는 글자 자리(화면 px)와 보일 정도 */
-    labels() {
-      return labelPoints.map((pt, i) => {
-        const drift = smooth(0.62, 1, progress) * (0.3 + (i % 3) * 0.2);
-        projected.set(pt.x * 1.1, pt.y + drift, pt.z * 1.1).applyMatrix4(group.matrixWorld).project(camera);
-        return { x: (projected.x * 0.5 + 0.5) * width, y: (-projected.y * 0.5 + 0.5) * height, z: projected.z };
-      });
-    },
+    setProgress(value) { progress = value; },
+    drag(dx, dy) { dragVelocity += dx * .0025; dragY = Math.max(-.5, Math.min(.5, dragY + dy * .0025)); },
     render(dt) {
-      const p = progress;
-      spin += dt * 0.18 + dragVX; dragVX *= Math.exp(-dt * 3); dragX += dragVX;
-      // 자라기 — 처음엔 한 점에서 커진다
-      const grow = 0.05 + 0.95 * smooth(0.04, 0.3, p);
-      // 눌리기 — 면 단계 한가운데서 판처럼 납작해졌다 다시 선다
-      const flat = 1 - 0.94 * Math.exp(-(((p - 0.5) / 0.045) ** 2));
-      group.scale.set(grow, grow * flat, grow);
-      group.rotation.set(0.28 + dragY, spin, 0);
+      elapsed += dt;
+      spin += dt * .085 + dragVelocity;
+      dragVelocity *= Math.exp(-dt * 4);
+      group.rotation.set(START_TILT + dragY, spin, Math.sin(elapsed * .11) * .025);
+      group.scale.setScalar(START_SCALE + (1 - START_SCALE) * smooth(.01, .25, progress));
+      const dispersion = smooth(.17, .6, progress);
+      const remake = smooth(.59, .96, progress);
+      material.uniforms.uSpread.value = dispersion;
+      material.uniforms.uText.value = smooth(.6, .69, progress);
+      material.uniforms.uOpacity.value = .72 + .28 * smooth(.02, .2, progress);
+      hazeMat.uniforms.uOpacity.value = .035 * dispersion;
 
-      // 선: 늘어나다가(0.06~0.4) 점 단계에서 흩어진다
-      const lineIn = smooth(0.06, 0.4, p); const lineOut = 1 - smooth(0.62, 0.8, p);
-      lineGeo.setDrawRange(0, Math.floor(LINE_COUNT * (0.15 + 0.85 * lineIn)) * 2);
-      lineMat.opacity = 0.34 * lineIn * lineOut;
-      edgeMat.opacity = 0.55 * smooth(0.05, 0.2, p) * lineOut;
-      faceMat.opacity = 0.09 * smooth(0.38, 0.52, p) * (1 - smooth(0.58, 0.7, p));
-      discMat.opacity = 0.9 * Math.exp(-(((p - 0.5) / 0.05) ** 2));
-
-      // 점: 선이 흩어지는 자리에서 나타나 위로 풀려난다
-      const dotIn = smooth(0.58, 0.72, p);
-      const gas = smooth(0.66, 1, p);
-      dotMat.opacity = 0.85 * dotIn;
-      const t = performance.now() / 1000;
-      for (let i = 0; i < DOT_COUNT; i++) {
-        const k = i * 3;
-        const wob = Math.sin(t * 0.6 + i) * 0.015 * gas;
-        dotPos[k] = dotBase[k] + dotDrift[k] * gas * 0.6 + wob;
-        dotPos[k + 1] = dotBase[k + 1] + dotDrift[k + 1] * gas * 0.35;
-        dotPos[k + 2] = dotBase[k + 2] + dotDrift[k + 2] * gas * 0.6;
+      for (let j = 0; j < CLUSTER_COUNT; j++) {
+        const c = clusters[j];
+        // 약 24~27초의 밀도 변화가 엇갈려, 장면 전체가 동시에 리셋되지 않는다.
+        const cycle = .5 + .5 * Math.sin(elapsed * (.23 + j * .006) + c.phase);
+        clusterGather[j] = remake * smooth(.18, .82, cycle);
+        const k = j * 3;
+        clusterCenters[k] = c.x + Math.sin(elapsed * .1 + c.phase) * .055;
+        clusterCenters[k + 1] = c.y + Math.cos(elapsed * .13 + c.phase) * .05;
+        clusterCenters[k + 2] = c.z + Math.sin(elapsed * .09 + j) * .045;
+        hazePositions[k] = clusterCenters[k];
+        hazePositions[k + 1] = clusterCenters[k + 1];
+        hazePositions[k + 2] = clusterCenters[k + 2];
       }
-      dotGeo.attributes.position.needsUpdate = dotIn > 0.001;
+      for (let i = 0; i < GRAIN_COUNT; i++) {
+        const k = i * 3, j = i % CLUSTER_COUNT, ck = j * 3;
+        const release = smooth(releaseAt[i], releaseAt[i] + .27, progress);
+        const gather = clusterGather[j];
+        const c = clusters[j];
+        const drift = seeds[i] + elapsed * .17;
+        const freeX = spread[k] + Math.sin(drift) * .045;
+        const freeY = spread[k + 1] + Math.cos(drift * .73) * .05;
+        const freeZ = spread[k + 2] + Math.cos(drift) * .035;
+        // 같은 가루의 밀도가 옅게 모이고 퍼지는 넓은 형태를 만든다.
+        const radius = c.r * (1 + .1 * Math.sin(local[k] * 5 + local[k + 1] * 4));
+        const targetX = clusterCenters[ck] + local[k] * radius * 1.4;
+        const targetY = clusterCenters[ck + 1] + local[k + 1] * radius * .65;
+        const targetZ = clusterCenters[ck + 2] + local[k + 2] * radius;
+        const x = freeX + (targetX - freeX) * gather;
+        const y = freeY + (targetY - freeY) * gather;
+        const z = freeZ + (targetZ - freeZ) * gather;
+        positions[k] = base[k] + (x - base[k]) * release;
+        positions[k + 1] = base[k + 1] + (y - base[k + 1]) * release;
+        positions[k + 2] = base[k + 2] + (z - base[k + 2]) * release;
+        gathered[i] = gather;
+      }
+      geometry.attributes.position.needsUpdate = true;
+      geometry.attributes.aGather.needsUpdate = true;
+      hazeGeo.attributes.position.needsUpdate = true;
       renderer.render(scene, camera);
     },
     dispose() {
       window.removeEventListener('resize', resize);
-      [lineGeo, edgeGeo, faceGeo, discGeo, dotGeo].forEach((g) => g.dispose());
-      [lineMat, edgeMat, faceMat, discMat, dotMat].forEach((m) => m.dispose());
+      geometry.dispose();
+      material.dispose();
+      hazeGeo.dispose();
+      hazeMat.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },

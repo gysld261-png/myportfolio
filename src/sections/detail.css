@@ -374,9 +374,8 @@
   object-position: center;
   animation: none;
   filter: none;
-  /* 목업 이미지에 구워진 검은 배경이 물든 공기 위에서 사각형으로 뜨지 않게 —
-     밝은 쪽만 남겨 어둠은 공기에 녹인다. 화면과 기기는 배경보다 밝아서 그대로다. */
-  mix-blend-mode: lighten;
+  /* 밝은 대표 목업의 화면·사진·기기 색을 그대로 표시한다. */
+  mix-blend-mode: normal;
 }
 
 /* Transparent project mockups sit directly on the dark page, without a card. */
@@ -860,52 +859,45 @@
 @keyframes visit-pulse { from { opacity: .7; transform: scale(.5); } to { opacity: 0; transform: scale(1.5); } }
 .detail.has-live .dhero__cinema-cue { bottom: calc(max(28px, 4vh) + 60px); }
 
-/* ── 직접 써 보기 — 이미지 리듬 끝, 다음 프로젝트 앞 ── */
+/* ── 프로젝트 링크 — 이미지 리듬 끝, 다음 프로젝트 앞 ── */
 .dlive {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: var(--dg);
   padding: clamp(80px, 12vh, 140px) var(--dg);
 }
-.dlive__link {
-  display: grid;
-  gap: 22px;
-  padding-bottom: 26px;
-  border-bottom: 1px solid rgba(157, 222, 215, .28);
-  color: var(--text);
-  text-decoration: none;
-}
-.dlive__title {
-  font: 500 clamp(36px, 5vw, 84px)/1.02 var(--kr);
-  letter-spacing: -.04em;
-  word-break: keep-all;
-  transition: color 280ms ease;
-}
-.dlive__meta { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); }
-.dlive__go { color: var(--frost); }
-.dlive__go i { display: inline-block; font-style: normal; transition: transform 240ms var(--ease); }
-.dlive__link:hover .dlive__title { color: var(--frost); }
-.dlive__link:hover .dlive__go i { transform: translate(3px, -3px); }
-.dlive__link:hover { border-bottom-color: var(--frost); }
-/* 기획서 — 사이트 출구 아래, 한 단계 작은 줄 */
 .dlive__links { display: grid; gap: 30px; min-width: 0; }
+.dlive__link,
 .dlive__deck {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 18px;
+  min-height: 54px;
+  padding-bottom: 22px;
   border-bottom: 1px solid rgba(157, 222, 215, .18);
   color: var(--text);
   text-decoration: none;
+  transition: border-color 280ms ease;
 }
+.dlive__title,
 .dlive__deck-title {
-  font: 500 clamp(20px, 2vw, 30px)/1.2 var(--kr);
-  letter-spacing: -.03em;
+  font: 400 clamp(28px, 2.2vw, 32px)/1.25 var(--display);
+  letter-spacing: -.025em;
   transition: color 280ms ease;
 }
+.dlive__go {
+  flex-shrink: 0;
+  color: var(--frost);
+  font-size: 22px;
+  line-height: 1;
+}
+.dlive__go i { display: inline-block; font-style: normal; transition: transform 240ms var(--ease); }
+.dlive__link:hover .dlive__title,
 .dlive__deck:hover .dlive__deck-title { color: var(--frost); }
+.dlive__link:hover .dlive__go i,
 .dlive__deck:hover .dlive__go i { transform: translate(3px, -3px); }
+.dlive__link:hover,
 .dlive__deck:hover { border-bottom-color: var(--frost); }
 .dlive__deck:focus-visible, .dlive__link:focus-visible { outline: 1px solid var(--frost); outline-offset: 6px; }
 
@@ -913,6 +905,7 @@
   .detail__visit.sys { right: 16px; bottom: 16px; height: 42px; padding: 0 16px 0 14px; font-size: 10px; }
   .detail.has-live .dhero__cinema-cue { bottom: 72px; }
   .dlive { grid-template-columns: 1fr; gap: 18px; }
+  .dlive__title, .dlive__deck-title { font-size: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .detail__visit-dot::after { animation: none; }
@@ -1066,7 +1059,7 @@
     gap: 24px;
   }
   .dhero--project .dhero__title { justify-self: start; }
-  .dhero--project .dhero__plate { aspect-ratio: 4 / 3; }
+  .dhero--project .dhero__plate { aspect-ratio: 16 / 10; }
   .dhero--project .dhero__year { font-size: 9px; }
   .dnext__stage { min-height: auto; padding-top: 84px; gap: 28px; }
   .dnext__title { font-size: clamp(40px, 13vw, 72px); }
