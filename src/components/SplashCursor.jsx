@@ -19,6 +19,7 @@ import { prefersReduced } from '../lib/smooth';
  * 빼고 싶으면 App.jsx 의 import 한 줄과 <SplashCursor /> 한 줄만 지우면 된다.
  */
 function SplashCursor({
+  active = true,
   SIM_RESOLUTION = 128,
   DYE_RESOLUTION = 768,
   CAPTURE_RESOLUTION = 512,
@@ -42,6 +43,9 @@ function SplashCursor({
 }) {
   const canvasRef = useRef(null);
   const animationFrameId = useRef(null);
+  const activeRef = useRef(active);
+  activeRef.current = active;
+  const controlRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -534,6 +538,7 @@ function SplashCursor({
     }
 
     updateKeywords();
+    resizeCanvas();
     initFramebuffers();
 
     let lastUpdateTime = Date.now();
@@ -785,6 +790,7 @@ function SplashCursor({
     }
 
     function handleMouseDown(e) {
+      if (!activeRef.current) return;
       const pointer = pointers[0];
       updatePointerDownData(pointer, -1, scaleByPixelRatio(e.clientX), scaleByPixelRatio(e.clientY));
       clickSplat(pointer);
@@ -792,6 +798,7 @@ function SplashCursor({
 
     let firstMove = false;
     function handleMouseMove(e) {
+      if (!activeRef.current) return;
       const pointer = pointers[0];
       const posX = scaleByPixelRatio(e.clientX);
       const posY = scaleByPixelRatio(e.clientY);
@@ -804,6 +811,7 @@ function SplashCursor({
     }
 
     function handleTouchStart(e) {
+      if (!activeRef.current) return;
       const touches = e.targetTouches;
       const pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
@@ -813,6 +821,7 @@ function SplashCursor({
     }
 
     function handleTouchMove(e) {
+      if (!activeRef.current) return;
       const touches = e.targetTouches;
       const pointer = pointers[0];
       for (let i = 0; i < touches.length; i++) {
@@ -824,7 +833,8 @@ function SplashCursor({
     function handleTouchEnd() { pointers[0].down = false; }
 
     function updateFrame() {
-      if (!isActive) return;
+      animationFrameId.current = null;
+      if (!isActive || !activeRef.current) return;
       const dt = calcDeltaTime();
       if (resizeCanvas()) initFramebuffers();
       updateColors(dt);
@@ -840,10 +850,25 @@ function SplashCursor({
     window.addEventListener('touchmove', handleTouchMove, false);
     window.addEventListener('touchend', handleTouchEnd);
 
-    updateFrame();
+    controlRef.current = {
+      start() {
+        if (!isActive || animationFrameId.current) return;
+        lastUpdateTime = Date.now();
+        updateFrame();
+      },
+      stop() {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
+        firstMove = false;
+        pointers[0].moved = false;
+        pointers[0].down = false;
+      },
+    };
+    if (activeRef.current) updateFrame();
 
     return () => {
       isActive = false;
+      controlRef.current = null;
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;
@@ -857,6 +882,11 @@ function SplashCursor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (active) controlRef.current?.start();
+    else controlRef.current?.stop();
+  }, [active]);
+
   return (
     <div
       aria-hidden="true"
@@ -865,6 +895,7 @@ function SplashCursor({
         position: 'fixed', top: 0, left: 0,
         zIndex: Z_INDEX, pointerEvents: 'none',
         width: '100%', height: '100%',
+        visibility: active ? undefined : 'hidden',
       }}
     >
       <canvas ref={canvasRef} style={{ width: '100vw', height: '100vh', display: 'block' }} />

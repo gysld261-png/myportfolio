@@ -26,7 +26,7 @@ const SEED = 3;
 const BASE_ROTATION = [0.12, -0.36, -0.07];
 const FROST = 0.9;
 
-export async function createHeroIce(host, { initialEntrance = false, getExit = () => 0, onReadout, onReady } = {}) {
+export async function createHeroIce(host, { initialEntrance = false, getExit = () => 0, getActive = () => true, onReadout, onReady } = {}) {
   const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
@@ -140,6 +140,7 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
 
   // 얼음 위에는 글자층이 덮여 있어(pointer-events: none) 창 전체에서 받는다
   const onMove = (event) => {
+    if (!getActive()) return;
     bounds = host.getBoundingClientRect();
     const x = (event.clientX - bounds.left) / bounds.width - 0.5;
     const y = (event.clientY - bounds.top) / bounds.height - 0.5;
@@ -174,7 +175,7 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
     window.dispatchEvent(new CustomEvent('app-cursor', { detail: value ? { active: true, label: 'DRAG' } : null }));
   };
   const onDown = (event) => {
-    if (event.button !== 0 || getExit() > 0.3) return;
+    if (!getActive() || event.button !== 0 || getExit() > 0.3) return;
     onMove(event);
     if (!touching) return;
     // 글자 선택·이미지 끌기가 같이 일어나지 않게 막는다
@@ -217,7 +218,8 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
   document.documentElement.addEventListener('pointerleave', onLeave);
 
   const tick = (now) => {
-    if (!live) return;
+    frame = 0;
+    if (!live || !getActive()) return;
     frame = requestAnimationFrame(tick);
     const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
     last = now;
@@ -352,10 +354,29 @@ export async function createHeroIce(host, { initialEntrance = false, getExit = (
     smoke.group.visible = group.visible;
     renderer.render(scene, camera);
   };
-  frame = requestAnimationFrame(tick);
+  // 숨겨진 동안에도 첫 렌더로 셰이더를 준비하되, 지속 렌더링은 하지 않는다.
+  renderer.render(scene, camera);
+  if (getActive()) frame = requestAnimationFrame(tick);
   onReady?.(true);
 
   return {
+    setActive(active) {
+      if (!live) return;
+      if (!active) {
+        cancelAnimationFrame(frame);
+        frame = 0;
+        pointer.inside = false;
+        pointer.vx = 0;
+        pointer.vy = 0;
+        touching = false;
+        drag.active = false;
+        setCursor('');
+      } else if (!frame) {
+        resize();
+        last = performance.now();
+        frame = requestAnimationFrame(tick);
+      }
+    },
     dispose() {
       live = false;
       cancelAnimationFrame(frame);

@@ -1,87 +1,183 @@
+/* 인트로 — 두꺼운 얼음판이 갈라져 떨어진다(Intro.jsx). 뒤의 메인이 얼음 너머로 비쳐야 해서 배경은 비운다 */
 .intro {
   position: fixed;
   inset: 0;
   z-index: 100;
-  display: grid;
-  place-items: center;
-  background: #07090a;
+  overflow: hidden;
+  perspective: 1600px;
+  cursor: pointer;
   opacity: 1;
-  transition: opacity 680ms var(--ease), visibility 680ms;
+  transition: opacity 520ms var(--ease), visibility 520ms;
 }
-
 .intro--leaving { opacity: 0; visibility: hidden; pointer-events: none; }
 
-.intro__skip {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
+/* 얼음 — 두꺼운 얼음처럼 투명하지만 흐릿하다. 너머를 흐리게 보고, 고운 서리 알갱이와 물기 얼룩을 얹는다 */
+.intro__pane,
+.intro__shard {
+  -webkit-backdrop-filter: blur(17px) saturate(.8) brightness(1.12);
+  backdrop-filter: blur(17px) saturate(.8) brightness(1.12);
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .09 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(38% 30% at 22% 28%, rgba(240, 250, 252, .1), transparent 70%),
+    radial-gradient(30% 26% at 78% 64%, rgba(240, 250, 252, .08), transparent 70%),
+    radial-gradient(46% 34% at 60% 18%, rgba(160, 196, 204, .07), transparent 70%),
+    linear-gradient(170deg, rgba(222, 240, 244, .1), rgba(150, 180, 188, .06));
 }
-
-.intro__crystal,
-.intro__crystal i {
+.intro__pane {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  display: block;
-  width: 1px;
-  height: 1px;
-  background: var(--frost);
-  transform-origin: center top;
+  inset: 0;
+  animation: intro-pane-in 700ms ease both;
 }
-.intro__crystal { transition: transform 680ms var(--ease), opacity 520ms var(--ease); }
-.intro--leaving .intro__crystal {
-  transform: translate(21vw, 7vh) scale(0.12) rotate(18deg);
-  opacity: 0;
-}
-
-.intro__crystal::before,
-.intro__crystal::after {
+@keyframes intro-pane-in { from { opacity: 0; } }
+/* 조이기 — 가장자리부터 서리가 안쪽으로 짙어진다(깨지기 전의 긴장) */
+.intro__pane::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 0;
-  width: 1px;
-  height: 1px;
-  background: var(--frost);
-  transform-origin: top;
-  animation: nucleate-branch 760ms var(--ease) 300ms forwards;
-}
-.intro__crystal::before { transform: rotate(58deg); }
-.intro__crystal::after { transform: rotate(-54deg); animation-delay: 430ms; }
-
-.intro__crystal > i { animation: nucleate 920ms var(--ease) forwards; }
-.intro__crystal > i:nth-child(1) { transform: translate(-1px, -1px) rotate(0deg); }
-.intro__crystal > i:nth-child(2) { transform: translate(-1px, -1px) rotate(118deg); animation-delay: 120ms; }
-.intro__crystal > i:nth-child(3) { transform: translate(-1px, -1px) rotate(238deg); animation-delay: 220ms; }
-
-.intro__state {
-  position: absolute;
-  left: 50%;
-  top: calc(50% + 122px);
-  transform: translateX(-50%);
+  inset: 0;
+  background: radial-gradient(ellipse 72% 68% at 50% 50%, transparent 30%, rgba(226, 240, 244, .22) 62%, rgba(236, 246, 248, .5) 100%);
   opacity: 0;
-  animation: intro-copy 500ms var(--ease) 520ms forwards;
-  white-space: nowrap;
+  transform: scale(1.18);
+  animation: intro-frost 1900ms cubic-bezier(.4, 0, .2, 1) 200ms forwards;
 }
-.intro--leaving .intro__state { opacity: 0; transition: opacity 280ms var(--ease); }
+@keyframes intro-frost { to { opacity: 1; transform: none; } }
+/* 금이 가는 순간 — 떨리지 않고 묵직하게 한 번 처진다(무게) */
+.intro--crack .intro__pane { animation: intro-pane-in 700ms ease both, intro-sag 520ms cubic-bezier(.3, 1.4, .5, 1) 60ms forwards; }
+@keyframes intro-sag {
+  0% { transform: none; }
+  35% { transform: translate3d(0, 7px, 0); }
+  100% { transform: translate3d(0, 4px, 0); }
+}
+/* 얼음에 새긴 글씨 — "Let's break the ice." 서리처럼 옅게 떠 있다가, 깨질 때 조각과 함께 쪼개진다 */
+.intro__words {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  pointer-events: none;
+}
+.intro__shard > .intro__words { inset: auto; }
+.intro__title {
+  margin: 0;
+  color: rgba(244, 250, 251, .92);
+  font: italic 400 clamp(44px, 6.4vw, 104px)/1 var(--serif);
+  letter-spacing: -.01em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .35), 0 0 22px rgba(220, 240, 244, .35), 0 2px 18px rgba(30, 50, 56, .25);
+}
+.intro__pane .intro__title { animation: intro-words 1100ms cubic-bezier(.2, .8, .2, 1) 350ms both; }
+.intro__sub.sys {
+  margin: 0;
+  color: rgba(236, 246, 248, .72);
+  font-size: 10px;
+  letter-spacing: .3em;
+}
+.intro__pane .intro__sub { animation: intro-words 900ms ease 1000ms both, intro-hint 1600ms ease-in-out 1900ms infinite; }
+@keyframes intro-words { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
+@keyframes intro-hint { 50% { opacity: .35; } }
+/* 가장자리 서리 — 얼음판의 두께 */
+.intro__pane::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 120px rgba(220, 238, 242, .22), inset 0 0 18px rgba(255, 255, 255, .18);
+}
 
-@keyframes nucleate {
-  0% { height: 1px; opacity: 0; }
-  18% { opacity: 1; }
-  100% { height: min(26vh, 210px); opacity: 0.72; }
+/* 덩어리 — 잠깐 버티다가(느슨해지며 살짝 내려앉고) 중력에 끌려 점점 빨리 떨어진다. 끝까지 단단하게(흐려지지 않는다) */
+.intro__shard {
+  position: absolute;
+  transform-origin: var(--ox) var(--oy);
+  animation: intro-fall var(--dur) cubic-bezier(.5, 0, .85, .4) var(--delay) forwards;   /* 가속 — 무게 */
+  will-change: transform, opacity;
 }
-@keyframes nucleate-branch {
-  from { height: 1px; opacity: 0; }
-  to { height: min(10vh, 76px); opacity: 0.42; }
+@keyframes intro-fall {
+  0% { transform: translate3d(0, 4px, 0); }
+  16% { transform: translate3d(calc(var(--tx) * .08), 12px, 0) rotateZ(calc(var(--rz) * .12)); }
+  100% { transform: translate3d(var(--tx), var(--ty), var(--tz)) rotateX(var(--rx)) rotateY(var(--ry)) rotateZ(var(--rz)); }
 }
-@keyframes intro-copy { to { opacity: 0.62; } }
+
+/* 냉기 — 갈라진 틈에서 드라이아이스 연기가 뭉게뭉게 피어오른다 */
+.intro__vapor {
+  position: absolute;
+  width: calc(var(--s) * 260px);
+  height: calc(var(--s) * 200px);
+  margin: calc(var(--s) * -100px) 0 0 calc(var(--s) * -130px);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(232, 242, 244, .5), rgba(214, 228, 232, .18) 55%, transparent);
+  filter: blur(14px);
+  pointer-events: none;
+  opacity: 0;
+  animation: intro-vapor 1700ms cubic-bezier(.2, .7, .3, 1) var(--d) forwards;
+}
+@keyframes intro-vapor {
+  0% { opacity: 0; transform: scale(.35); }
+  22% { opacity: .9; }
+  100% { opacity: 0; transform: translate3d(0, -60px, 0) scale(1.7); }
+}
+
+/* 균열면 — 두꺼운 얼음 속이 하얗게 탁해진다. 가는 금보다 조금 늦게, 넓고 흐릿하게 번진다 */
+.intro__fracture {
+  fill: none;
+  stroke: rgba(236, 246, 248, .22);
+  stroke-width: 9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: blur(4px);
+  stroke-dasharray: 3000;
+  stroke-dashoffset: 3000;
+}
+.intro__fracture--ring { stroke-width: 6; stroke: rgba(236, 246, 248, .16); }
+.intro--crack .intro__fracture { animation: intro-crack 820ms cubic-bezier(.3, .6, .2, 1) calc(160ms + var(--i) * 30ms) forwards; }
+.intro--crack .intro__fracture--ring { animation-delay: calc(420ms + var(--i) * 90ms); }
+.intro--fall .intro__fracture { stroke-dashoffset: 0; animation: intro-crack-out 420ms ease forwards; }
+
+/* 금 — 방사형이 먼저 뻗고, 동심원이 이어진다. 깨지는 순간 조각과 함께 사라진다 */
+.intro__cracks { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.intro__crack {
+  fill: none;
+  stroke: rgba(236, 246, 248, .5);   /* 가늘고 옅게 — 번쩍이는 흰 선은 놀랍고 액정 깨진 느낌이 난다 */
+  stroke-width: .9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 1.5px rgba(210, 245, 240, .35));
+  stroke-dasharray: 3000;
+  stroke-dashoffset: 3000;
+}
+.intro--crack .intro__crack--ray { animation: intro-crack 560ms cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 18ms) forwards; }
+.intro--crack .intro__crack--ring { stroke-width: .7; stroke: rgba(236, 246, 248, .38); animation: intro-crack 700ms cubic-bezier(.3, .7, .2, 1) calc(260ms + var(--i) * 110ms) forwards; }
+.intro--crack .intro__crack--spur { stroke-width: .6; stroke: rgba(236, 246, 248, .3); animation: intro-crack 420ms ease-out calc(380ms + var(--i) * 22ms) forwards; }
+@keyframes intro-crack { to { stroke-dashoffset: 0; } }
+.intro--fall .intro__crack { stroke-dashoffset: 0; animation: intro-crack-out 380ms ease forwards; }
+@keyframes intro-crack-out { to { opacity: 0; } }
+.intro__impact { fill: rgba(240, 250, 252, .8); opacity: 0; filter: drop-shadow(0 0 4px rgba(255, 255, 255, .5)); }
+.intro--crack .intro__impact { animation: intro-impact 520ms ease-out forwards; }
+.intro--fall .intro__impact { opacity: 0; }
+@keyframes intro-impact { 0% { opacity: .7; r: 1.5; } 30% { opacity: .6; r: 5; } 100% { opacity: .3; r: 2; } }
+
+.intro__skip {
+  position: absolute;
+  right: clamp(20px, 5.5vw, 80px);
+  bottom: clamp(30px, 7vh, 64px);
+  z-index: 2;
+  padding: 8px 12px;
+  border: 1px solid rgba(235, 243, 245, .4);
+  border-radius: 999px;
+  background: rgba(10, 16, 18, .25);
+  color: rgba(238, 244, 241, .8);
+  font-size: 10px;
+  letter-spacing: .2em;
+  cursor: pointer;
+  transition: color 200ms ease, border-color 200ms ease, opacity 300ms ease;
+}
+.intro__skip:hover { color: #fff; border-color: rgba(157, 222, 215, .8); }
+.intro__skip:focus-visible { outline: 1px solid var(--frost); outline-offset: 3px; }
+.intro--fall .intro__skip { opacity: 0; pointer-events: none; }
+
+/* 인트로 동안엔 뒤의 메인이 커서에 반응해도(얼음 위 DRAG 링·라벨) 보이지 않게 — 점만 남긴다 */
+html:has(.intro) .cursor-label { opacity: 0 !important; }
+html:has(.intro) .cursor { width: 14px !important; height: 14px !important; border-color: transparent !important; background: var(--accent) !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  .intro__crystal > i { height: 96px; animation: none; }
-  .intro__state { opacity: 0.62; animation: none; }
+  .intro { transition: none; }
+  .intro__shard, .intro__crack, .intro__fracture, .intro__pane, .intro__pane::before, .intro__vapor, .intro__title, .intro__sub { animation: none !important; }
 }

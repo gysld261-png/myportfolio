@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { byId } from '../data/specimens';
 import { prefersReduced } from '../lib/smooth';
 import { createUnderSnow } from '../lib/aboutUnderScene';
@@ -190,8 +190,8 @@ function ChamberVisual({ type }) {
  *   복귀    방에서 돌아오면 깊은 곳에서 다시 지표로 떠오른다
  */
 const WORLD_OFFSET = { x: 80, y: 4 };   // 지도 화면일 때 .about-world 의 위치 (vw, vh)
-const DESCEND = 1.6;                     // 내려가는 시간 (s) — travel 단계 길이
-const ASCEND = 1.1;                      // 떠오르는 시간 (s) — return 단계 길이
+const DESCEND = 2.2;                     // 내려가는 시간 (s) — 가속·착지의 무게는 유지하고 여유를 준다
+const ASCEND = 1.7;                      // 지도 복귀 (s) — 땅이 위에서 내려와 자리 잡는 장면을 더 길게
 const FOG_IN = 1.8;                      // 방에 닿은 뒤 바닥 연기가 차오르는 시간 (s)
 const DEG_PER_PX = 1.5 / 160;            // 깊이 눈금 — 160px 내려갈 때마다 1.5°C 차가워진다
 /* 키워드 자리 — [가로(지표 폭 대비), 지표에서의 깊이(화면 높이 대비)]
@@ -208,7 +208,7 @@ const KEYS = {
 const isWide = () => window.innerWidth >= window.innerHeight;
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
-function useUnderSnow(phase, selected) {
+function useUnderSnow(phase, selected, visible) {
   const hostRef = useRef(null);            // three 장면이 들어갈 자리
   const overlayRef = useRef(null);         // 깊이 눈금
   const fogRef = useRef(null);             // 방 안 바닥 연기
@@ -216,6 +216,9 @@ function useUnderSnow(phase, selected) {
   const hoverRef = useRef(null);           // 커서나 포커스가 머문 키워드
   const phaseRef = useRef(phase);
   const selectedRef = useRef(selected);
+  const visibleRef = useRef(visible);
+  const controlRef = useRef(null);
+  visibleRef.current = visible;
   phaseRef.current = phase;
   selectedRef.current = selected;
 
@@ -251,14 +254,17 @@ function useUnderSnow(phase, selected) {
     let raf = 0;
     let last = performance.now();
     let clock = 0;
+    let layoutDirty = true;
 
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = window.innerWidth; H = window.innerHeight;
       overlay.width = W * dpr; overlay.height = H * dpr;
+      layoutDirty = true;
     };
     resize();
     const onMove = (event) => {
+      if (!visibleRef.current) return;
       const nx = event.clientX / W - 0.5;
       const ny = event.clientY / H - 0.5;
       stir = Math.min(1, stir + Math.hypot(nx - pointer.x, ny - pointer.y) * 3);
@@ -275,12 +281,13 @@ function useUnderSnow(phase, selected) {
     };
 
     const tick = (now) => {
-      raf = requestAnimationFrame(tick);
+      raf = 0;
+      if (visibleRef.current) raf = requestAnimationFrame(tick);
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       clock += dt;
-      const ph = phaseRef.current;
-      const sel = selectedRef.current;
+      const ph = visibleRef.current ? phaseRef.current : 'map';
+      const sel = visibleRef.current ? selectedRef.current : null;
       const hover = ph === 'map' ? hoverRef.current : null;
       pointer.sx += (pointer.x - pointer.sx) * (1 - Math.exp(-dt * 3));
       pointer.sy += (pointer.y - pointer.sy) * (1 - Math.exp(-dt * 3));
@@ -358,7 +365,7 @@ function useUnderSnow(phase, selected) {
       const wide = isWide();
       // 넓은 화면 — 버튼 폭을 재서 덩어리 사이의 틈이 똑같도록 가로 자리를 정한다.
       // 가운데 정렬로 모으고, 틈은 너무 좁거나 넓지 않게 묶어 둔다
-      if (wide) {
+      if (wide && layoutDirty) {
         const order = Object.keys(KEYS).sort((a, b) => KEYS[a].wide[0] - KEYS[b].wide[0]);
         const widths = order.map((id) => nodeRefs.current[id]?.offsetWidth || 0);
         const total = widths.reduce((sum, w) => sum + w, 0);
@@ -370,6 +377,8 @@ function useUnderSnow(phase, selected) {
           cursor += widths[i] + gap;
         });
       }
+      const updateSize = layoutDirty;
+      layoutDirty = false;
       CHAMBERS.forEach((item) => {
         const k = scene.key(item.id);
         const el = nodeRefs.current[item.id];
@@ -380,17 +389,48 @@ function useUnderSnow(phase, selected) {
         el.style.translate = `${(((wx - item.map.x) * W) / 100).toFixed(1)}px ${(((wy - item.map.y) * H) / 100).toFixed(1)}px`;
 
         // 버튼이 덩어리를 덮도록 크기를 맞춘다
-        const size = scene.blockSize(item.id);
-        el.style.setProperty('--obj-w', `${size.w.toFixed(0)}px`);
-        el.style.setProperty('--obj-h', `${size.h.toFixed(0)}px`);
+        if (updateSize) {
+          const size = scene.blockSize(item.id);
+          el.style.setProperty('--obj-w', `${size.w.toFixed(0)}px`);
+          el.style.setProperty('--obj-h', `${size.h.toFixed(0)}px`);
+        }
       });
     };
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('resize', resize);
-    raf = requestAnimationFrame(tick);
+    // 글꼴/화면 크기 변경 때만 폭을 잰다. 매 프레임 읽기·쓰기가 교차하는 강제 레이아웃을 피한다.
+    const observer = new ResizeObserver(() => {
+      layoutDirty = true;
+      if (!raf) tick(performance.now());
+    });
+    Object.values(nodeRefs.current).forEach((node) => { if (node) observer.observe(node); });
+    const resetView = (room) => {
+      descent = room ? 1 : 0;
+      hoverRef.current = null;
+      pointer.x = 0; pointer.y = 0; pointer.sx = 0; pointer.sy = 0;
+      trail.length = 0;
+      fogAmount = 0;
+      if (fogDrawn) fog?.clear();
+      fogDrawn = false;
+      layoutDirty = true;
+    };
+    controlRef.current = {
+      resetView,
+      sync: () => {
+        cancelAnimationFrame(raf);
+        raf = 0;
+        last = performance.now();
+        if (visibleRef.current) tick(last);
+        else resetView(null);
+      },
+    };
+    // 숨겨진 상태에서도 첫 장면을 한 번 그려 셰이더를 준비한 뒤 RAF를 쉰다.
+    tick(last);
     return () => {
       cancelAnimationFrame(raf);
+      controlRef.current = null;
+      observer.disconnect();
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('resize', resize);
       scene?.dispose();
@@ -398,7 +438,9 @@ function useUnderSnow(phase, selected) {
     };
   }, []);
 
-  return { hostRef, overlayRef, fogRef, nodeRefs, hoverRef };
+  useLayoutEffect(() => { controlRef.current?.sync(); }, [visible]);
+
+  return { hostRef, overlayRef, fogRef, nodeRefs, hoverRef, controlRef };
 }
 
 /**
@@ -490,12 +532,12 @@ function ProjectEvidence({ ids, onOpenProject }) {
   );
 }
 
-export default function About({ onGoMain, onOpenProject }) {
+function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProject }) {
   const [selected, setSelected] = useState(chamberFromHash);
   const [phase, setPhase] = useState(() => (chamberFromHash() ? 'reveal' : 'map'));
   const [visited, setVisited] = useState(() => new Set(selected ? [selected] : []));
   const chamber = useMemo(() => CHAMBERS.find((item) => item.id === selected) || null, [selected]);
-  const motion = useUnderSnow(phase, selected);
+  const motion = useUnderSnow(phase, selected, active);
   // BACKGROUND Figma 화면 — 고른 Frame 의 시기(왼쪽 기록에 뜬다)
   const [strip, setStrip] = useState(null);
   // APPROACH Figma 버전 기록 — 고른 기록(왼쪽 글에도 뜬다)
@@ -503,6 +545,28 @@ export default function About({ onGoMain, onOpenProject }) {
   const [zoom, setZoom] = useState(null);   // 크게 보는 작업물 이미지 { src, label }
   const modalClose = useRef(null);          // 방 안에 열린 작은 창(Figma 공유 창)을 닫는 함수
   const onModal = useCallback((close) => { modalClose.current = close; }, []);
+  const pendingRoute = useRef(undefined);
+
+  // 캐시된 방은 재진입 주소에 맞춘다. 사용자 문구/방 구성은 바꾸지 않는다.
+  useLayoutEffect(() => {
+    if (!active) {
+      setSelected(null);
+      setPhase('map');
+      setZoom(null);
+      modalClose.current = null;
+      return;
+    }
+    const room = chamberFromHash();
+    pendingRoute.current = room;
+    motion.controlRef.current?.resetView(room);
+    setSelected(room);
+    setPhase(room ? 'reveal' : 'map');
+    setVisited(new Set(room ? [room] : []));
+    setZoom(null);
+    setStrip(null);
+    setVersion('v1');
+    modalClose.current = null;
+  }, [active, entry]);
 
   const enter = useCallback((id) => {
     if (phase !== 'map') return;
@@ -528,14 +592,18 @@ export default function About({ onGoMain, onOpenProject }) {
 
   // 지금 있는 방을 주소에 남긴다 — 프로젝트 상세에서 뒤로 가면 이 방으로 돌아온다
   useEffect(() => {
-    if (!window.location.hash.startsWith('#/about')) return;
+    if (!active || !window.location.hash.startsWith('#/about')) return;
+    // 주소 동기화 layout effect가 반영되기 전 이전 방으로 주소를 덮지 않는다.
+    if (pendingRoute.current !== undefined && selected !== pendingRoute.current) return;
+    pendingRoute.current = undefined;
     const target = phase === 'reveal' && selected ? `#/about/${selected}` : phase === 'map' ? '#/about' : null;
     if (target && window.location.hash !== target) {
       window.history.replaceState(null, '', `${window.location.pathname}${target}`);
     }
-  }, [phase, selected]);
+  }, [active, phase, selected]);
 
   useEffect(() => {
+    if (!active) return undefined;
     if (phase === 'travel') {
       // 캔버스의 하강(DESCEND)이 끝나는 순간 방의 전등이 켜진다
       const timer = window.setTimeout(() => setPhase('impact'), DESCEND * 1000);
@@ -556,17 +624,19 @@ export default function About({ onGoMain, onOpenProject }) {
       const timer = window.setTimeout(() => {
         setSelected(null);
         setPhase('map');
-      }, 1120);
+      }, ASCEND * 1000 + 60); // 캔버스가 자리 잡은 뒤 지도 입력을 돌려준다
       return () => window.clearTimeout(timer);
     }
     return undefined;
-  }, [phase, selected]);
+  }, [active, phase, selected]);
 
   useEffect(() => {
-    if (!chamber) return undefined;
+    if (!active || !chamber) return undefined;
     // 방이 열려 있는 동안 Esc 는 '지도로'만 뜻한다.
     // App 도 window 에서 Esc 를 받아 MAIN 으로 보내므로, 캡처 단계에서 먼저 받고 거기서 멈춘다.
     const onKeyDown = (event) => {
+      // Contact 모달의 ESC/방향키는 뒤의 방을 조작하지 않는다.
+      if (event.target instanceof Element && event.target.closest('.contact[open]')) return;
       // 작업물을 크게 보고 있으면 Esc 는 그것만 닫는다
       if (zoom) {
         if (event.key === 'Escape') {
@@ -597,7 +667,7 @@ export default function About({ onGoMain, onOpenProject }) {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [chamber, leave, nextRoom, prevRoom, switchTo, zoom]);
+  }, [active, chamber, leave, nextRoom, prevRoom, switchTo, zoom]);
 
   const style = chamber ? {
     '--camera-x': `${CAMERA.x - chamber.room.x}vw`,
@@ -610,6 +680,8 @@ export default function About({ onGoMain, onOpenProject }) {
     <section
       className={`screen about about--${phase}`}
       aria-label="About me"
+      aria-hidden={!active}
+      inert={!active ? '' : undefined}
       style={style}
       onClick={(event) => {
         if (phase === 'reveal' && !event.target.closest('.about-room, .about-rooms')) leave();
@@ -660,13 +732,13 @@ export default function About({ onGoMain, onOpenProject }) {
                 groups={item.skills}
                 title={item.title}
                 intro={item.note}
-                active={selected === item.id && phase === 'reveal'}
+                active={active && selected === item.id && phase === 'reveal'}
               />
             ) : <>
             {item.strips ? (
               <FigmaBoard
                 strips={STRIPS}
-                active={selected === item.id && phase === 'reveal'}
+                active={active && selected === item.id && phase === 'reveal'}
                 current={strip}
                 onHover={setStrip}
                 onZoom={setZoom}
@@ -674,7 +746,7 @@ export default function About({ onGoMain, onOpenProject }) {
               />
             ) : item.versions ? (
               <VersionHistory
-                active={selected === item.id && phase === 'reveal'}
+                active={active && selected === item.id && phase === 'reveal'}
                 current={version}
                 onSelect={setVersion}
               />
@@ -737,7 +809,7 @@ export default function About({ onGoMain, onOpenProject }) {
         <span className="sys">OBSERVED {String(visited.size).padStart(2, '0')} / {ROOM_COUNT}</span>
       </div>
 
-      {/* 방 안의 길잡이 — 지도로 돌아가기, 다른 방으로 바로 가기, 다음 방 */}
+      {/* 방 안의 길잡이 — 지도로 돌아가기, 다른 방으로 바로 가기, 포트폴리오 */}
       <nav
         className={`about-rooms ${phase === 'reveal' || phase === 'impact' ? 'is-on' : ''}`}
         aria-label="ABOUT 방 이동"
@@ -766,10 +838,10 @@ export default function About({ onGoMain, onOpenProject }) {
         <button
           type="button"
           className="about-rooms__next sys"
-          onClick={() => switchTo(nextRoom.id)}
-          aria-label={`다음 방 ${nextRoom.label}`}
+          onClick={onGoPortfolio}
+          aria-label="포트폴리오 페이지로 이동"
         >
-          <span className="about-rooms__label">NEXT</span> <i aria-hidden="true">→</i>
+          <span className="about-rooms__label">PORTFOLIO</span> <i aria-hidden="true">→</i>
         </button>
       </nav>
 
@@ -783,3 +855,5 @@ export default function About({ onGoMain, onOpenProject }) {
     </section>
   );
 }
+
+export default memo(About);

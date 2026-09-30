@@ -151,27 +151,53 @@
   .ending__states { gap: 1.1em; font-size: 10px; letter-spacing: 0.24em; }
 }
 
-/* ── 관측창 — App 이 --iris-* 를 매 프레임 쓴다 ──
-   무대(.app-stage)가 원 안에서만 보이고, 원 가장자리엔 가는 서리선이 돈다 */
+/* ── 다시 얼어붙기(EndFreeze.jsx) — App 이 --freeze · --dark 를 매 프레임 쓴다 ──
+   가장자리부터 서리 결정이 자라고, 그 뒤로 인트로와 같은 흐릿한 얼음 막이 안쪽으로 번진다.
+   얼음의 앞선(--front)은 화면 가장자리(=바깥 100%)에서 가운데(0%)로 줄어든다 */
 .app-shell--ending { background: #000; }
-.app-shell--ending .app-stage {
-  clip-path: circle(var(--iris-r, 200vmax) at var(--iris-x, 50%) var(--iris-y, 50%));
-}
-.iris-ring {
+.end-freeze {
+  --front: calc((1 - var(--freeze, 0)) * 118%);
   position: fixed;
-  z-index: 45;
-  left: var(--iris-x, 50%);
-  top: var(--iris-y, 50%);
-  width: calc(var(--iris-r, 0px) * 2);
-  height: calc(var(--iris-r, 0px) * 2);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(194, 255, 245, 0.55);
-  box-shadow: 0 0 22px rgba(157, 222, 215, 0.22), inset 0 0 26px rgba(157, 222, 215, 0.14);
-  opacity: var(--iris-ring, 0);
+  inset: 0;
+  z-index: 58;   /* 포트폴리오의 글자·버튼(PROJECTS, 깊이 표시, SCROLL/LIST)까지 함께 얼어붙게 — 엔딩(60) 바로 아래 */
   pointer-events: none;
 }
-/* 창이 닫히는 동안 네비는 어둠에 묻힌다 */
+/* 얼음 막 — 인트로의 얼음판과 같은 결. 앞선보다 조금 뒤에서 따라온다 */
+.end-freeze__ice {
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(17px) saturate(.8) brightness(1.12);
+  backdrop-filter: blur(17px) saturate(.8) brightness(1.12);
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    radial-gradient(ellipse 80% 75% at 50% 50%, rgba(222, 240, 244, .04), rgba(236, 246, 248, .26));
+  -webkit-mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent calc(var(--front) + 6%), #000 calc(var(--front) + 26%));
+  mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent calc(var(--front) + 6%), #000 calc(var(--front) + 26%));
+  box-shadow: inset 0 0 140px rgba(226, 242, 246, calc(var(--freeze, 0) * .3));
+}
+/* 서리 결정 — 얼음 막보다 한발 앞서 자란다 */
+.end-freeze__crystals {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: rgba(240, 248, 250, .42);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px rgba(220, 240, 244, .45));
+  -webkit-mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent var(--front), #000 calc(var(--front) + 8%));
+  mask-image: radial-gradient(ellipse 72% 70% at 50% 50%, transparent var(--front), #000 calc(var(--front) + 8%));
+  opacity: calc(1 - var(--dark, 0) * .6);
+}
+/* 다 얼면 얼음 너머가 까맣게 가라앉는다 — 엔딩으로 */
+.end-freeze__dark {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: var(--dark, 0);
+}
+/* 암전되는 동안 네비는 어둠에 묻힌다 */
 .app-shell--ending .nav {
   opacity: calc(1 - var(--iris-p, 0) * 4);
   pointer-events: none;

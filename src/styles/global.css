@@ -30,17 +30,19 @@ body {
 }
 
 .app-stage { animation: scene-in 620ms var(--ease) both; }
+/* MAIN은 캐시된 WebGL 화면. 복귀 연기가 전환을 맡으므로 전체 blur/scale을 겹치지 않는다. */
+.app-stage--main { animation: none; }
 .app-stage--about {
   background: var(--bg);
   /* MAIN 의 연기 속에서 걸어 나오듯 등장한다 — 밀려 들어오지 않는다 */
   animation: fog-clear 920ms var(--ease) both;
 }
 @keyframes fog-clear {
-  from { opacity: 0; filter: blur(26px) brightness(1.85); transform: scale(1.055); }
+  from { opacity: 0; transform: scale(1.025); }
   55%  { opacity: 1; }
-  to   { opacity: 1; filter: blur(0) brightness(1); transform: scale(1); }
+  to   { opacity: 1; transform: scale(1); }
 }
-.app-stage--portfolio { animation-duration: 420ms; }
+.app-stage--portfolio { animation: scene-in 420ms var(--ease) both; }
 
 /* ──────────────────────────────────────────────
    얼음 통과 — MAIN 의 스크롤 끝에서 ABOUT 으로 넘어올 때만.
@@ -51,11 +53,8 @@ body {
    ────────────────────────────────────────────── */
 /* 뒤의 ABOUT 은 처음부터 불투명해야 한다 — 0 에서 페이드인하면 그 사이 body 의 검정이 비친다 */
 .app-shell--arrive-ice .app-stage--about {
-  animation: ice-focus 3400ms cubic-bezier(0.25, 0.6, 0.25, 1) both; /* SmokePassage DURATION 과 같게 */
-}
-@keyframes ice-focus {
-  from { filter: blur(18px) brightness(1.5); transform: scale(1.14); }
-  to   { filter: blur(0) brightness(1); transform: scale(1); }
+  /* 초점 이동은 연기의 밀도가 맡는다. WebGL 전체에 blur/brightness를 중첩하지 않는다. */
+  animation: none;
 }
 
 .smoke-passage {
@@ -80,6 +79,7 @@ body {
   clip-path: inset(calc(100% - var(--smoke-front, 0%)) 0 0 0);
   will-change: clip-path;
 }
+.smoke-veil--clearing { clip-path: none; }
 /* WebGL 이 없거나 모션 축소 — 연기 색에서 짧게 걷힌다 */
 .smoke-passage--plain {
   background: rgb(26, 29, 31);   /* smokeVeil.js 의 어두운 연기 바탕과 같은 톤 */

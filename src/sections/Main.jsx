@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import Ticks from '../components/Ticks';
 import FrostEdge from '../components/FrostEdge';
-import SmokeVeil from '../components/SmokeVeil';
 import { sublimationFront, sublimationFrontOpacity } from '../lib/sublimation';
 import './main.css';
 
@@ -23,7 +22,7 @@ const HeroIce = lazy(() => import('../components/HeroIce'));
 // 드라이아이스 — 고체인데 가만히 있지 않는다. 뒷줄은 기울여 '멈추지 않음'을 글자 모양으로도 보여 준다.
 const CLAIM = ['Solid,', 'but never still.'];
 
-export default function Main({ onScrollCue, introEntrance = false, transitionProgress = 0, rewinding = false }) {
+export default function Main({ active = true, onScrollCue, introEntrance = false, transitionProgress = 0, rewinding = false }) {
   const [cubeReady, setCubeReady] = useState(false);
   // 마지막 글자가 자리 잡으면 true — 그때부터 제목은 얼음 뒤 배경(굴절되는 쪽)이 맡는다
   const [claimSettled, setClaimSettled] = useState(
@@ -47,13 +46,15 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
     <section
       className={`screen main main--ice ${cubeReady ? 'is-cube-ready' : ''} ${claimSettled ? 'is-claim-settled' : ''} ${sublimating ? 'is-sublimating' : ''} ${rewinding ? 'is-rewinding' : ''}`}
       id="main"
+      aria-hidden={!active}
+      inert={!active ? '' : undefined}
       style={{
         '--exit': transitionProgress,
         // 글자는 얼음보다 먼저 사라진다 — 0.42 지점에서 이미 다 빠져 있다
         '--exit-opacity': Math.max(0, 1 - transitionProgress / 0.42),
         // 글자는 화면과 같이 내려가지 않는다. 위로 빠져나간다.
-        '--exit-shift': `${-Math.min(1, transitionProgress / 0.42) * 118}px`,
-        '--exit-blur': `${Math.min(1, transitionProgress / 0.42) * 9}px`,
+        '--exit-shift': `${-Math.min(1, transitionProgress / 0.42) * (rewinding ? 28 : 118)}px`,
+        '--exit-blur': `${rewinding ? 0 : Math.min(1, transitionProgress / 0.42) * 9}px`,
         '--ticks-opacity': 0.3 * Math.max(0, 1 - transitionProgress / 0.5),
         // 연기는 중반부터 차오른다
         '--fog': Math.max(0, (transitionProgress - 0.22) / 0.78),
@@ -63,6 +64,7 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
 
       <Suspense fallback={<div className="ice-cube-hero ice-cube-hero--loading" />}>
         <HeroIce
+          active={active}
           initialEntrance={introEntrance}
           exitProgress={transitionProgress}
           onReadout={updateReadout}
@@ -70,10 +72,9 @@ export default function Main({ onScrollCue, introEntrance = false, transitionPro
         />
       </Suspense>
 
-      <FrostEdge paused={sublimating} />
+      <FrostEdge paused={!active || sublimating} />
 
       {/* 얼음이 김으로 풀리는 동안 그 자리에서 연기가 차올라 화면을 덮는다 */}
-      <SmokeVeil progress={transitionProgress} />
       <div className="main__vapor" aria-hidden="true" />
 
       {/* ── 정보층 — 어떤 상태에서도 가려지지 않는다 ── */}

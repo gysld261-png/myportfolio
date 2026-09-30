@@ -49,6 +49,7 @@ const SMOKE_WARP = 20;                                   // 드러나는 동안 
    END_WHEEL 휠 px 을 밀면 끝까지(=1). 구간 길이는 화면 높이의 END_TRAVEL 배 */
 const END_WHEEL = 1100;
 const END_TRAVEL = 0.95;
+const END_GLIDE = 0.7;   // 이만큼 넘게 밀면 나머지는 저절로 끝까지
 
 export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused, onEndProgress, endControlRef }) {
   // 엔딩 진행도(0 열림 → 1 닫힘)를 App 에 알린다
@@ -269,9 +270,13 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       if (!endProgressRef.current || !s.centers.length) return false;
       const lastIndex = s.centers.length - 1;
       const at = s.snapIndex ?? activeRef.current;
-      const settled = at === lastIndex && !s.push && Math.abs(s.target - s.current) < 3 && Math.abs(s.vel || 0) < 12;
+      // 마지막 프로젝트 끝에 닿아 있으면 들어간다. 예전엔 '완전히 멈춤(push 0, 속도 0)'까지 기다렸는데,
+      // 트랙패드 관성처럼 휠이 계속 들어오면 push 가 0 이 되지 않아 입구에서 영영 막혔다
+      const settled = at === lastIndex && s.target >= endMax() - 2 && Math.abs(endMax() - s.current) < 60;
       if (!((s.over || 0) > 0) && !(delta > 0 && settled)) return false;
       s.over = clamp((s.over || 0) + delta / END_WHEEL, 0, 1);
+      // 70% 를 넘기면 손을 떼도 끝까지 스르륵 — 반쯤 어두운 채로 멈춰 들어가지 못하는 일이 없게
+      if (delta > 0 && s.over > END_GLIDE) s.over = 1;
       s.target = endMax() + s.over * root.clientHeight * END_TRAVEL;
       s.snapAt = 0;
       s.push = 0;

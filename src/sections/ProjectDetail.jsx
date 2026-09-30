@@ -220,6 +220,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   useEffect(() => {
     if (!spec) return undefined;
     const onKey = (e) => {
+      if (e.target instanceof Element && e.target.closest('.contact[open]')) return;
       if (e.key !== 'Escape') return;
       e.preventDefault();
       e.stopImmediatePropagation();

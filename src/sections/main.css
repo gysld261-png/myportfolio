@@ -56,6 +56,9 @@
 }
 
 /* ── 3D 얼음 히어로 (SPECIMEN 00) ── */
+.app-stage > .main { position: absolute; inset: 0; }
+.main[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
+.main.is-rewinding .main__type { transition: none; }
 .ice-3d-hero {
   position: absolute;
   inset: var(--nav-h) 0 0;
@@ -293,7 +296,8 @@
 /* ABOUT 에서 되돌아온 경우엔 마스크 리빌을 다시 재생하지 않는다.
    안개가 걷히면서 글자가 제자리로 내려오는 것만으로 충분하고,
    두 모션이 겹치면 글자가 두 번 움직이는 것처럼 보인다. */
-.main.is-rewinding .claimchar { animation: none; opacity: 1; transform: none; filter: none; }
+.main.is-rewinding .claimchar,
+.main.is-claim-settled .claimchar { animation: none; opacity: 1; transform: none; filter: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .claimchar { opacity: 1; transform: none; filter: none; animation: none; }

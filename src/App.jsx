@@ -6,9 +6,10 @@ import About from './sections/About';
 import Portfolio from './sections/Portfolio';
 import Contact from './sections/Contact';
 import SplashCursor from './components/SplashCursor';
-import SmokePassage from './components/SmokePassage';
+import SmokeVeil from './components/SmokeVeil';
 import CustomCursor from './components/CustomCursor';
 import Ending from './sections/Ending';
+import EndFreeze from './components/EndFreeze';
 import { approach, clamp, prefersReduced } from './lib/smooth';
 
 const routeFromLocation = () => {
@@ -33,8 +34,9 @@ const WHEEL_COMMIT = 0.72;
 /* ABOUT 지도에서 이만큼 위로 밀어야 MAIN 으로 돌아간다 — 트랙패드 한 번 튕긴 것으로는 넘어가지 않게 */
 const BACK_THRESHOLD = 160;
 const BACK_THRESHOLD_TOUCH = 90;
+const REWIND_DURATION = 1100;
 /* 지도 화면일 때만 되돌아간다. 방 안에서의 스크롤은 방 내용을 읽는 데 쓴다 */
-const aboutOnMap = () => Boolean(document.querySelector('.about--map'));
+const aboutOnMap = () => Boolean(document.querySelector('.about--map:not([aria-hidden="true"])'));
 
 /**
  * 세로 문서가 아니라 하나의 고정된 전시 공간이다.
@@ -50,11 +52,15 @@ export default function App() {
   const [intro, setIntro] = useState(initialView.current === 'main' ? 'active' : 'done');
   const [mainExit, setMainExit] = useState(0);
   const [rewinding, setRewinding] = useState(false);
+  // MAIN은 한 번 준비한 뒤 보관한다. 숨겨진 장면의 GPU 루프는 따로 멈춘다.
+  const [mainCached, setMainCached] = useState(initialView.current === 'main');
+  const [aboutCached, setAboutCached] = useState(initialView.current === 'about');
+  const [aboutEntry, setAboutEntry] = useState(0);
   /* 'ice' — MAIN 에서 얼음을 통과해 ABOUT 에 도착했다. 탭으로 들어올 땐 없다.
      다음 이동 전까지 유지한다 — 연기가 걷힌 뒤 떼면 ABOUT 의 등장 애니메이션이
      기본값(fog-clear)으로 바뀌면서 한 번 더 재생돼 화면이 두 번 번쩍인다. */
   const [arrival, setArrival] = useState(null);
-  /* 연기 막(SmokePassage)이 떠 있는 동안만 true */
+  /* 같은 연기 캔버스가 ABOUT 위에서 걷히는 동안만 true */
   const [passage, setPassage] = useState(false);
   /* ABOUT 의 방에서 프로젝트로 건너왔을 때 — 상세에 '그 방으로 돌아가기'를 띄운다 */
   const [origin, setOrigin] = useState(null);
@@ -71,12 +77,39 @@ export default function App() {
   const touchPrev = useRef(null);
   const wheelIdle = useRef(0);      // 휠이 멈춘 뒤 끝까지 넘길지 판단하는 타이머
   const backAccum = useRef(0);      // ABOUT 에서 위로 민 양
+  const backAt = useRef(0);
+  const rewindStarted = useRef(0);
+
+  useEffect(() => {
+    if (mainCached || current !== 'about') return undefined;
+    // About 직접 진입도 메인 복귀 직전에 셰이더를 만들지 않도록 미리 준비한다.
+    const warm = () => setMainCached(true);
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(warm, { timeout: 1200 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 250);
+    return () => window.clearTimeout(id);
+  }, [current, mainCached]);
+
+  useEffect(() => {
+    if (aboutCached || current !== 'main') return undefined;
+    // 전환 한가운데 PMREM·얼음 셰이더·방 UI를 만들지 않는다.
+    // 인트로/메인 유휴 시간에 첫 프레임까지 준비하고, 숨겨진 GPU 루프는 멈춘다.
+    const warm = () => setAboutCached(true);
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(warm, { timeout: 1000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 250);
+    return () => window.clearTimeout(id);
+  }, [current, aboutCached]);
 
   /* 브라우저 탭을 벗어났을 때만 짧은 메시지를 보여주고,
      다시 돌아오면 포트폴리오 제목으로 즉시 복원한다. */
   useEffect(() => {
     const defaultTitle = '박효민 — Portfolio';
-    const awayTitle = '더 보여드릴게요.';
+    const awayTitle = '잠깐, 아직 남았어요.';
     const syncTabTitle = () => {
       document.title = document.hidden ? awayTitle : defaultTitle;
     };
@@ -139,11 +172,19 @@ export default function App() {
     // 어디로 가든 관측창은 다시 활짝 연 상태로 시작한다
     setEnding('idle');
     setCurrent(id);
+    if (id === 'main') setMainCached(true);
+    if (id === 'about') {
+      setAboutCached(true);
+      setAboutEntry((entry) => entry + 1);
+    }
     setOrigin(id === 'portfolio' ? from : null);
     backAccum.current = 0;
+    backAt.current = 0;
+    rewindStarted.current = 0;
+    window.clearTimeout(wheelIdle.current);
     setArrival(id === 'about' && via === 'ice' ? 'ice' : null);
     setPassage(id === 'about' && via === 'ice');
-    if (id === 'main' && rewind) {
+    if (id === 'main' && rewind && !prefersReduced()) {
       exitValue.current = 1;
       exitTarget.current = 0;
       setMainExit(1);
@@ -166,17 +207,27 @@ export default function App() {
     }
   }, []);
 
+  // 숨겨진 About은 진행도 갱신 때마다 다시 렌더링하지 않도록 콜백도 고정한다.
+  const aboutToMain = useCallback(() => go('main', { rewind: true }), [go]);
+  const aboutToPortfolio = useCallback(() => go('portfolio'), [go]);
+  const aboutToProject = useCallback((project, from) => go('portfolio', { project, from }), [go]);
+  const finishPassage = useCallback(() => setPassage(false), []);
+
   /* 버튼·키보드로 한 번에 넘어갈 때도 값을 순간이동시키지 않고 목표만 올린다 */
   const requestExit = useCallback(() => {
+    if (rewinding) return;
     exitTarget.current = 1;
-  }, []);
+  }, [rewinding]);
+
+  const leaveIntro = useCallback(() => setIntro((now) => (now === 'active' ? 'leaving' : now)), []);
 
   useEffect(() => {
     if (intro === 'done') return undefined;
     const reduced = prefersReduced();
+    // 인트로(이름 승화)는 연기가 걷힐 때 onLeave 를 부른다. 여기 시간은 무슨 일이 있어도 넘어가게 하는 안전장치
     const timer = intro === 'active'
-      ? window.setTimeout(() => setIntro('leaving'), reduced ? 80 : 1180)
-      : window.setTimeout(() => setIntro('done'), reduced ? 160 : 700);
+      ? window.setTimeout(() => setIntro('leaving'), reduced ? 80 : 12000)
+      : window.setTimeout(() => setIntro('done'), reduced ? 160 : 560);
     return () => window.clearTimeout(timer);
   }, [intro]);
 
@@ -196,7 +247,12 @@ export default function App() {
       const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
       last = now;
 
-      let next = clamp(approach(exitValue.current, exitTarget.current, dt, EXIT_TAU), 0, 1);
+      if (rewinding && !rewindStarted.current) rewindStarted.current = now;
+      const rewindTime = clamp((now - rewindStarted.current) / REWIND_DURATION, 0, 1);
+      // 복귀는 휠 추적과 분리한 한 번의 곡선: 시작·끝이 부드럽고 잔여 휠에 흔들리지 않는다.
+      let next = rewinding
+        ? 1 - rewindTime * rewindTime * (3 - 2 * rewindTime)
+        : clamp(approach(exitValue.current, exitTarget.current, dt, EXIT_TAU), 0, 1);
       // 지수 감쇠는 목표에 영원히 도달하지 않는다. 가까워지면 붙여준다.
       // 안 그러면 0.03 쯤에서 멈춰 글자가 계속 흐릿한 채로 남는다.
       if (Math.abs(next - exitTarget.current) < 0.004) next = exitTarget.current;
@@ -205,7 +261,7 @@ export default function App() {
         setMainExit(next);
       }
 
-      if (rewinding && next < 0.02) setRewinding(false);
+      if (rewinding && rewindTime >= 1) setRewinding(false);
 
       // 연기가 화면을 다 덮은 뒤에 ABOUT 이 그 자리에 나타난다.
       // 목표가 1 일 때만 — 되감는 중에 1 을 지나며 다시 넘어가면 무한 왕복이 된다.
@@ -238,12 +294,21 @@ export default function App() {
       exitTarget.current = 0;
       exitValue.current = 0;
       setMainExit(0);
+      setRewinding(false);
+      rewindStarted.current = 0;
+      backAccum.current = 0;
+      window.clearTimeout(wheelIdle.current);
       setArrival(null);
       setPassage(false);
       const next = routeFromLocation();
       if (next !== 'portfolio') setOrigin(null);
       setEnding('idle');
       setCurrent(next);
+      if (next === 'main') setMainCached(true);
+      if (next === 'about') {
+        setAboutCached(true);
+        setAboutEntry((entry) => entry + 1);
+      }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -251,7 +316,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (event) => {
-      if (contactOpen || intro !== 'done') return;
+      if (contactOpen || intro !== 'done' || rewinding) return;
       if (current === 'main' && ['ArrowDown', 'PageDown', ' '].includes(event.key)) {
         event.preventDefault();
         requestExit();
@@ -266,15 +331,18 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [contactOpen, current, go, intro, requestExit]);
+  }, [contactOpen, current, go, intro, requestExit, rewinding]);
 
   const onWheel = useCallback((event) => {
-    if (contactOpen || intro !== 'done') return;
+    if (contactOpen || intro !== 'done' || rewinding) return;
     const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
     const delta = clamp(event.deltaY * unit, -180, 180);
 
     if (current === 'about') {
       if (delta < 0 && aboutOnMap()) {
+        const now = performance.now();
+        if (now - backAt.current > 240) backAccum.current = 0;
+        backAt.current = now;
         backAccum.current += -delta;
         if (backAccum.current > BACK_THRESHOLD) go('main', { rewind: true });
       } else {
@@ -295,14 +363,15 @@ export default function App() {
     wheelIdle.current = window.setTimeout(() => {
       if (exitTarget.current > WHEEL_COMMIT && exitTarget.current < 1) exitTarget.current = 1;
     }, 200);
-  }, [contactOpen, current, go, intro]);
+  }, [contactOpen, current, go, intro, rewinding]);
 
   const onTouchStart = useCallback((event) => {
+    backAccum.current = 0;
     touchPrev.current = event.touches[0]?.clientY ?? null;
   }, []);
 
   const onTouchMove = useCallback((event) => {
-    if (touchPrev.current == null || intro !== 'done') return;
+    if (touchPrev.current == null || intro !== 'done' || contactOpen || rewinding) return;
     const y = event.touches[0]?.clientY ?? touchPrev.current;
     const delta = touchPrev.current - y;
     touchPrev.current = y;
@@ -318,31 +387,28 @@ export default function App() {
     }
     if (current !== 'main') return;
     exitTarget.current = clamp(exitTarget.current + delta / 420, 0, 1);
-  }, [current, go, intro]);
+  }, [current, go, intro, contactOpen, rewinding]);
 
   const onTouchEnd = useCallback(() => {
+    if (rewinding) { touchPrev.current = null; return; }
     // 절반 넘게 밀었으면 끝까지, 아니면 제자리로 — 어중간하게 멈추지 않는다
-    if (current === 'main' && exitTarget.current > 0.42) exitTarget.current = 1;
+    if (current === 'main' && !rewinding && exitTarget.current > 0.42) exitTarget.current = 1;
     else if (current === 'main') exitTarget.current = 0;
     touchPrev.current = null;
-  }, [current]);
+  }, [current, rewinding]);
 
   /* ── 엔딩: 관측창 ──
      진행도(0 열림 → 1 닫힘)는 WorkScroll 이 준다 — 마지막 얼음 뒤로 더 내린 양이다. 되돌아가지 않고 민 만큼 머문다.
      창은 화면 가운데, 마지막 얼음이 위로 빠져나간 빈 자리에서 닫힌다.
      반지름은 가운데서 모서리까지 × (1 − v)^1.35 — 처음엔 빨리 오므라들고 끝에선 천천히 조여 '슉' 하고 닫힌다 */
+  /* 다시 얼어붙기(EndFreeze) — 인트로에서 깬 얼음이, 끝에서 다시 언다.
+     --freeze: 가장자리부터 서리 결정·얼음 막이 안쪽으로. --dark: 거의 다 얼면 얼음 너머가 까맣게 가라앉는다 */
   const applyIris = useCallback((v) => {
     const shell = shellRef.current;
     if (!shell) return;
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const r = (Math.hypot(w / 2, h / 2) + 2) * (1 - v) ** 1.35;
-    shell.style.setProperty('--iris-x', `${(w / 2).toFixed(1)}px`);
-    shell.style.setProperty('--iris-y', `${(h / 2).toFixed(1)}px`);
-    shell.style.setProperty('--iris-r', `${r.toFixed(1)}px`);
     shell.style.setProperty('--iris-p', v.toFixed(4));
-    // 서리선은 창이 움직일 때만 — 활짝 열렸거나 다 닫혔을 땐 없다
-    shell.style.setProperty('--iris-ring', v > 0.004 && v < 0.999 ? Math.min(1, v * 6).toFixed(3) : '0');
+    shell.style.setProperty('--freeze', Math.min(1, v * 1.12).toFixed(4));
+    shell.style.setProperty('--dark', (Math.max(0, (v - 0.7) / 0.3) ** 1.4).toFixed(4));
   }, []);
 
   const endControl = useRef(null);   // WorkScroll 이 채운다 — rewind(): 빈 공간을 거두고 마지막 얼음으로
@@ -381,19 +447,23 @@ export default function App() {
         progress={current === 'main' ? mainExit : 0}
       />
 
-      <main key={current} className={`app-stage app-stage--${current}`}>
-        {current === 'main' && (
+      <main className={`app-stage app-stage--${current}`}>
+        {mainCached && (
           <Main
+            active={current === 'main'}
             introEntrance={intro !== 'done'}
             transitionProgress={mainExit}
             rewinding={rewinding}
             onScrollCue={requestExit}
           />
         )}
-        {current === 'about' && (
+        {aboutCached && (
           <About
-            onGoMain={() => go('main', { rewind: true })}
-            onOpenProject={(project, from) => go('portfolio', { project, from })}
+            active={current === 'about'}
+            entry={aboutEntry}
+            onGoMain={aboutToMain}
+            onGoPortfolio={aboutToPortfolio}
+            onOpenProject={aboutToProject}
           />
         )}
         {current === 'portfolio' && (
@@ -409,15 +479,20 @@ export default function App() {
         )}
       </main>
 
-      {/* 관측창의 서리선과 엔딩 — 창이 닫히기 시작하면 나타난다 */}
-      {ending !== 'idle' && <span className="iris-ring" aria-hidden="true" />}
+      {/* 다시 얼어붙기와 엔딩 — 끝에서 더 내리기 시작하면 나타난다 */}
+      {ending !== 'idle' && <EndFreeze />}
       {(ending === 'credits' || ending === 'opening') && (
         <Ending active={ending === 'credits'} onExit={exitEnding} onGoMain={endToMain} />
       )}
 
       {/* 연기 통과 — MAIN 의 마지막 연기 화면을 이어받아 연기 밖으로 빠져나온다 */}
-      {passage && current === 'about' && (
-        <SmokePassage onDone={() => setPassage(false)} />
+      {mainCached && (
+        <SmokeVeil
+          progress={mainExit}
+          active={current === 'main' || (current === 'about' && passage)}
+          clearing={current === 'about' && passage}
+          onDone={finishPassage}
+        />
       )}
 
       {/* ── 커서 유체 — MAIN 에서만 ──
@@ -433,10 +508,12 @@ export default function App() {
            CONTACT 가 열려 있을 때도 끈다 — 그때는 읽고 연락하는 화면이다.
 
            빼려면 이 블록과 위의 import 한 줄만 지우면 된다. */}
-      {intro === 'done' && current === 'main' && !contactOpen && <SplashCursor />}
+      {intro === 'done' && mainCached && (
+        <SplashCursor active={current === 'main' && !contactOpen && !rewinding && mainExit <= 0.01} />
+      )}
 
       <Contact open={contactOpen} onClose={() => setContactOpen(false)} />
-      {intro !== 'done' && <Intro phase={intro} onSkip={() => setIntro('leaving')} />}
+      {intro !== 'done' && <Intro phase={intro} onLeave={leaveIntro} />}
       {/* 따라다니는 점 — 링크 위에서 링, 표본·보드 위에서 라벨이 붙는다 */}
       <CustomCursor />
     </div>

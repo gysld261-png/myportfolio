@@ -138,9 +138,9 @@ export function createSmokeRenderer(canvas) {
   const uGather = gl.getUniformLocation(program, 'uGather');
 
   // 연기는 원래 흐릿하다 — 해상도를 낮춰도 티가 안 나고 fbm 6옥타브가 가벼워진다.
-  // 두 캔버스가 같은 해상도여야 결이 똑같이 그려진다.
+  // 하나의 캔버스를 왕복 재사용한다. 큰 모니터에서도 노이즈 연산량이 폭증하지 않게 제한한다.
   const resize = () => {
-    const scale = Math.min(window.devicePixelRatio || 1, 1) * 0.6;
+    const scale = Math.min(0.5, Math.sqrt(450000 / (window.innerWidth * window.innerHeight)));
     canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
     canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
     gl.viewport(0, 0, canvas.width, canvas.height);
