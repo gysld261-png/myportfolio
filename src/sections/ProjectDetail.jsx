@@ -189,10 +189,10 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   }, [renderSpec]);
   const nextData = next ? getCase(next.id) : null;
   const nextPreview = nextData?.cinematicHero || nextData?.hero || (next?.id === 'odit' ? {
-    src: '/cases/odit-preview.jpg',
-    width: 2400,
-    height: 1500,
-    alt: 'ODIT 관심사 탐색 서비스의 주요 모바일 화면',
+    src: '/cases/odit/mockups/detail-mockup.webp',
+    width: 2880,
+    height: 1800,
+    alt: '오딧 홈·오딧맵·배지 화면을 담은 휴대폰 목업 3개',
   } : null);
 
   /* concept 자리표가 없으면 리듬 맨 끝에 붙인다 — 글이 사라지는 일은 없게 */
@@ -500,7 +500,18 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
 
             {/* ── 리듬 ── */}
             {data.layout === 'boards' ? (
-              <CaseStudyBoards key={renderSpec.id} blocks={blocks} active={Boolean(spec)} />
+              <>
+                {/* 보드는 이미지만 그린다 — CONCEPT 글은 보드 앞에 따로 둔다 */}
+                {(data.concept || []).length > 0 && (
+                  <section className="dconcept dconcept--boards" data-reveal>
+                    <p className="dmeta__label sys">CONCEPT</p>
+                    <div className="dconcept__body">
+                      {data.concept.map((t, j) => <p key={j}>{t}</p>)}
+                    </div>
+                  </section>
+                )}
+                <CaseStudyBoards key={renderSpec.id} blocks={blocks} active={Boolean(spec)} />
+              </>
             ) : <div className="dflow">
               {blocks.map((b, i) => (
                 b.type === 'concept'

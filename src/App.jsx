@@ -141,7 +141,7 @@ export default function App() {
         '/cases/walga/boards/main.webp',
         '/cases/tchaikim/hero-mockup.webp',
         '/cases/odit/main-v1.webp',
-        '/cases/odit-preview.jpg',
+        '/cases/odit/mockups/detail-mockup.webp',
       ].forEach((src) => {
         const image = new Image();
         image.decoding = 'async';

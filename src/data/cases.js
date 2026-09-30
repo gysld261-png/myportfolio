@@ -37,7 +37,10 @@ export const CASES = {
     categories: ['UX/UI DESIGN', 'PROTOTYPE'],
     role: ['UX Research', 'UI Design', 'Prototype'],
     info: '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 목록을 훑는 대신 하나의 관심에서 옆으로 걸어 들어가게 만드는 것이 목표였고, 리서치부터 Figma 프로토타입까지 설계했습니다.',
-    concept: [],
+    concept: [
+      '역사는 흔히 연도와 사건을 외우는 과목으로 기억됩니다. 외워야 할 목록이 되면, 궁금한 것 하나가 다음 궁금증으로 이어지기 어렵습니다.',
+      '그래서 시작을 연표가 아니라 관심사에 두었습니다. 고른 관심사에서 이야기를 읽고 한 줄 정리로 핵심을 잡은 뒤, 이어진 인물·사건·장소로 옆으로 걸어 들어갑니다. 지나온 길은 오딧맵에 탐색 경로로 남고, 저장한 이야기는 언제든 다시 읽을 수 있습니다.',
+    ],
     visit: [
       { label: 'VIEW PROTOTYPE', href: 'https://www.figma.com/proto/hEKHltlCyGEM6LywJ60Ylw/ODIT?page-id=2024%3A572&node-id=2046-2610&starting-point-node-id=2046%3A2610&scaling=scale-down&content-scaling=fixed' },
       { label: 'GITHUB', href: '' },
@@ -62,11 +65,11 @@ export const CASES = {
     year: '2026',
     categories: ['UX/UI DESIGN', 'FRONTEND', 'DESIGN SYSTEM'],
     role: ['UI Design', 'Frontend', 'Design System'],
-    info: '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 DL 기록 체계로 팀의 디자인 시스템과 핸드오프 기준을 만들었습니다.',
-    teamSize: 4,
+    info: '한복 브랜드 차이킴의 영문 웹사이트를 5인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 DL 기록 체계로 팀의 디자인 시스템과 핸드오프 기준을 만들었습니다.',
+    teamSize: 5,
     concept: [
-      '설문에 응한 14명 가운데 기성복 차이킴과 맞춤 브랜드 차이킴영진의 구조를 알아본 사람은 한 명도 없었고, 구매를 망설인 이유 1위는 입은 모습을 볼 수 없다는 것이었습니다. 해외 사용자에게 한복은 낯선 옷이고, 배자·철릭·거들 같은 이름은 더 낯섭니다.',
-      '그래서 설명보다 착용컷을 먼저 보여 주고, 낯선 이름은 옷이 생겨난 이야기로 풀었습니다. Shop은 룩북을 넘기듯 원통 갤러리로 시작해 Garment Story에서 한 벌씩 읽히게 했고, 메인에서는 철릭 한 벌을 옷깃·소매·몸판·치마로 나눠 보여 준 뒤 두 브랜드를 같은 자리에서 번갈아 보여 주었습니다.',
+      '해외 사용자에게 한복은 낯선 옷이고, 배자·철릭·거들 같은 이름은 더 낯섭니다. 상품 사진만으로는 입었을 때의 모습을 떠올리기 어려웠고, 기성복 차이킴과 맞춤 브랜드 차이킴영진이 어떻게 다른지도 한눈에 보이지 않았습니다.',
+      '그래서 설명보다 착용컷을 먼저 보여 주고, 낯선 이름은 그 옷이 생겨난 이야기로 풀었습니다. Shop은 룩북을 넘기듯 원통 갤러리로 시작해 Garment Story에서 한 벌씩 읽히게 했습니다. 메인에서는 철릭 한 벌을 옷깃·소매·몸판·치마로 나눠 보여 준 뒤, 두 브랜드를 같은 자리에서 번갈아 보여 주었습니다.',
     ],
     visit: [
       { label: 'VIEW SITE', href: 'https://gysld261-png.github.io/tchaikimm/pages/main/index.html' },
@@ -139,7 +142,10 @@ export const CASES = {
     categories: ['PM', 'UX/UI DESIGN', 'FRONTEND'],
     role: ['PM', 'IA', 'UI Design', 'Frontend'],
     info: '일상 갈등을 AI의 정리와 배심원의 여러 관점으로 풀어 보는 커뮤니티 웹앱입니다. PM으로 정보 구조를 잡고, 배심원 광장·사건 접수·사건 상세와 투표를 설계하고 구현했습니다.',
-    concept: [],
+    concept: [
+      '일상의 갈등을 두고 다른 사람은 어떻게 볼지 궁금해도, 결론만 모여 있으면 왜 그렇게 판단했는지는 비교하기 어렵습니다.',
+      '그래서 판단의 근거를 먼저 보여 주고, 서로 다른 관점을 나란히 놓고, 참여 범위는 스스로 고르게 하는 것을 원칙으로 두었습니다. AI가 사건을 정리한 1심 위에 배심원 투표를 2심으로 올려 두 판단의 차이가 보이게 했고, 처음의 승패 중심 결과 화면도 판단 기준을 비교하는 화면으로 바꿨습니다.',
+    ],
     visit: [
       /* 사이트의 canonical 은 /home/ 이다. 온보딩부터 보여줄지 본 화면으로 바로 보낼지는 선택. */
       { label: 'VIEW SITE', href: 'https://walgawal-bot.vercel.app/onboarding' },

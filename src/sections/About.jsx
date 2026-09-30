@@ -26,7 +26,7 @@ const CHAMBERS = [
         {
           label: 'EDUCATION',
           rows: [
-            { at: '2026.04', text: '이젠아카데미 AI활용 UI/UX 부트캠프', sub: '이젠아카데미DX교육센터 강남 · 2026.10 수료 예정' },
+            { at: '2026.04', text: '이젠아카데미 AI활용 UI/UX 부트캠프', sub: '이젠아카데미DX교육센터 강남 · 2026.10 수료' },
             { at: '2026.02', text: '인덕대학교 시각디자인학과 졸업' },
           ],
         },
@@ -58,7 +58,7 @@ const CHAMBERS = [
         id: 'team', parent: 'bootcamp', at: '2026.05', period: '2026.05 — 09', name: '팀 프로젝트',
         kept: '제 생각을 정답으로 두지 않고, 사용자의 행동을 근거로 문제를 정의하고 고칩니다. 왈가왈봇과 TCHAIKIM은 그 기준으로 기획부터 구현까지 맡은 프로젝트입니다.',
         images: [
-          { src: '/cases/walga-screens.jpg', label: '왈가왈봇' },
+          { src: '/cases/walga/boards/main.webp', label: '왈가왈봇' },
           { src: '/cases/tchaikim-home.jpg', label: 'TCHAIKIM' },
         ],
         projects: ['walga', 'tchaikim'],
@@ -68,7 +68,7 @@ const CHAMBERS = [
         kept: '6개월 동안 HTML·CSS·JavaScript·React(TypeScript)와 Figma를 익혔습니다. 화면을 그리는 데서 멈추지 않고 직접 만들어 사용자가 실제로 어떻게 쓰는지 확인하게 되었고, 팀 프로젝트 TCHAIKIM으로 최우수상을 받았습니다.',
         images: [
           { src: '/cases/odit/main-v1.webp', label: 'ODIT · 개인 프로젝트' },
-          { src: '/cases/odit-preview.jpg', label: 'ODIT · 주요 화면' },
+          { src: '/cases/odit/mockups/detail-mockup.webp', label: 'ODIT · 주요 화면' },
         ],
         projects: ['odit'],
       },

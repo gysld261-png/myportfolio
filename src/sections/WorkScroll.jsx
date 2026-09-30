@@ -23,7 +23,7 @@ const SPECIMEN = {
 
 /* 가운데 창에 비치는 화면. 화면 자료가 없는 프로젝트는 표본 사진으로 둔다. */
 const PREVIEW = {
-  odit: { kind: 'image', src: '/cases/odit-preview.jpg' },
+  odit: { kind: 'image', src: '/cases/odit/main-v1.webp' },
   tchaikim: { kind: 'video', src: '/cases/tchaikim-scroll.webm', poster: '/cases/tchaikim-scroll-poster.jpg' },
   walga: { kind: 'image', src: '/cases/walga/boards/01.webp' },
 };

@@ -802,6 +802,8 @@
   padding: clamp(60px, 8vw, 130px) 0 clamp(50px, 6vw, 100px);
 }
 .dconcept__body { min-width: 0; }
+/* 보드 레이아웃에서는 보드와 같은 폭으로 가운데 */
+.dconcept--boards { width: min(1040px, calc(100% - var(--dg) * 2)); margin-inline: auto; padding-top: clamp(40px, 5vw, 80px); }
 /* 레벨 2 — CONCEPT 는 INFO 보다 작다.
    INFO 는 붙잡는 글이고 CONCEPT 는 읽을 사람만 읽는 글이라 위계가 다르다.
    K95 도 CONCEPT 를 AWARDS 줄과 같은 크기로 둔다. */
