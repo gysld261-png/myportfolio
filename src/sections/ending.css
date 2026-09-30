@@ -1,0 +1,192 @@
+/* ─────────────────────────────────────────────────────────────
+   ENDING — 관측창이 닫힌 뒤의 장면. 레퍼런스(seunghyuk.com/contact)의 톤을 따른다:
+   검은 화면, 선으로 된 오브젝트, 아래쪽에 쌓이는 단어, 작고 굵은 대문자, 자간 넓게, 마지막엔 연락처 한 줄.
+   진행도는 JS 가 --p 와 구간별 변수(--mark · --s0~2 · --say · --end)로 흘려 준다.
+   ───────────────────────────────────────────────────────────── */
+
+.ending {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  color: #f2f4f2;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  cursor: grab;
+  transition: opacity 600ms var(--ease);
+  --mark: 1; --s0: 0; --s1: 0; --s2: 0; --say: 0; --end: 0;
+}
+.ending.is-active { opacity: 1; pointer-events: auto; }
+.ending.is-dragging { cursor: grabbing; }
+
+.ending__scene { position: absolute; inset: 0; }
+.ending__scene canvas { display: block; width: 100%; height: 100%; }
+
+/* 가운데 표식 — 관측창이 닫힌 그 점이 작은 사각형으로 남아 있다가, 결정이 자라며 사라진다 */
+.ending__mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border: 1px solid rgba(242, 244, 242, 0.85);
+  opacity: var(--mark);
+  pointer-events: none;
+}
+
+/* 떠다니는 글자 — 흩어진 점 사이에 제 작업의 이름이 떠오른다 */
+.ending__labels span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: #cfd9d6;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* 한 문장 */
+.ending__say {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  opacity: var(--say);
+  pointer-events: none;
+}
+.ending__say span {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ending__say small { max-width: min(86vw, 520px); font-size: 12px; line-height: 1.6; color: #9aa4a1; letter-spacing: 0.04em; text-align: center; word-break: keep-all; }
+
+/* 상태 이름 — 아래쪽에 하나씩 쌓인다 (레퍼런스의 LINE · PLANE · DOT) */
+.ending__states {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(56px, 11vh, 110px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: 1.8em;
+  transform: translateX(-50%);
+  color: #f2f4f2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  pointer-events: none;
+}
+
+/* 마지막 — 점 구름 위에 연락처 한 줄 */
+.ending__contact {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: baseline;
+  gap: clamp(18px, 2.4vw, 40px);
+  transform: translate(-50%, -50%);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: var(--end);
+  pointer-events: none;
+}
+.ending.is-final .ending__contact { pointer-events: auto; }
+.ending__contact strong { font-weight: 800; letter-spacing: 0.1em; }
+.ending__contact a,
+.ending__contact button {
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-decoration: none;
+  text-transform: inherit;
+  cursor: pointer;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 320ms var(--ease), color 240ms ease;
+}
+.ending__contact a:hover,
+.ending__contact button:hover { background-size: 100% 1px; color: var(--accent-bright); }
+.ending__contact a { text-transform: none; }
+.ending__contact a[href^='http'] { text-transform: uppercase; }
+
+.ending__esc,
+.ending__hint {
+  position: absolute;
+  margin: 0;
+  color: #7d8784;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+.ending__esc { top: 22px; right: var(--nav-gutter); padding: 6px 0; border: 0; background: none; cursor: pointer; }
+.ending__esc:hover { color: #f2f4f2; }
+.ending__hint { right: var(--nav-gutter); bottom: 24px; pointer-events: none; }
+
+@media (max-width: 700px) {
+  .ending__contact { flex-direction: column; align-items: center; gap: 10px; }
+  .ending__say span { font-size: 11px; letter-spacing: 0.22em; }
+  .ending__states { gap: 1.1em; font-size: 10px; letter-spacing: 0.24em; }
+}
+
+/* ── 관측창 — App 이 --iris-* 를 매 프레임 쓴다 ──
+   무대(.app-stage)가 원 안에서만 보이고, 원 가장자리엔 가는 서리선이 돈다 */
+.app-shell--ending { background: #000; }
+.app-shell--ending .app-stage {
+  clip-path: circle(var(--iris-r, 200vmax) at var(--iris-x, 50%) var(--iris-y, 50%));
+}
+.iris-ring {
+  position: fixed;
+  z-index: 45;
+  left: var(--iris-x, 50%);
+  top: var(--iris-y, 50%);
+  width: calc(var(--iris-r, 0px) * 2);
+  height: calc(var(--iris-r, 0px) * 2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(194, 255, 245, 0.55);
+  box-shadow: 0 0 22px rgba(157, 222, 215, 0.22), inset 0 0 26px rgba(157, 222, 215, 0.14);
+  opacity: var(--iris-ring, 0);
+  pointer-events: none;
+}
+/* 창이 닫히는 동안 네비는 어둠에 묻힌다 */
+.app-shell--ending .nav {
+  opacity: calc(1 - var(--iris-p, 0) * 4);
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .credits__work dl > div,
+  .credits__pairs > div { grid-template-columns: 1fr; row-gap: 4px; text-align: center; }
+  .credits__work dt,
+  .credits__pairs dt { text-align: center; }
+  .credits__links a { grid-template-columns: 64px 1fr auto; }
+  /* 좁은 화면에선 크레딧이 가운데를 가득 채워 버튼 밑을 지나간다 — 버튼을 위로 올린다 */
+  .ending__controls { top: 16px; bottom: auto; right: 16px; }
+  .credits__work h3 em { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ending__line, .ending__sub { animation: none !important; }
+}

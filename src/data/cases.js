@@ -39,7 +39,7 @@ export const CASES = {
     info: '관심사를 시작점으로 인물·사건·장소를 연결하며 탐색하는 서비스입니다. 목록을 훑는 대신 하나의 관심에서 옆으로 걸어 들어가게 만드는 것이 목표였고, 설계와 구현을 함께 진행하고 있습니다.',
     concept: [],
     visit: [
-      { label: 'VIEW SITE', href: '' },
+      { label: 'VIEW PROTOTYPE', href: 'https://www.figma.com/proto/hEKHltlCyGEM6LywJ60Ylw/ODIT?page-id=2024%3A572&node-id=2046-2610&starting-point-node-id=2046%3A2610&scaling=scale-down&content-scaling=fixed' },
       { label: 'GITHUB', href: '' },
     ],
     blocks: [
@@ -62,27 +62,20 @@ export const CASES = {
     role: ['UI Design', 'Frontend', 'Design System'],
     info: '한복 브랜드 차이킴의 영문 웹사이트를 4인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 DL 기록 체계로 팀의 디자인 시스템과 핸드오프 기준을 만들었습니다.',
     teamSize: 4,
-    ownership: [
-      { label: 'DEVELOPMENT', level: 'LEAD', scope: 'Shop과 메인 핵심 섹션 구현' },
-      { label: 'TEAM OPERATION', level: 'LEAD', scope: '개발 팀장으로 구현 기준과 진행 조율' },
-      { label: 'UI DESIGN', level: 'CORE', scope: 'Shop·모티프·브랜드·컬렉션 설계' },
-      { label: 'DESIGN SYSTEM', level: 'CORE', scope: '타이포 토큰·DL 기록·핸드오프 기준' },
-      { label: 'UX', level: 'SUPPORT', scope: '설문 해석과 사용자 흐름 설계 지원' },
-    ],
     concept: [
       '설문에 응한 14명 가운데 기성복 차이킴과 맞춤 브랜드 차이킴영진의 구조를 알아본 사람은 한 명도 없었고, 구매를 망설인 이유 1위는 입은 모습을 볼 수 없다는 것이었습니다. 해외 사용자에게 한복은 낯선 옷이고, 배자·철릭·거들 같은 이름은 더 낯섭니다.',
       '그래서 설명보다 착용컷을 먼저 보여 주고, 낯선 이름은 옷이 생겨난 이야기로 풀었습니다. Shop은 룩북을 넘기듯 원통 갤러리로 시작해 Garment Story에서 한 벌씩 읽히게 했고, 메인에서는 철릭 한 벌을 옷깃·소매·몸판·치마로 나눠 보여 준 뒤 두 브랜드를 같은 자리에서 번갈아 보여 주었습니다.',
     ],
     visit: [
       { label: 'VIEW SITE', href: 'https://gysld261-png.github.io/tchaikimm/pages/main/index.html' },
-      { label: 'DECK (PDF)', href: '' },   // public/ 에 넣고 '/tchaikim-deck.pdf'
+      { label: 'DECK', href: 'https://www.figma.com/deck/sBlaHSzLRzdYwAZtKSjnqd' },   // Figma 슬라이드 프레젠테이션 링크(누구나 · 보기)
       { label: 'GITHUB', href: 'https://github.com/gysld261-png/tchaikimm' },
     ],
     /* 이미지 리듬 — 원본은 Figma 'TCHAIKIM 포트폴리오 상세 목업'의 '추천 구성 (2x)' 페이지
        (https://www.figma.com/design/S673Ys4HtDt3j8YQgUTOWw). 프레임 이름이 곧 파일 이름이고 프레임이 이미 2x 라
        Figma 에서 고친 뒤 1x 로 내보내면 그대로 2880px 이다 → WebP 로 바꿔 같은 이름으로 덮어쓴다.
        기기 목업만 이어지면 지루해서 종류를 섞는다: 목업(c) · 설계 도해(d) · 영상(v) · 에디토리얼(e) · UI 크롭(k) · 디자인 시스템(s).
-       영상은 로컬 저장소를 헤드리스 Chrome 으로 녹화해 브라우저 안에서 WebM 으로 인코딩했다(motion/).
+       영상은 로컬 저장소를 헤드리스 Chrome 으로 녹화한 WebM 과 사용자 녹화 편집본 MP4 를 사용한다(motion/).
        split 은 왼쪽 4:5 + 오른쪽 16:10(1fr:2fr 에서 높이가 맞는다), duo 는 두 장 비율이 같다.
        이전 케이스 스터디 보드(boards/)는 쓰지 않지만 파일은 남겨 둔다. */
     blocks: [
@@ -102,7 +95,7 @@ export const CASES = {
         // Figma VIDEO SLOT 자리: x 260 · y 440 · w 780 (프레임 2880 × 1760)
         overlay: { video: '/cases/tchaikim/motion/v03-card-hover.webm', poster: '/cases/tchaikim/motion/v03-card-hover-poster.jpg', x: 9.028, y: 25, w: 27.083, alt: '상품 카드에 커서를 올리면 착용컷이 원단 디테일로 바뀌는 화면 녹화' },
       },
-      { type: 'full', video: '/cases/tchaikim/motion/v02-orbit.webm', poster: '/cases/tchaikim/motion/v02-orbit-poster.jpg', alt: 'Garment Story — 스크롤하면 원형 궤도를 따라 배자에서 철릭으로 넘어가는 화면 녹화' },
+      { type: 'full', video: '/cases/tchaikim/motion/v02-orbit-slow-intro-1p5s.mp4', poster: '/cases/tchaikim/motion/v02-orbit-slow-intro-1p5s-poster.jpg', alt: 'Garment Story — 스크롤하면 원형 궤도를 따라 배자·철릭·거들로 넘어가는 화면 녹화' },
       { type: 'full', src: '/cases/tchaikim/mockups/d02-cheollik-anatomy.webp', alt: '메인 모티프 — 철릭을 옷깃, 소매, 몸판, 치마로 나눠 읽기' },
       { type: 'full', src: '/cases/tchaikim/mockups/c08-brands.webp', alt: '메인 브랜드 — 두 브랜드를 번갈아 보여 주는 카드 스택' },
       { type: 'full', src: '/cases/tchaikim/mockups/s01-design-system.webp', alt: '디자인 토큰 — 타이포 스케일, 색과 대비, 버튼과 태그' },
@@ -114,13 +107,13 @@ export const CASES = {
      03 문화누리카드
      ───────────────────────────────────────────────────────── */
   nuri: {
-    year: '2025',
+    year: '2026',
     categories: ['UX/UI DESIGN'],
     role: ['UX Research', 'IA', 'UI Design'],
     info: '꼭 필요한 사람에게 가장 빠른 길을 내주는 것이 목표였던 사용성 개선 프로젝트입니다. 쓰는 사람이 무엇을 못 찾고 있는지부터 확인하고, 거기서부터 정보 구조를 다시 짰습니다.',
     concept: [],
     visit: [
-      { label: 'DECK (PDF)', href: '' },
+      { label: 'DECK', href: '' },   // Figma 슬라이드 링크를 채우면 버튼이 나온다
     ],
     blocks: [
       { type: 'full', src: '', alt: '개선 화면' },
@@ -148,8 +141,8 @@ export const CASES = {
     visit: [
       /* 사이트의 canonical 은 /home/ 이다. 온보딩부터 보여줄지 본 화면으로 바로 보낼지는 선택. */
       { label: 'VIEW SITE', href: 'https://walgawal-bot.vercel.app/onboarding' },
-      /* 기획서 나오면 public/ 에 넣고 '/walga-deck.pdf' 로 채우면 그때 버튼이 나온다 */
-      { label: 'DECK (PDF)', href: '' },
+      /* 기획서 — Figma 슬라이드 프레젠테이션 링크(누구나 · 보기)를 채우면 그때 버튼이 나온다 */
+      { label: 'DECK', href: '' },
     ],
     cinematicHero: {
       src: '/cases/walga/boards/main.webp',

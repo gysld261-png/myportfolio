@@ -44,7 +44,16 @@ const smokeIntercept = (p, lead = 0) => -(smokeThreshold(p) - lead) * SMOKE_SLOP
 const SMOKE_LEAD = 1.5;                                 // 김이 이미지보다 얼마나 앞서 피어나는지
 const SMOKE_WARP = 20;                                   // 드러나는 동안 일렁임(px)
 
-export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused }) {
+/* 엔딩 — 마지막 프로젝트 뒤로 더 내리는 구간. 마지막 얼음도 앞의 얼음처럼 위로 빠져나가 빈 공간이 되고,
+   그만큼 관측창(App)이 닫힌다. 되돌아가지 않는다 — 멈추면 민 만큼 그 자리에 머문다.
+   END_WHEEL 휠 px 을 밀면 끝까지(=1). 구간 길이는 화면 높이의 END_TRAVEL 배 */
+const END_WHEEL = 1100;
+const END_TRAVEL = 0.95;
+
+export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused, onEndProgress, endControlRef }) {
+  // 엔딩 진행도(0 열림 → 1 닫힘)를 App 에 알린다
+  const endProgressRef = useRef(onEndProgress);
+  endProgressRef.current = onEndProgress;
   const rootRef = useRef(null);
   const trackRef = useRef(null);
   const driftHostRef = useRef(null);
@@ -101,17 +110,13 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     }
   }, []);
 
-  // 네 표본은 렌더러 하나를 공유한다. 무한 스크롤의 복제 행은 DOM 앵커로만 사용한다.
+  // 표본은 렌더러 하나를 공유한다. 현재 표본부터 준비하고 다른 로고를 기다리지 않는다.
   useEffect(() => {
     let cancelled = false;
     let field = null;
-    import('../lib/workIceScene').then(({ createWorkIceField }) => (
-      createWorkIceField(iceHostRef.current, rootRef.current, specs.map((spec) => spec.id))
-    )).then((created) => {
-      if (cancelled) {
-        created.dispose();
-        return;
-      }
+    import('../lib/workIceScene').then(({ createWorkIceField }) => {
+      if (cancelled) return;
+      const created = createWorkIceField(iceHostRef.current, rootRef.current, specs.map(spec => spec.id), { initialIndex: activeRef.current });
       field = created;
       iceFieldRef.current = created;
       created.setPaused(pausedRef.current);
@@ -163,7 +168,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       }
       velocity = approach(velocity, clamp((s.current - prev) / Math.max(dt, 0.001) / 2600, -1, 1), dt, 0.08);
 
-      if (!reduced && s.snapAt && now >= s.snapAt) {
+      if (!reduced && s.snapAt && now >= s.snapAt && !(s.over > 0)) {
         // 휠을 놓으면 굴린 방향의 다음 프로젝트로 넘어가 가운데에 멈춘다. 제자리로
         // 되돌아가지 않는다. 트랙패드의 아주 작은 떨림(휠 반 칸 미만)만 무시한다.
         const from = s.snapIndex ?? activeRef.current;
@@ -179,8 +184,16 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       }
 
       const max = Math.max(0, s.setHeight - root.clientHeight);
-      s.target = clamp(s.target, 0, max);
-      s.current = clamp(s.current, 0, max);
+      // 엔딩 구간만큼은 끝을 넘어 더 올라갈 수 있다
+      const endDist = root.clientHeight * END_TRAVEL;
+      const limit = max + (s.over || 0) * endDist;
+      s.target = clamp(s.target, 0, limit);
+      s.current = clamp(s.current, 0, Math.max(limit, s.current > max ? s.current : max));
+      const endV = clamp((s.current - max) / endDist, 0, 1);
+      if (Math.abs(endV - (s.endV ?? 0)) > 0.0005 || (endV === 0 && s.endV > 0)) {
+        s.endV = endV;
+        endProgressRef.current?.(endV);
+      }
       track.style.transform = `translate3d(0, ${-s.current}px, 0)`;
       root.style.setProperty('--sv', velocity.toFixed(4));
       iceFieldRef.current?.setVelocity(velocity);
@@ -248,11 +261,52 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     };
     frame = requestAnimationFrame(tick);
 
+    /* 엔딩 구간을 민다(휠·터치 px). 받아 썼으면 true.
+       마지막 프로젝트에 완전히 멈춘 뒤에만 들어간다 — 앞 프로젝트에서 넘어오던 관성(트랙패드)이 곧바로 끌려가지 않게.
+       한 번 들어간 뒤엔 위아래 모두 여기서 받는다. 0 까지 돌아오면 원래 스크롤로 돌아간다 */
+    const endMax = () => Math.max(0, s.setHeight - root.clientHeight);
+    const pushEnd = (delta) => {
+      if (!endProgressRef.current || !s.centers.length) return false;
+      const lastIndex = s.centers.length - 1;
+      const at = s.snapIndex ?? activeRef.current;
+      const settled = at === lastIndex && !s.push && Math.abs(s.target - s.current) < 3 && Math.abs(s.vel || 0) < 12;
+      if (!((s.over || 0) > 0) && !(delta > 0 && settled)) return false;
+      s.over = clamp((s.over || 0) + delta / END_WHEEL, 0, 1);
+      s.target = endMax() + s.over * root.clientHeight * END_TRAVEL;
+      s.snapAt = 0;
+      s.push = 0;
+      s.snapped = false;
+      s.snapIndex = lastIndex;
+      return true;
+    };
+    if (endControlRef) {
+      endControlRef.current = {
+        // 엔딩에서 돌아올 때 — 빈 공간이 다시 내려오며 마지막 얼음이 돌아온다
+        // 엔딩을 빠져나오던 휠의 남은 관성이 앞 프로젝트까지 끌고 올라가지 않게 잠깐 입력을 쉰다
+        rewind: () => { s.over = 0; s.target = endMax(); s.snapped = false; s.push = 0; s.snapAt = 0; s.lockUntil = performance.now() + 900; },
+        // 키보드 — 한 번에 끝까지
+        close: () => { s.over = 1; s.target = endMax() + root.clientHeight * END_TRAVEL; s.snapAt = 0; s.push = 0; s.snapped = false; },
+        // 엔딩 구간에서 프로젝트를 열 때 — 오므라들던 관측창이 상세 위에 남지 않게 거둔다.
+        // 전환이 있으면 목록이 제자리로 미끄러지며 창이 열리고, 곧바로 상세로 가면(now) 그 자리에서 연다
+        reset: (now = false) => {
+          if (!((s.over || 0) > 0) && !(s.endV > 0)) return;
+          s.over = 0; s.target = endMax(); s.snapAt = 0; s.push = 0; s.snapped = false;
+          if (now) {
+            s.current = s.target; s.endV = 0;
+            track.style.transform = `translate3d(0, ${-s.current}px, 0)`;
+            endProgressRef.current?.(0);
+          }
+        },
+      };
+    }
+
     const onWheel = (event) => {
       if (pausedRef.current) return;
       if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
+      if (s.lockUntil && performance.now() < s.lockUntil) return;
       const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? root.clientHeight : 1;
+      if (pushEnd(event.deltaY * unit)) { pointer.current.dirty = true; return; }
       // 굴리는 동안은 누적 입력(push)만큼 얼음이 따라 움직이고, 포화 곡선이라 끝으로 갈수록
       // 묵직해진다. 휠을 놓으면 위의 정렬 단계에서 굴린 방향의 다음 프로젝트로 넘어간다.
       s.push = (s.push || 0) + event.deltaY * unit;
@@ -272,7 +326,15 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       drift.setPointer((event.clientX - bounds.left) / bounds.width - 0.5, (event.clientY - bounds.top) / bounds.height - 0.5);
       iceFieldRef.current?.setPointer((event.clientX - bounds.left) / bounds.width - 0.5, (event.clientY - bounds.top) / bounds.height - 0.5);
       if (touchY === null) return;
-      s.target = clamp(s.target + (touchY - event.clientY) * 1.6, 0, Math.max(0, s.setHeight - root.clientHeight));
+      // 터치 — 마지막 프로젝트 끝에서 더 끌어올리면 엔딩 구간으로
+      const max = endMax();
+      const drag = touchY - event.clientY;
+      if (s.target >= max - 1 || (s.over || 0) > 0) {
+        const lastIndex = s.centers.length - 1;
+        if (drag > 0 && !((s.over || 0) > 0)) { s.snapIndex = lastIndex; s.push = 0; s.vel = 0; s.current = s.target; }
+        if (pushEnd(drag * 2)) { touchY = event.clientY; return; }
+      }
+      s.target = clamp(s.target + drag * 1.6, 0, max);
       s.snapAt = 0;
       touchY = event.clientY;
     };
@@ -358,10 +420,12 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     // WebGL 장면이 아직 준비되지 않았으면 보이지 않는 2.6초 전환을 기다리지 않는다.
     // 상세로 즉시 들어가는 편이 늦게 나타나는 얼음보다 안정적이고 예측 가능하다.
     if (!iceFieldRef.current || prefersReduced()) {
+      endControlRef?.current?.reset?.(true);
       onOpen(spec.id);
       return;
     }
 
+    endControlRef?.current?.reset?.();
     setHoverIndex(index);
     hoverRef.current = index;
     launchingRef.current = index;
@@ -371,6 +435,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     window.clearTimeout(launchTimerRef.current);
     launchTimerRef.current = window.setTimeout(() => {
       launchTimerRef.current = 0;
+      endControlRef?.current?.reset?.(true);   // 상세가 열리면 목록이 멈춘다 — 남은 한 조각까지 열어 두고 넘긴다
       onOpen(spec.id);
     }, LAUNCH_MS);
   }, [launching, onEnter, onOpen, specs]);
@@ -399,13 +464,23 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     if (paused) return undefined;
     const onKey = (event) => {
       if (event.target.closest('input, textarea, select')) return;
-      if (['ArrowDown', 'PageDown'].includes(event.key)) { event.preventDefault(); step(1); }
-      if (['ArrowUp', 'PageUp'].includes(event.key)) { event.preventDefault(); step(-1); }
+      if (['ArrowDown', 'PageDown'].includes(event.key)) {
+        event.preventDefault();
+        // 마지막 프로젝트에서 한 번 더 내리면 엔딩
+        if (activeRef.current === specs.length - 1 && endControlRef?.current) endControlRef.current.close();
+        else step(1);
+      }
+      if (['ArrowUp', 'PageUp'].includes(event.key)) {
+        event.preventDefault();
+        // 엔딩 구간에 있으면 먼저 빈 공간을 거두고 마지막 얼음으로 돌아온다
+        if ((scroll.current.over || 0) > 0 && endControlRef?.current) endControlRef.current.rewind();
+        else step(-1);
+      }
       if (event.key === 'Enter' && !event.target.closest('button, a')) { event.preventDefault(); launch(activeRef.current); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [launch, paused, step]);
+  }, [launch, paused, specs.length, step]);
 
   // 영상은 창에 비칠 때만 돈다
   useEffect(() => {
@@ -540,7 +615,10 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       <p className="work__foot" aria-hidden="true">
         Selected work 2026.<br />UX/UI design and frontend.
       </p>
-      <p className="work__scroll sys" aria-hidden="true"><i />SCROLL</p>
+      {/* 마지막 프로젝트에선 더 내리면 무엇이 있는지 알려 준다 */}
+      <p className={`work__scroll sys ${activeIndex === specs.length - 1 ? 'is-end' : ''}`} aria-hidden="true">
+        <i />{activeIndex === specs.length - 1 ? 'KEEP SCROLLING · END' : 'SCROLL'}
+      </p>
     </div>
   );
 }

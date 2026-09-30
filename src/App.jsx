@@ -8,6 +8,7 @@ import Contact from './sections/Contact';
 import SplashCursor from './components/SplashCursor';
 import SmokePassage from './components/SmokePassage';
 import CustomCursor from './components/CustomCursor';
+import Ending from './sections/Ending';
 import { approach, clamp, prefersReduced } from './lib/smooth';
 
 const routeFromLocation = () => {
@@ -57,6 +58,11 @@ export default function App() {
   const [passage, setPassage] = useState(false);
   /* ABOUT 의 방에서 프로젝트로 건너왔을 때 — 상세에 '그 방으로 돌아가기'를 띄운다 */
   const [origin, setOrigin] = useState(null);
+  /* 엔딩 단계 — idle · pull(미는 중) · closing(끝까지 닫히는 중) · credits · opening(다시 열리는 중) */
+  const [ending, setEnding] = useState('idle');
+  const endingRef = useRef('idle');
+  endingRef.current = ending;
+  const shellRef = useRef(null);
 
   const exitTarget = useRef(0);     // 휠이 미는 값
   const exitValue = useRef(0);      // 화면에 실제로 그려지는 값
@@ -69,7 +75,7 @@ export default function App() {
   /* 브라우저 탭을 벗어났을 때만 짧은 메시지를 보여주고,
      다시 돌아오면 포트폴리오 제목으로 즉시 복원한다. */
   useEffect(() => {
-    const defaultTitle = '박효민 — 포트폴리오';
+    const defaultTitle = '박효민 — Portfolio';
     const awayTitle = '더 보여드릴게요.';
     const syncTabTitle = () => {
       document.title = document.hidden ? awayTitle : defaultTitle;
@@ -92,6 +98,9 @@ export default function App() {
     const warm = () => {
       import('./lib/workIceScene').catch(() => {});
       [
+        '/cases/walga-logo.svg',
+        '/cases/odit-logo.svg',
+        '/cases/tchaikim-logo.svg',
         '/cases/walga/boards/main.webp',
         '/cases/tchaikim/hero-mockup.webp',
         '/cases/odit/main-v1.webp',
@@ -127,6 +136,8 @@ export default function App() {
     if (!['main', 'about', 'portfolio'].includes(id)) return;
 
     setContactOpen(false);
+    // 어디로 가든 관측창은 다시 활짝 연 상태로 시작한다
+    setEnding('idle');
     setCurrent(id);
     setOrigin(id === 'portfolio' ? from : null);
     backAccum.current = 0;
@@ -231,6 +242,7 @@ export default function App() {
       setPassage(false);
       const next = routeFromLocation();
       if (next !== 'portfolio') setOrigin(null);
+      setEnding('idle');
       setCurrent(next);
     };
     window.addEventListener('popstate', onPop);
@@ -315,9 +327,49 @@ export default function App() {
     touchPrev.current = null;
   }, [current]);
 
+  /* ── 엔딩: 관측창 ──
+     진행도(0 열림 → 1 닫힘)는 WorkScroll 이 준다 — 마지막 얼음 뒤로 더 내린 양이다. 되돌아가지 않고 민 만큼 머문다.
+     창은 화면 가운데, 마지막 얼음이 위로 빠져나간 빈 자리에서 닫힌다.
+     반지름은 가운데서 모서리까지 × (1 − v)^1.35 — 처음엔 빨리 오므라들고 끝에선 천천히 조여 '슉' 하고 닫힌다 */
+  const applyIris = useCallback((v) => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const r = (Math.hypot(w / 2, h / 2) + 2) * (1 - v) ** 1.35;
+    shell.style.setProperty('--iris-x', `${(w / 2).toFixed(1)}px`);
+    shell.style.setProperty('--iris-y', `${(h / 2).toFixed(1)}px`);
+    shell.style.setProperty('--iris-r', `${r.toFixed(1)}px`);
+    shell.style.setProperty('--iris-p', v.toFixed(4));
+    // 서리선은 창이 움직일 때만 — 활짝 열렸거나 다 닫혔을 땐 없다
+    shell.style.setProperty('--iris-ring', v > 0.004 && v < 0.999 ? Math.min(1, v * 6).toFixed(3) : '0');
+  }, []);
+
+  const endControl = useRef(null);   // WorkScroll 이 채운다 — rewind(): 빈 공간을 거두고 마지막 얼음으로
+  const endArmed = useRef(true);     // 엔딩에서 막 돌아온 직후엔 다 닫힌 상태라 곧바로 다시 들어가지 않게
+
+  const onEndProgress = useCallback((v) => {
+    const st = endingRef.current;
+    if (st === 'credits') return;
+    applyIris(v);
+    if (v < 0.9) endArmed.current = true;
+    if (v >= 0.985 && endArmed.current) { endArmed.current = false; setEnding('credits'); return; }
+    if (v > 0.001 && st === 'idle') setEnding('pull');
+    else if (v <= 0.001 && st !== 'idle') setEnding('idle');
+  }, [applyIris]);
+
+  const exitEnding = useCallback(() => {
+    setEnding('opening');
+    endControl.current?.rewind();
+  }, []);
+
+  // 엔딩에서 '처음으로' — 창을 연 상태로 되돌리고 MAIN 으로
+  const endToMain = useCallback(() => { go('main'); }, [go]);
+
   return (
     <div
-      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''}`}
+      ref={shellRef}
+      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''} ${ending !== 'idle' ? 'app-shell--ending' : ''}`}
       onWheel={onWheel}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -350,9 +402,18 @@ export default function App() {
               label: origin.label,
               onBack: () => go('about', { chamber: origin.chamber }),
             } : null}
+            onEndProgress={onEndProgress}
+            endControlRef={endControl}
+            suspended={ending === 'credits'}
           />
         )}
       </main>
+
+      {/* 관측창의 서리선과 엔딩 — 창이 닫히기 시작하면 나타난다 */}
+      {ending !== 'idle' && <span className="iris-ring" aria-hidden="true" />}
+      {(ending === 'credits' || ending === 'opening') && (
+        <Ending active={ending === 'credits'} onExit={exitEnding} onGoMain={endToMain} />
+      )}
 
       {/* 연기 통과 — MAIN 의 마지막 연기 화면을 이어받아 연기 밖으로 빠져나온다 */}
       {passage && current === 'about' && (

@@ -3,6 +3,9 @@ import { byId } from '../data/specimens';
 import { prefersReduced } from '../lib/smooth';
 import { createUnderSnow } from '../lib/aboutUnderScene';
 import { createRoomFog, TRAIL, TRAIL_LIFE } from '../lib/roomFog';
+import FigmaBoard, { StripReadout } from './FigmaBoard';
+import SkillsToolkit from './SkillsToolkit';
+import VersionHistory, { VersionReadout } from './VersionHistory';
 import './about.css';
 
 const MAP_CENTER = { x: 130, y: 48 };
@@ -41,39 +44,71 @@ const CHAMBERS = [
   {
     id: 'observe', no: '01', label: 'BACKGROUND', type: 'observe',
     map: { x: 92, y: 29 }, room: { x: 54, y: 178 },
-    eyebrow: 'BACKGROUND / RANGE 01',
-    title: '기획부터 구현까지,\n경계를 넘나듭니다',
-    note: 'PM과 IA로 방향과 흐름을 정리하고, UI 디자인과 프론트엔드 구현으로 결과를 직접 확인해 왔습니다. 역할을 나누기보다 필요한 일을 연결하며 프로젝트를 완성합니다.',
-    projects: ['walga', 'tchaikim'],
-    tags: ['PM', 'IA', 'UI DESIGN', 'FRONTEND'],
+    eyebrow: 'BACKGROUND / WORKING FILE 01',
+    title: '지나온 작업도\n다시 들여다봅니다',
+    note: '좋은 평가를 받은 결과물이라도, 사용자에 대한 근거가 달라지면 다시 질문합니다. 시각디자인에서 UX/UI로, 다시 구현으로 이어 온 작업을 꺼내 들여다보며 지금의 기준을 만들었습니다.',
+    /* Figma 화면의 Section — 하나가 한 시기. 여기는 최근 순으로 적고, 화면에는 뒤집어 오래된 것부터 위에서 아래로 놓는다.
+       at     시작한 달 — 기록의 온도(00 ABOUT 이력과 같은 눈금)
+       images 필름에 담긴 작업물 { src, label } — 왼쪽 기록에도 크게 뜨고, 누르면 확대된다
+       [초안] 문구·날짜는 확정 전이다. 전공 이미지는 화질 낮은 임시본(-tmp) — 원본으로 바꿔야 한다 */
+    strips: [
+      {
+        id: 'team', at: '2026.06', period: '2026 — NOW', name: '팀 프로젝트',
+        kept: '제 생각을 정답으로 두지 않고, 사용자의 행동을 근거로 문제를 정의하고 고칩니다. 왈가왈봇과 TCHAIKIM은 그 기준으로 기획부터 구현까지 맡은 프로젝트입니다.',
+        images: [
+          { src: '/cases/walga-screens.jpg', label: '왈가왈봇' },
+          { src: '/cases/tchaikim-home.jpg', label: 'TCHAIKIM' },
+        ],
+        projects: ['walga', 'tchaikim'],
+      },
+      {
+        id: 'bootcamp', at: '2026.04', period: '2026.04 — 10', name: 'AI활용 UI/UX 부트캠프',
+        kept: '6개월 동안 HTML·CSS·JavaScript·React(TypeScript)와 Figma를 익혔습니다. 화면을 그리는 데서 멈추지 않고 직접 만들어 사용자가 실제로 어떻게 쓰는지 확인하게 되었고, 팀·개인 프로젝트로 최우수상을 받았습니다.',
+        images: [
+          { src: '/cases/odit/main-v1.webp', label: 'ODIT · 개인 프로젝트' },
+          { src: '/cases/odit-preview.jpg', label: 'ODIT · 주요 화면' },
+        ],
+        projects: ['odit'],
+      },
+      {
+        id: 'major', at: '2022.03', period: '2022 — 2026.02', name: '시각디자인 전공',
+        kept: '캐릭터 · 포스터 · 편집 · 브랜딩처럼 하나의 결과물을 완성하는 과목들 사이에서 UX/UI를 처음 만났습니다. 사용자의 시선과 행동을 기준으로 정보를 구조화하고 계속 고쳐 나간다는 점에 끌렸고, 편집 · 브랜딩 · UX/UI 작업으로 졸업전시 우수상을 받았습니다.',
+        images: [
+          { src: '/about/background/editorial-tmp.jpg', label: '편집 디자인' },
+          { src: '/about/background/branding-tmp.jpg', label: '브랜딩 디자인' },
+        ],
+      },
+    ],
   },
   {
     id: 'structure', no: '02', label: 'SKILLS', type: 'skills',
     map: { x: 167, y: 29 }, room: { x: 207, y: 177 },
     eyebrow: 'SKILLS / TOOLKIT 02',
-    title: '도구보다,\n연결하는 능력',
-    note: '문제를 구조화하고 화면으로 설계한 뒤 직접 구현합니다. AI는 탐색과 제작 속도를 높이는 도구로 사용하고, 결과는 직접 판단하고 수정합니다.',
+    title: '보기 쉽게,\n쓰는 재미까지.',
+    note: '사용자 흐름을 꼼꼼히 살피고, 보기 쉽고 이해하기 편한 화면을 고민합니다.\n그 흐름에 어울리는 색과 인터랙션으로 저만의 재미를 더합니다.',
     projects: ['tchaikim', 'walga'],
     skills: [
       {
         no: '01', label: 'UX/UI DESIGN',
-        items: ['Figma', 'User Flow', 'Wireframe', 'Prototype', 'Design System'],
-        detail: '사용자 흐름을 구조화하고 인터페이스와 시스템으로 전개',
+        items: [{ name: 'Figma', icon: 'figma', annotation: 'MCP 연동' }, { name: '프로토타이핑', icon: 'prototype' }],
+        detail: '사용자 흐름을 살피고, 와이어프레임부터 화면과 프로토타입까지 연결합니다.',
+        scope: 'Auto Layout · Variants',
       },
       {
         no: '02', label: 'FRONTEND',
-        items: ['React', 'TypeScript', 'JavaScript', 'HTML/CSS', 'Responsive Web'],
-        detail: '반응형 화면과 인터랙션을 실제 웹으로 구현',
+        items: [{ name: 'HTML5', icon: 'html5' }, { name: 'JavaScript', icon: 'javascript' }, { name: 'TypeScript', icon: 'typescript' }, { name: 'React', icon: 'react' }],
+        detail: '화면을 직접 구현하며 불편한 부분을 찾고, 사용에 필요한 동작과 인터랙션을 다듬습니다.',
       },
       {
-        no: '03', label: 'VISUAL & WORKFLOW',
-        items: ['Photoshop', 'Illustrator', 'Git/GitHub', 'Handoff'],
-        detail: '시각 자료 제작부터 버전 관리와 디자인·개발 전달까지 연결',
+        no: '03', label: 'VISUAL DESIGN',
+        items: [{ name: 'Adobe Photoshop', icon: 'photoshop' }, { name: 'Adobe Illustrator', icon: 'illustrator' }, { name: 'Adobe InDesign', icon: 'indesign', level: '기초 활용' }],
+        detail: '브랜딩의 색과 그래픽을 만들고, 사진 보정과 목업 작업으로 결과물을 구체화합니다.',
       },
       {
-        no: '04', label: 'AI-ASSISTED',
-        items: ['ChatGPT', 'Claude', 'Codex'],
-        detail: '자료 정리·아이디어 탐색·UX 카피·구현 보조 후 직접 검증',
+        no: '04', label: 'WORKFLOW',
+        items: [{ name: 'GitHub', icon: 'github' }],
+        detail: '팀원들과 디자인을 맞춰가고, 구현하면서 발견한 문제를 다시 화면에 반영합니다.',
+        extra: 'Figma MCP와 AI 에이전트를 연결해 구현 작업에 활용하고, 결과를 직접 확인하며 다듬습니다.',
       },
     ],
   },
@@ -81,19 +116,11 @@ const CHAMBERS = [
     id: 'build', no: '03', label: 'APPROACH', type: 'build',
     map: { x: 171, y: 66 }, room: { x: 199, y: 263 },
     eyebrow: 'APPROACH / PROCESS 03',
-    title: '관찰하고 구조화한 뒤,\n직접 구현하고 다듬습니다',
-    note: '화면을 먼저 만들기보다 문제를 좁히고 사용자 흐름을 정리합니다. 구현 과정에서 발견한 문제를 다시 디자인에 반영하며 완성도를 높입니다.',
-    projects: ['tchaikim', 'walga'],
+    title: '예쁜 것보다,\n쓰는 사람 쪽으로',
+    note: '패션도, 무언갈 판매하는 페이지도 처음이었습니다. 레퍼런스를 따라가기 바빴고, 제 눈에 예뻐 보이는 대로 Shop을 만들었습니다. 그런데 막상 적용해 보니, 보기엔 예뻐도 쇼핑몰로서는 어딘가 어색했습니다.\n\n그때부터 "이 페이지에 들어온 사람이 상품 상세까지 가고 싶을까, 옷을 사고 싶을까"를 기준으로 다시 고쳤습니다. 다들 쓰는 쇼핑몰 레이아웃에는 이유가 있었고, 쓰는 사람의 편리를 위해 내려놓아야 할 것도 있었습니다. 지금은 만들고 나면 사용자 입장에서 한 번 더 꼼꼼히 들여다봅니다.',
+    projects: ['tchaikim'],
     tags: ['OBSERVE', 'STRUCTURE', 'BUILD', 'REFINE'],
-  },
-  {
-    id: 'detail', no: '04', label: 'WORK', type: 'detail',
-    map: { x: 91, y: 68 }, room: { x: 63, y: 260 },
-    eyebrow: 'WORK / EVIDENCE 04',
-    title: '결과보다 과정을\n프로젝트로 증명합니다',
-    note: '왈가왈봇에서는 PM·IA·UI·프론트엔드를 맡아 사건 접수와 투표 흐름을 설계했고, TCHAIKIM에서는 브랜드 구조와 쇼핑 경험을 웹 인터랙션으로 구현했습니다.',
-    projects: ['walga', 'tchaikim'],
-    tags: ['CASE STUDY', 'TEAM PROJECT', 'WEB'],
+    versions: true,   // 오른쪽 — TCHAIKIM Shop 을 고친 과정, GitHub PR 화면(VersionHistory.jsx)
   },
 ];
 
@@ -150,14 +177,6 @@ function ChamberVisual({ type }) {
       </div>
     );
   }
-  if (type === 'detail') {
-    return (
-      <div className="about-room-visual about-room-visual--detail" aria-hidden="true">
-        <span className="detail-lens"><i /><i /></span>
-        <b>12.0</b><b>16.0</b><b>24.0</b>
-      </div>
-    );
-  }
   return null;
 }
 
@@ -176,15 +195,14 @@ const ASCEND = 1.1;                      // 떠오르는 시간 (s) — return �
 const FOG_IN = 1.8;                      // 방에 닿은 뒤 바닥 연기가 차오르는 시간 (s)
 const DEG_PER_PX = 1.5 / 160;            // 깊이 눈금 — 160px 내려갈 때마다 1.5°C 차가워진다
 /* 키워드 자리 — [가로(지표 폭 대비), 지표에서의 깊이(화면 높이 대비)]
-   넓은 화면: 다섯 단어가 지표선 위에 번호 순으로 한 줄로 서고, 아랫부분이 눈에 묻힌다.
+   넓은 화면: 00 ABOUT부터 번호 순으로 지표선 위에 한 줄로 서고, 아랫부분이 눈에 묻힌다.
               깊이는 글자 밑에서 새어 나오는 빛의 자리라 지표 바로 아래다.
    좁은 화면: 한 줄에 다 안 들어가서 눈 속 깊이별로 나눠 둔다(묻지 않고 다 보인다). */
 const KEYS = {
-  observe: { wide: [-0.9, 0.03], tall: [-0.7, 0.12] },
-  structure: { wide: [-0.45, 0.03], tall: [0.62, 0.2] },
-  hyomin: { wide: [0, 0.03], tall: [-0.05, 0.3] },
+  hyomin: { wide: [-0.9, 0.03], tall: [-0.7, 0.12] },
+  observe: { wide: [-0.45, 0.03], tall: [0.62, 0.2] },
+  structure: { wide: [0, 0.03], tall: [-0.05, 0.3] },
   build: { wide: [0.45, 0.03], tall: [0.55, 0.4] },
-  detail: { wide: [0.9, 0.03], tall: [-0.6, 0.5] },
 };
 /* 넓은 화면인지 — aboutUnderScene 의 layoutKeys 와 같은 기준 */
 const isWide = () => window.innerWidth >= window.innerHeight;
@@ -338,7 +356,7 @@ function useUnderSnow(phase, selected) {
       // 키워드 버튼 — 넓은 화면에선 지표선에 맞춘다(덩어리는 그 위, 이름표는 바로 아래).
       // 좁은 화면에선 눈 속 덩어리 자리에 둔다(about.css)
       const wide = isWide();
-      // 넓은 화면 — 버튼 폭을 재서 다섯 덩어리 사이의 틈이 똑같도록 가로 자리를 정한다.
+      // 넓은 화면 — 버튼 폭을 재서 덩어리 사이의 틈이 똑같도록 가로 자리를 정한다.
       // 가운데 정렬로 모으고, 틈은 너무 좁거나 넓지 않게 묶어 둔다
       if (wide) {
         const order = Object.keys(KEYS).sort((a, b) => KEYS[a].wide[0] - KEYS[b].wide[0]);
@@ -395,6 +413,9 @@ const monthsOf = (ym) => { const [y, m] = ym.split('.').map(Number); return y * 
 const tempLabel = (value) => `${value < 0 ? '−' : ''}${Math.abs(value).toFixed(1)}°`;
 const tempAt = (ym) => tempLabel(SUBLIMATION_POINT - (monthsOf(RECORD_AS_OF) - monthsOf(ym)) * DEG_PER_MONTH);
 
+/* BACKGROUND 필름 스트립 — 오래된 것부터. 이력 기록과 같은 온도 눈금을 쓴다(오래될수록 차갑다) */
+const STRIPS = [...(CHAMBERS.find((item) => item.strips)?.strips || [])].reverse().map((strip) => ({ ...strip, temp: tempAt(strip.at) }));
+
 function ProfileRecord({ record }) {
   let index = 0;
   return (
@@ -444,6 +465,7 @@ const chamberFromHash = () => {
 };
 /* 방 사이를 옮겨 다니는 순서 — 번호 순 */
 const ROOM_ORDER = [...CHAMBERS].sort((a, b) => a.no.localeCompare(b.no));
+const ROOM_COUNT = String(ROOM_ORDER.length).padStart(2, '0');
 
 function ProjectEvidence({ ids, onOpenProject }) {
   if (!ids?.length) return null;
@@ -474,6 +496,13 @@ export default function About({ onGoMain, onOpenProject }) {
   const [visited, setVisited] = useState(() => new Set(selected ? [selected] : []));
   const chamber = useMemo(() => CHAMBERS.find((item) => item.id === selected) || null, [selected]);
   const motion = useUnderSnow(phase, selected);
+  // BACKGROUND Figma 화면 — 고른 Frame 의 시기(왼쪽 기록에 뜬다)
+  const [strip, setStrip] = useState(null);
+  // APPROACH Figma 버전 기록 — 고른 기록(왼쪽 글에도 뜬다)
+  const [version, setVersion] = useState('v1');
+  const [zoom, setZoom] = useState(null);   // 크게 보는 작업물 이미지 { src, label }
+  const modalClose = useRef(null);          // 방 안에 열린 작은 창(Figma 공유 창)을 닫는 함수
+  const onModal = useCallback((close) => { modalClose.current = close; }, []);
 
   const enter = useCallback((id) => {
     if (phase !== 'map') return;
@@ -538,6 +567,24 @@ export default function About({ onGoMain, onOpenProject }) {
     // 방이 열려 있는 동안 Esc 는 '지도로'만 뜻한다.
     // App 도 window 에서 Esc 를 받아 MAIN 으로 보내므로, 캡처 단계에서 먼저 받고 거기서 멈춘다.
     const onKeyDown = (event) => {
+      // 작업물을 크게 보고 있으면 Esc 는 그것만 닫는다
+      if (zoom) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          setZoom(null);
+        }
+        return;
+      }
+      // 공유 창이 열려 있으면 Esc 는 그 창만 닫고, 방향키로 방을 옮기지도 않는다
+      if (modalClose.current) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          modalClose.current();
+        }
+        return;
+      }
       if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
         event.preventDefault();
         switchTo(event.key === 'ArrowRight' ? nextRoom.id : prevRoom.id);
@@ -550,7 +597,7 @@ export default function About({ onGoMain, onOpenProject }) {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [chamber, leave, nextRoom, prevRoom, switchTo]);
+  }, [chamber, leave, nextRoom, prevRoom, switchTo, zoom]);
 
   const style = chamber ? {
     '--camera-x': `${CAMERA.x - chamber.room.x}vw`,
@@ -608,7 +655,30 @@ export default function About({ onGoMain, onOpenProject }) {
             aria-hidden={selected !== item.id}
           >
             <div className="about-room__light" aria-hidden="true" />
-            <ChamberVisual type={item.type} />
+            {item.skills ? (
+              <SkillsToolkit
+                groups={item.skills}
+                title={item.title}
+                intro={item.note}
+                active={selected === item.id && phase === 'reveal'}
+              />
+            ) : <>
+            {item.strips ? (
+              <FigmaBoard
+                strips={STRIPS}
+                active={selected === item.id && phase === 'reveal'}
+                current={strip}
+                onHover={setStrip}
+                onZoom={setZoom}
+                onModal={onModal}
+              />
+            ) : item.versions ? (
+              <VersionHistory
+                active={selected === item.id && phase === 'reveal'}
+                current={version}
+                onSelect={setVersion}
+              />
+            ) : <ChamberVisual type={item.type} />}
             <div className="about-room__content">
               <div className="about-room__main">
                 <p className="about-room__eyebrow sys">{item.eyebrow}</p>
@@ -617,18 +687,15 @@ export default function About({ onGoMain, onOpenProject }) {
                   {item.title.split('\n').map((line) => <span key={line}>{line}</span>)}
                 </h2>
                 <p className="about-room__note">{item.note}</p>
-                {item.skills ? (
-                  <div className="about-skills">
-                    {item.skills.map((group) => (
-                      <section className="about-skill" key={group.label}>
-                        <p className="about-skill__label sys"><span>{group.no}</span>{group.label}</p>
-                        <ul>
-                          {group.items.map((skill) => <li key={skill}>{skill}</li>)}
-                        </ul>
-                        <p className="about-skill__detail">{group.detail}</p>
-                      </section>
-                    ))}
-                  </div>
+                {item.strips ? (
+                  <StripReadout strips={STRIPS} current={strip} onZoom={setZoom}>
+                    <ProjectEvidence
+                      ids={STRIPS.find((entry) => entry.id === strip)?.projects}
+                      onOpenProject={(project) => onOpenProject?.(project, { chamber: item.id, label: item.label })}
+                    />
+                  </StripReadout>
+                ) : item.versions ? (
+                  <VersionReadout current={version} />
                 ) : (
                   <ul className="about-room__tags sys">
                     {item.tags.map((tag) => <li key={tag}>{tag}</li>)}
@@ -641,19 +708,33 @@ export default function About({ onGoMain, onOpenProject }) {
               </div>
               {item.record && <ProfileRecord record={item.record} />}
             </div>
+            </>}
           </article>
         ))}
       </div>
 
+      {zoom && (
+        <div
+          className="about-zoom"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${zoom.label} 크게 보기`}
+          onClick={(event) => { event.stopPropagation(); setZoom(null); }}
+        >
+          <img src={zoom.src} alt={zoom.label} draggable="false" />
+          <p className="sys">{zoom.label} · CLICK OR ESC TO CLOSE</p>
+        </div>
+      )}
+
       <div className="about-map-intro">
         <p className="sys">ABOUT / UNDER THE SNOW 00</p>
-        <p>눈밭에 다섯 개의 이야기가 묻혀 있습니다.<br />하나를 골라 그 아래로 내려가 보세요.</p>
+        <p>눈밭에 네 개의 이야기가 묻혀 있습니다.<br />하나를 골라 그 아래로 내려가 보세요.</p>
       </div>
 
       <div className="about-hud" aria-hidden="true">
-        <span className="sys">CHAMBER {chamber?.no || '--'} / 05</span>
+        <span className="sys">CHAMBER {chamber?.no || '--'} / {ROOM_COUNT}</span>
         <i />
-        <span className="sys">OBSERVED {String(visited.size).padStart(2, '0')} / 05</span>
+        <span className="sys">OBSERVED {String(visited.size).padStart(2, '0')} / {ROOM_COUNT}</span>
       </div>
 
       {/* 방 안의 길잡이 — 지도로 돌아가기, 다른 방으로 바로 가기, 다음 방 */}

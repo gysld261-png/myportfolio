@@ -20,18 +20,17 @@ const FOV = 35; // MAIN 히어로와 같다
 const FACE_DEPTH = 5200; // 단면이 내려가는 깊이 (px)
 const GLOW = new THREE.Vector3(0.38, 0.87, 0.84);
 
-/* 키워드마다 눈밭에 반쯤 묻힌 드라이아이스 — PORTFOLIO 얼음과 같은 재질·연기, 형태는 다섯 개 모두 다르다(dryIceForms).
+/* 키워드마다 눈밭에 반쯤 묻힌 드라이아이스 — PORTFOLIO 얼음과 같은 재질·연기, 형태는 네 개 모두 다르다(dryIceForms).
    form: 형태, seed: 모양 난수, rot: 기본 기울기, size: 높이(덩어리 단위 대비 비율), sink: 묻힌 정도(0~1) */
 const BLOCKS = {
   observe: { form: 'plates', seed: 11, rot: [0.08, 0.6, -0.05], size: 0.62, sink: 0.3 },
   structure: { form: 'crystals', seed: 19, rot: [0.04, -0.3, 0.06], size: 1.02, sink: 0.22 },
   hyomin: { form: 'brick', seed: 3, rot: [0.1, -0.45, -0.06], size: 0.8, sink: 0.28 },
   build: { form: 'pellets', seed: 29, rot: [0.05, 0.9, 0.04], size: 0.62, sink: 0.26 },
-  detail: { form: 'spires', seed: 37, rot: [0, -0.8, 0], size: 1.12, sink: 0.18 },
 };
 const FROST_REST = 0.92;   // 평소 — 서리가 껴 뿌옇다 (투명한 결정만)
 const FROST_CLEAR = 0.38;  // 가리키면 — 서리가 걷혀 속이 비친다 (투명한 결정만)
-/* 투명한 얼음으로 남기는 형태 — 지금은 없다. 다섯 개 모두 불투명한 드라이아이스(dryIce).
+/* 투명한 얼음으로 남기는 형태 — 지금은 없다. 네 개 모두 불투명한 드라이아이스(dryIce).
    다시 유리 같은 결정을 두고 싶으면 여기에 형태 이름('crystals')을 넣으면 된다 */
 const GLASSY = new Set();
 /* 부서지는 방식 — 형태마다 다르다. 조각 모양은 dryIceForms 의 FRAGMENTS.

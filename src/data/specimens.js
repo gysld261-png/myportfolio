@@ -89,7 +89,7 @@ export const SPECIMENS = [
     origin: 'uniform',
     color: '#C0442F',
     role: 'UX/UI + FRONTEND',
-    year: '2025',
+    year: '2026',
     lead: '한복의 선을 글로벌 웹의 언어로 옮긴다.',
     residue: '실루엣 그대로, 밀도만 낮아진다',
   },

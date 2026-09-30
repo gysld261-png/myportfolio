@@ -1184,7 +1184,7 @@ function finishSpecimen(id, config, group, geometry, material, ice, logoHandle, 
  * WorkScroll 전용 단일 렌더러.
  * 세 번 복제된 행 중 화면에 가장 가까운 앵커 하나만 프로젝트별로 선택한다.
  */
-export async function createWorkIceField(host, root, ids) {
+export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
   const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
@@ -1211,24 +1211,11 @@ export async function createWorkIceField(host, root, ids) {
   scene.add(new THREE.HemisphereLight(0xe2e7e9, 0x1c1f21, 0.62));
 
   const trail = createTrail(renderer);
-  const specimens = await Promise.all(ids.map((id) => makeSpecimen(id, trail.sample)));
-  specimens.forEach((item) => {
-    scene.add(item.group);
-    item.touching = false;
-    item.tilt = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 }, z: { x: 0, v: 0 } };
-    item.inertia = { x: 0, v: 0 };
-    item.drift = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 } };
-  });
-
-  // 연기는 얼음과 함께 움직이되 얼음처럼 구르지는 않도록 따로 둔다.
+  // Keep project indices stable, but don't gate the visible specimen on the other logos.
+  // Sparse array iteration skips specimens that are still preparing.
+  const specimens = new Array(ids.length);
   const smokeTexture = createSmokeTexture();
   const backdropTexture = createBackdropTexture();
-  specimens.forEach((item) => {
-    item.smoke = createSmoke(item.config.shape, item.config.seed, smokeTexture);
-    scene.add(item.smoke.group);
-    item.backdrop = createBackdrop(backdropTexture);
-    scene.add(item.backdrop);
-  });
 
   // 클릭 전환 때만 쓰는 후처리. 평소에는 그대로 그려 비용을 아낀다.
   const composer = new EffectComposer(renderer);
@@ -1262,6 +1249,11 @@ export async function createWorkIceField(host, root, ids) {
   let height = 1;
   let frame = 0;
   let live = true;
+  let firstPaint = false;
+  let backgroundTimer = 0;
+  let backgroundIdle = 0;
+  const priority = Math.max(0, Math.min(ids.length - 1, initialIndex));
+  const remaining = ids.map((_, index) => index).filter(index => index !== priority);
   let last = performance.now();
   const started = last;
 
@@ -1290,16 +1282,8 @@ export async function createWorkIceField(host, root, ids) {
   observer.observe(root);
   resize();
 
-  // 첫 클릭 때 셰이더를 컴파일하면 얼음이 한 박자 늦게 나타난다.
-  // 장면을 만드는 유휴 구간에서 미리 컴파일하고, 준비가 끝난 뒤에만 field 를 노출한다.
-  try {
-    if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
-    else renderer.compile(scene, camera);
-    composer.render(0);
-    renderer.clear();
-  } catch {
-    // 일부 WebGL 구현은 비동기 컴파일을 지원하지 않는다. 첫 프레임 fallback 은 그대로 둔다.
-  }
+  // Never pre-render the click-only postprocessing pipeline before the first visible ice.
+  // Those shaders are only needed when entering a project, not when opening PORTFOLIO.
   const onLeave = () => { state.pointerInside = false; };
 
   /* ── 얼음 속 상세 화면(포털) ──
@@ -1408,7 +1392,8 @@ export async function createWorkIceField(host, root, ids) {
       const targetAlpha = launching
         ? (selectedForLaunch ? 1 : 0)
         : (inRange ? proximity : 0);
-      item.alpha = reduced ? targetAlpha : damp(item.alpha, targetAlpha, targetAlpha ? 4.1 : 7.5, dt);
+      const initialPresentation = !firstPaint && index === priority && inRange;
+      item.alpha = reduced || initialPresentation ? targetAlpha : damp(item.alpha, targetAlpha, targetAlpha ? 4.1 : 7.5, dt);
       const launchProgress = selectedForLaunch && !reduced
         ? clamp01((now - state.launchStarted) / LAUNCH_DURATION)
         : 0;
@@ -1445,9 +1430,10 @@ export async function createWorkIceField(host, root, ids) {
       const approach = THREE.MathUtils.smoothstep(launchProgress, 0.06, 0.95) ** 1.8;
       const launchScale = 1 + focusIn * 0.08 + approach * 3.4;
       const fadeScale = edgeScale * (1 + (1 - item.alpha) * 0.08) * hoverScale * launchScale;
-      item.scale = selectedForLaunch
+      item.scale = selectedForLaunch || !item.positioned
         ? fit * fadeScale
         : damp(item.scale, fit * fadeScale, 5.5, dt);
+      item.positioned = true;
       item.group.scale.setScalar(item.scale);
       // 두께(thickness)는 표본 크기에 비례해 계산되지만 감쇠 거리는 월드 단위 그대로라,
       // 크기를 곱해 주지 않으면 빛이 얼음을 거의 통과하지 못하고 속이 검게 막힌다.
@@ -1567,8 +1553,58 @@ export async function createWorkIceField(host, root, ids) {
     } else {
       renderer.render(scene, camera);
     }
+    if (!firstPaint) {
+      firstPaint = true;
+      host.dataset.ready = 'true';
+    }
   };
   frame = requestAnimationFrame(tick);
+
+  function disposeSpecimen(item) {
+    item.logoHandle.dispose();
+    if (item.colorLogo) item.colorMaterials.forEach(material => material.dispose());
+    item.geometry.dispose();
+    item.material.dispose();
+    item.sparkles.geometry.dispose();
+    item.sparkles.material.dispose();
+    item.glow.material.dispose();
+    item.glowTexture.dispose();
+    item.scan.dispose();
+    item.interior.dispose();
+    item.smoke?.dispose();
+    item.backdrop?.geometry.dispose();
+    item.backdrop?.material.dispose();
+  }
+  function prepare(index) {
+    return makeSpecimen(ids[index], trail.sample).then(item => {
+      // A tab/mode change can dispose this field while an image request is pending.
+      if (!live) { disposeSpecimen(item); return; }
+      item.touching = false;
+      item.tilt = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 }, z: { x: 0, v: 0 } };
+      item.inertia = { x: 0, v: 0 };
+      item.drift = { x: { x: 0, v: 0 }, y: { x: 0, v: 0 } };
+      item.smoke = createSmoke(item.config.shape, item.config.seed, smokeTexture);
+      item.backdrop = createBackdrop(backdropTexture);
+      scene.add(item.group, item.smoke.group, item.backdrop);
+      specimens[index] = item;
+    }).catch(error => {
+      if (live) console.warn('Project ice unavailable:', ids[index], error);
+    });
+  }
+  function prepareNext() {
+    if (!live || !remaining.length) return;
+    const run = () => {
+      if (!live) return;
+      prepare(remaining.shift()).then(prepareNext);
+    };
+    if ('requestIdleCallback' in window) backgroundIdle = window.requestIdleCallback(run, { timeout: 450 });
+    else backgroundTimer = window.setTimeout(run, 32);
+  }
+  // Return the owner immediately so unmount can cancel rendering even during logo loading.
+  prepare(priority).then(() => {
+    // Yield the first frame, but still prepare the next ice if the visitor already scrolled away.
+    if (live) backgroundTimer = window.setTimeout(prepareNext, 32);
+  });
 
   return {
     setInteraction(hovered, launching) {
@@ -1607,23 +1643,13 @@ export async function createWorkIceField(host, root, ids) {
     dispose() {
       live = false;
       cancelAnimationFrame(frame);
+      window.clearTimeout(backgroundTimer);
+      window.clearTimeout(state.hideTimer);
+      if (backgroundIdle) window.cancelIdleCallback?.(backgroundIdle);
+      delete host.dataset.ready;
       observer.disconnect();
       root.removeEventListener('pointerleave', onLeave);
-      specimens.forEach((item) => {
-        item.logoHandle.dispose();
-        if (item.colorLogo) item.colorMaterials.forEach((material) => material.dispose());
-        item.geometry.dispose();
-        item.material.dispose();
-        item.sparkles.geometry.dispose();
-        item.sparkles.material.dispose();
-        item.glow.material.dispose();
-        item.glowTexture.dispose();
-        item.scan.dispose();
-        item.interior.dispose();
-        item.smoke.dispose();
-        item.backdrop.geometry.dispose();
-        item.backdrop.material.dispose();
-      });
+      specimens.forEach(disposeSpecimen);
       smokeTexture.dispose();
       backdropTexture.dispose();
       trail.dispose();

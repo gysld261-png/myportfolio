@@ -1,0 +1,359 @@
+.skills-toolkit {
+  position: absolute;
+  inset: calc(160px + 6vh) 9vw calc(108px - 6vh);
+  display: grid;
+  grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: clamp(48px, 6vw, 104px);
+  overflow-x: hidden;   /* 장면이 들어오는 순간 옆으로 넘쳐 가로 스크롤이 생기지 않게 */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #89aaa230 transparent;
+  color: #dae2df;
+}
+
+.skills-toolkit__intro {
+  padding-bottom: 46px;
+  align-self: center;
+}
+
+.skills-toolkit .skills-toolkit__eyebrow {
+  margin: 0 0 28px;
+  color: #91b3a9;
+  font-size: 9px;
+  line-height: 1.5;
+  letter-spacing: .16em;
+}
+
+.about-room--skills .skills-toolkit h2 {
+  margin: 0;
+  font-size: clamp(36px, 3.6vw, 56px);
+  line-height: 1.5;
+  letter-spacing: -.04em;
+  font-weight: 400;
+}
+
+.skills-toolkit__description {
+  margin: 26px 0 0;
+  color: #a5b4ae;
+  font-size: 14px;
+  line-height: 1.95;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+
+.skills-toolkit .skills-toolkit__practice {
+  margin: 44px 0 0;
+  color: #718c81;
+  font-size: 9px;
+  line-height: 1.5;
+  letter-spacing: .15em;
+}
+
+/* 네 줄 — 평소엔 이름만. 가리킨 줄이 열린다 */
+.skills-toolkit__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skills-toolkit__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr);
+  column-gap: 21px;
+  padding: 16px 0 2px;
+  border-top: 1px solid #b7cec12b;
+}
+.skills-toolkit__row:last-child { border-bottom: 1px solid #b7cec12b; }
+/* 밝은 줄 — 윗선이 왼쪽부터 그어진다 */
+.skills-toolkit__row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  width: 100%;
+  height: 1px;
+  background: #9dded7;
+  transform: scaleX(0);
+  transform-origin: left;
+  opacity: 0;
+  transition: transform 620ms cubic-bezier(.2, .8, .2, 1), opacity 300ms ease;
+}
+.skills-toolkit__row.is-current::before { transform: scaleX(1); opacity: .7; }
+
+/* 방에 들어오면 줄이 하나씩 올라온다 → 그 줄의 설명 → 도구 → 장면 순서 */
+.about--reveal .about-room.is-active .skills-toolkit__row { animation: skills-row-in 620ms cubic-bezier(.2, .8, .2, 1) calc(380ms + var(--r) * 160ms) both; }
+@keyframes skills-row-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.skills-toolkit__heading {
+  display: contents;
+  margin: 0;
+  font: inherit;
+}
+.skills-toolkit .skills-toolkit__number {
+  grid-column: 1;
+  padding-top: 4px;
+  color: #71887d;
+  font-size: 10px;
+  line-height: 1.6;
+  letter-spacing: .08em;
+  transition: color 300ms ease;
+}
+.skills-toolkit__label {
+  grid-column: 2;
+  color: #c3cfc8;
+  font: 500 16px/1.4 var(--display);
+  letter-spacing: .045em;
+  transition: color 300ms ease;
+}
+.skills-toolkit__row.is-current .skills-toolkit__number { color: #9dded7; }
+.skills-toolkit__row.is-current .skills-toolkit__label { color: #eef4f1; }
+
+.skills-toolkit__inner {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(124px, 10vw, 150px);
+  align-items: center;
+  gap: 24px;
+}
+.skills-toolkit__body { padding: 6px 0 12px; }
+
+.skills-toolkit__detail {
+  margin: 0 0 4px;
+  color: #99aaa0;
+  font-size: 13px;
+  line-height: 1.75;
+  letter-spacing: -.015em;
+  word-break: keep-all;
+}
+.skills-toolkit__scope { margin: 2px 0 0; color: #879d91; font-size: 10px; line-height: 1.5; }
+.about--reveal .about-room.is-active .skills-toolkit__detail,
+.about--reveal .about-room.is-active .skills-toolkit__scope { animation: skills-fade-up 520ms cubic-bezier(.2, .8, .2, 1) calc(520ms + var(--r) * 160ms) both; }
+@keyframes skills-fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* 도구 — 줄마다 하나씩 튀어 오른다 */
+.about--reveal .about-room.is-active .skills-tool { animation: skills-tool-in 460ms cubic-bezier(.2, 1.3, .4, 1) calc(680ms + var(--r) * 160ms + var(--i) * 70ms) both; }
+@keyframes skills-tool-in { from { opacity: 0; transform: translateY(10px) scale(.92); } to { opacity: 1; transform: none; } }
+
+/* ── 역량마다 해 보이는 장면 — 가리킨 줄에서만. 자리는 늘 비워 둬 줄 높이가 흔들리지 않는다 ── */
+.skills-toolkit__stage { width: 100%; min-width: 0; aspect-ratio: 170 / 100; margin: 0 0 12px; overflow: hidden; }
+.sdemo { display: block; width: 100%; height: 100%; animation: sdemo-in 420ms cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes sdemo-in { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+.skills-toolkit__row { cursor: default; outline: none; }
+.skills-toolkit__row:focus-visible .skills-toolkit__label { text-decoration: underline 1px; text-underline-offset: .25em; }
+.sdemo .sdemo-frame { fill: none; stroke: #b7cec155; stroke-width: 1; }
+
+/* UX/UI — 와이어프레임의 버튼에서 다음 화면으로 선을 잇고, 그 화면이 채워진다 */
+.sdemo-ux__wire rect:not(.sdemo-frame) { fill: #b7cec122; }
+.sdemo-ux__wire .sdemo-ux__hot { animation: sdemo-ux-hot 3.6s ease infinite; }
+@keyframes sdemo-ux-hot { 0%, 10% { fill: #b7cec13a; } 16%, 60% { fill: #0d99ff; } 80%, 100% { fill: #b7cec13a; } }
+.sdemo-ux__noodle { fill: none; stroke: #0d99ff; stroke-width: 1.4; stroke-dasharray: 90; stroke-dashoffset: 90; animation: sdemo-ux-noodle 3.6s cubic-bezier(.4, 0, .2, 1) infinite; }
+@keyframes sdemo-ux-noodle { 0%, 16% { stroke-dashoffset: 90; opacity: 1; } 42%, 78% { stroke-dashoffset: 0; opacity: 1; } 92%, 100% { stroke-dashoffset: 0; opacity: 0; } }
+.sdemo-ux__dot { fill: #0d99ff; opacity: 0; animation: sdemo-ux-dot 3.6s ease infinite; }
+@keyframes sdemo-ux-dot { 0%, 40% { opacity: 0; } 44%, 78% { opacity: 1; } 92%, 100% { opacity: 0; } }
+.sdemo-ux__fill { opacity: .14; fill: #b7cec1; animation: sdemo-ux-fill 3.6s ease infinite; }
+.sdemo-ux__fill--1 { --c: #9dded7; }
+.sdemo-ux__fill--2 { --c: #e7a9bf; }
+.sdemo-ux__fill--3 { --c: #d6e0da; }
+.sdemo-ux__fill--4 { --c: #0d99ff; }
+@keyframes sdemo-ux-fill { 0%, 44% { opacity: .14; fill: #b7cec1; } 54%, 84% { opacity: 1; fill: var(--c); } 100% { opacity: .14; fill: #b7cec1; } }
+
+/* FRONTEND — 코드가 한 줄씩 쳐지고, 그려진 버튼이 눌린다 */
+.sdemo--front { display: grid; align-content: center; gap: 8px; }
+.sdemo-front__code {
+  display: grid;
+  gap: 3px;
+  padding: 7px 8px;
+  overflow: hidden;
+  border: 1px solid #b7cec12b;
+  border-radius: 6px;
+  background: #0b1210;
+  color: #9dded7;
+  font: 8.5px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre;
+}
+.sdemo-front__line { display: block; width: 0; overflow: hidden; }
+.sdemo-front__line--1 { color: #7cc4ff; animation: sdemo-type-1 4s steps(22) infinite; }
+.sdemo-front__line--2 { color: #dae2df; animation: sdemo-type-2 4s steps(6) infinite; }
+.sdemo-front__line--3 { color: #7cc4ff; animation: sdemo-type-3 4s steps(9) infinite; }
+@keyframes sdemo-type-1 { 0% { width: 0; } 22%, 100% { width: 22ch; } }
+@keyframes sdemo-type-2 { 0%, 22% { width: 0; } 30%, 100% { width: 6ch; } }
+@keyframes sdemo-type-3 { 0%, 30% { width: 0; } 40%, 100% { width: 9ch; } }
+.sdemo-front__button {
+  justify-self: start;
+  padding: 5px 13px;
+  border-radius: 999px;
+  background: #9dded7;
+  color: #0b1210;
+  font: 600 11px/1 system-ui, sans-serif;
+  letter-spacing: .04em;
+  opacity: 0;
+  animation: sdemo-front-btn 4s cubic-bezier(.2, 1.2, .4, 1) infinite;
+}
+@keyframes sdemo-front-btn {
+  0%, 42% { opacity: 0; transform: translateY(6px) scale(.9); }
+  50% { opacity: 1; transform: none; }
+  64% { transform: scale(.9); background: #bff0ea; }
+  70%, 92% { opacity: 1; transform: none; background: #9dded7; }
+  100% { opacity: 0; }
+}
+
+/* VISUAL — 흑백 원본 위로 보정된 색이 쓸려 들어오고, 옷에서 색 세 개를 뽑는다(차이킴 상품 카드의 색상 스와치) */
+.sdemo--visual { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 18px; gap: 10px; align-items: center; padding: 4px 4px 4px 0; box-sizing: border-box; }
+.sdemo-visual__photo { position: relative; display: block; height: 100%; overflow: hidden; border-radius: 4px; box-shadow: 0 0 0 1px #b7cec12b; }
+.sdemo-visual__raw,
+.sdemo-visual__graded {
+  position: absolute;
+  inset: 0;
+  background: url('/about/approach/card-v2.webp') 50% 8% / 150% auto no-repeat;   /* 차이킴 Shop 상품 사진 */
+}
+.sdemo-visual__raw { filter: grayscale(1) brightness(.72) contrast(.9); }
+.sdemo-visual__graded { clip-path: inset(0 100% 0 0); animation: sdemo-grade 4.2s cubic-bezier(.45, 0, .25, 1) infinite; }
+@keyframes sdemo-grade { 0%, 12% { clip-path: inset(0 100% 0 0); } 52%, 86% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 100% 0 0); } }
+.sdemo-visual__handle { position: absolute; top: 0; bottom: 0; left: 0; width: 1.5px; background: #fff; box-shadow: 0 0 8px rgba(255, 255, 255, .6); animation: sdemo-handle 4.2s cubic-bezier(.45, 0, .25, 1) infinite; }
+@keyframes sdemo-handle { 0%, 12% { left: 0; opacity: 1; } 52% { left: 100%; opacity: 1; } 58%, 100% { left: 100%; opacity: 0; } }
+.sdemo-visual__swatches { display: grid; gap: 8px; }
+.sdemo-visual__swatches i { width: 16px; height: 16px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); opacity: 0; transform: scale(.4); animation: sdemo-swatch 4.2s cubic-bezier(.2, 1.4, .4, 1) infinite; }
+.sdemo-visual__swatches i:nth-child(1) { background: #c9695a; animation-delay: .1s; }
+.sdemo-visual__swatches i:nth-child(2) { background: #93b394; animation-delay: .25s; }
+.sdemo-visual__swatches i:nth-child(3) { background: #a3a8dc; animation-delay: .4s; }
+@keyframes sdemo-swatch { 0%, 52% { opacity: 0; transform: scale(.4); } 60%, 88% { opacity: 1; transform: none; } 100% { opacity: 0; transform: scale(.4); } }
+
+/* WORKFLOW — 브랜치가 갈라져 커밋을 쌓고, main 으로 합쳐진다 */
+.sdemo-flow__main { fill: none; stroke: #b7cec155; stroke-width: 1.5; }
+.sdemo-flow__branch { fill: none; stroke: #9dded7; stroke-width: 1.5; stroke-dasharray: 140; stroke-dashoffset: 140; animation: sdemo-flow-branch 4.4s cubic-bezier(.45, 0, .25, 1) infinite; }
+@keyframes sdemo-flow-branch { 0%, 8% { stroke-dashoffset: 140; opacity: 1; } 64%, 88% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+.sdemo-flow__c { fill: #0b1210; stroke: #9dded7; stroke-width: 1.5; opacity: 0; animation: sdemo-flow-c 4.4s ease infinite; }
+.sdemo-flow__c--0 { stroke: #b7cec1; opacity: 1; animation: none; }
+.sdemo-flow__c--1 { animation-delay: .9s; }
+.sdemo-flow__c--2 { animation-delay: 1.5s; }
+@keyframes sdemo-flow-c { 0% { opacity: 0; } 6%, 60% { opacity: 1; } 80%, 100% { opacity: 0; } }
+.sdemo-flow__merge { fill: #b7cec122; stroke: #b7cec155; stroke-width: 1.5; animation: sdemo-flow-merge 4.4s ease infinite; }
+@keyframes sdemo-flow-merge { 0%, 62% { fill: #b7cec122; stroke: #b7cec155; } 68%, 90% { fill: #8250df; stroke: #c9a6ff; } 100% { fill: #b7cec122; stroke: #b7cec155; } }
+.sdemo-flow__label { fill: #71887d; font: 8.5px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.sdemo-flow__label--branch { fill: #9dded7; opacity: 0; animation: sdemo-flow-c 4.4s ease .5s infinite; }
+.sdemo-flow__label--merged { fill: #c9a6ff; opacity: 0; animation: sdemo-flow-merged 4.4s ease infinite; }
+@keyframes sdemo-flow-merged { 0%, 64% { opacity: 0; } 70%, 90% { opacity: 1; } 100% { opacity: 0; } }
+
+.about-room--build .about-room__note { white-space: pre-line; }
+
+.skills-toolkit__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px 23px;
+  margin: 20px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.skills-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 24px;
+}
+
+.skills-tool__icon,
+.skills-tool__prototype,
+.skills-tool__adobe {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.skills-tool__icon { object-fit: contain; }
+.skills-tool__icon--github { filter: invert(1); opacity: .87; }
+.skills-tool__prototype { stroke: #9dded7; stroke-width: 1.35; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Small product initials, not large decorative tool cards. */
+.skills-tool__adobe {
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #001e36;
+  color: #31a8ff;
+  font: 600 13px/1 Arial, sans-serif;
+  letter-spacing: -.045em;
+}
+.skills-tool__adobe--illustrator { background: #330000; color: #ff9a00; }
+.skills-tool__adobe--indesign { background: #49021f; color: #ff3366; }
+
+.skills-tool__name {
+  color: #bac7bf;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.skills-tool__annotation,
+.skills-tool__level {
+  padding-left: 2px;
+  color: #8ba394;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+@media (min-width: 761px) and (max-width: 1150px) {
+  .skills-toolkit {
+    inset: calc(150px + 6vh) 7vw calc(100px - 6vh);
+    gap: 42px;
+    grid-template-columns: minmax(0, .6fr) minmax(0, 1.4fr);
+  }
+  .skills-toolkit__row { column-gap: 15px; padding-top: 14px; }
+  .skills-toolkit__tools { column-gap: 19px; }
+}
+
+@media (min-width: 761px) and (max-height: 760px) {
+  .skills-toolkit { top: calc(136px + 6vh); bottom: calc(95px - 6vh); }
+  .skills-toolkit__row { padding-top: 10px; }
+  .skills-toolkit__body { padding: 2px 0 8px; }
+  .skills-toolkit__scope { display: none; }
+  .skills-toolkit__tools { margin-top: 8px; }
+  .skills-toolkit__inner { grid-template-columns: minmax(0, 1fr) 118px; }
+  .sdemo-front__code { padding: 6px; font-size: 7px; }
+  .skills-toolkit__detail { font-size: 12.5px; line-height: 1.6; }
+  .skills-toolkit__stage { margin-bottom: 8px; }
+  .skills-toolkit__tools { margin-top: 12px; row-gap: 10px; }
+  .skills-toolkit__intro { padding-bottom: 20px; }
+  .skills-toolkit .skills-toolkit__eyebrow { margin-bottom: 22px; }
+  .skills-toolkit .skills-toolkit__practice { margin-top: 28px; }
+}
+
+@media (max-width: 760px) {
+  .skills-toolkit {
+    inset: calc(104px + 6vh) 24px calc(84px - 6vh);
+    display: block;
+    padding-bottom: 20px;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+  }
+  .skills-toolkit__intro { padding-bottom: 37px; }
+  .skills-toolkit .skills-toolkit__eyebrow { margin-bottom: 18px; }
+  .about-room--skills .skills-toolkit h2 { font-size: 32px; line-height: 1.5; }
+  .skills-toolkit__description { margin-top: 19px; font-size: 13px; }
+  .skills-toolkit .skills-toolkit__practice { display: none; }
+  .skills-toolkit__row { grid-template-columns: 18px minmax(0, 1fr); column-gap: 13px; padding-top: 18px; }
+  .skills-toolkit__label { font-size: 14px; }
+  .skills-toolkit__inner { grid-template-columns: 1fr; gap: 0; }
+  .skills-toolkit__stage { max-width: 220px; }
+  .skills-toolkit__detail { font-size: 12px; }
+  .skills-toolkit__tools { margin-top: 17px; gap: 14px 20px; }
+  .skills-tool__name { font-size: 11px; }
+  .skills-tool { gap: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skills-toolkit *, .skills-toolkit *::before, .skills-toolkit *::after, .about-room--skills .skills-toolkit h2 > span {
+    animation: none !important;
+    transition: none !important;
+  }
+  .about-room--skills .skills-toolkit h2 > span { opacity: 1; transform: none; }
+  .skills-tool, .skills-toolkit__detail, .skills-toolkit__scope, .skills-toolkit__row { opacity: 1; transform: none; }
+  .sdemo-visual__graded { clip-path: none; }
+  .sdemo-front__line { width: auto; }
+  .sdemo-front__button, .sdemo-ux__fill, .sdemo-flow__c, .sdemo-visual__swatches i, .sdemo-flow__label { opacity: 1; transform: none; }
+  .sdemo-ux__noodle, .sdemo-flow__branch { stroke-dashoffset: 0; }
+}

@@ -887,6 +887,27 @@
 .dlive__link:hover .dlive__title { color: var(--frost); }
 .dlive__link:hover .dlive__go i { transform: translate(3px, -3px); }
 .dlive__link:hover { border-bottom-color: var(--frost); }
+/* 기획서 — 사이트 출구 아래, 한 단계 작은 줄 */
+.dlive__links { display: grid; gap: 30px; min-width: 0; }
+.dlive__deck {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(157, 222, 215, .18);
+  color: var(--text);
+  text-decoration: none;
+}
+.dlive__deck-title {
+  font: 500 clamp(20px, 2vw, 30px)/1.2 var(--kr);
+  letter-spacing: -.03em;
+  transition: color 280ms ease;
+}
+.dlive__deck:hover .dlive__deck-title { color: var(--frost); }
+.dlive__deck:hover .dlive__go i { transform: translate(3px, -3px); }
+.dlive__deck:hover { border-bottom-color: var(--frost); }
+.dlive__deck:focus-visible, .dlive__link:focus-visible { outline: 1px solid var(--frost); outline-offset: 6px; }
 
 @media (max-width: 700px) {
   .detail__visit.sys { right: 16px; bottom: 16px; height: 42px; padding: 0 16px 0 14px; font-size: 10px; }

@@ -481,17 +481,6 @@
 .build-frame i { position: absolute; left: 8%; right: 8%; height: 1px; background: rgba(175, 194, 200, .16); }
 .build-frame i:nth-child(1) { top: 28%; }.build-frame i:nth-child(2) { top: 55%; }.build-frame i:nth-child(3) { top: 78%; }
 
-.about-room-visual--detail { background-image: radial-gradient(circle, rgba(175, 194, 200, .15) 1px, transparent 1px); background-size: 18px 18px; }
-.detail-lens { position: absolute; left: 50%; top: 50%; width: min(65%, 300px); aspect-ratio: 1; border: 1px solid rgba(214, 234, 239, .7); border-radius: 50%; transform: translate(-50%, -50%) scale(.4); box-shadow: inset 0 0 60px rgba(175, 194, 200, .08), 0 0 45px rgba(175, 194, 200, .08); opacity: 0; }
-.about--reveal .about-room.is-active .detail-lens { animation: lens-open 900ms var(--ease) forwards; }
-@keyframes lens-open { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
-.detail-lens i { position: absolute; background: var(--frost); opacity: .5; }
-.detail-lens i:first-child { left: 10%; right: 10%; top: 50%; height: 1px; }
-.detail-lens i:last-child { top: 10%; bottom: 10%; left: 50%; width: 1px; }
-.about-room-visual--detail > b { position: absolute; color: var(--muted); font: 400 9px var(--mono); }
-.about-room-visual--detail > b:nth-of-type(1) { left: 10%; top: 12%; }
-.about-room-visual--detail > b:nth-of-type(2) { right: 10%; top: 44%; }
-.about-room-visual--detail > b:nth-of-type(3) { left: 18%; bottom: 12%; }
 
 .about-map-intro {
   position: absolute;
@@ -533,7 +522,7 @@
 /* 방 안에서는 MAIN 대신 방 이동 막대가 바닥을 맡는다 — 둘이 나란히 있으면 어디로 가는지 헷갈린다 */
 .about:not(.about--map) .about-back { opacity: 0; pointer-events: none; }
 
-/* 방 이동 막대 — 지도로 / 다섯 방 / 다음 방. 방 안에서만 떠오른다 */
+/* 방 이동 막대 — 지도로 / 네 방 / 다음 방. 방 안에서만 떠오른다 */
 .about-rooms {
   position: absolute;
   z-index: 12;
@@ -897,10 +886,601 @@
 .profile-record__row--now a:focus-visible { border-color: var(--accent); }
 .profile-record__legend { margin: 22px 0 0 calc(var(--scale-x) + 26px); color: var(--muted); font-size: 9.5px; opacity: .55; }
 
-/* BACKGROUND — 관찰점은 우측에서 천천히 스캔되는 이력의 흔적이 된다. */
-.about-room--observe { --beam-x: 72%; }
-.about-room--observe .about-room__content { left: 9vw; width: min(46vw, 690px); }
-.about-room--observe .about-room-visual { right: 6vw; width: 34vw; opacity: .58; }
+/* BACKGROUND — 조명 아래 Figma 편집 화면. 왼쪽에는 고른 시기의 기록이 뜬다 */
+.about-room--observe { --beam-x: 70%; }
+.about-room--observe .about-room__content { left: 9vw; width: min(38vw, 580px); }
+.about-room--observe .about-room-visual--figma {
+  right: 4.5vw;
+  top: clamp(186px, 23vh, 232px);   /* 오른쪽 위 CHAMBER 표시와 겹치지 않게 */
+  width: 44vw;
+  height: min(58vh, 610px);
+  overflow: visible;
+  border: 0;
+  background: none;
+  opacity: 1;
+}
+
+/* Figma 다크 테마 — 창 하나. 방에 들어오면 화면이 켜지듯 나타난다 */
+.figma {
+  --figma: #0d99ff;
+  --figma-ui: #2c2c2c;
+  --figma-line: #444;
+  --figma-text: #e6e6e6;
+  --figma-dim: #9a9a9a;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: clamp(128px, 11vw, 176px) minmax(0, 1fr);
+  grid-template-rows: 38px minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: 8px;
+  background: #1e1e1e;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 30px 80px rgba(0, 0, 0, .6), 0 0 110px rgba(157, 222, 215, .08);
+  color: var(--figma-text);
+  font-family: 'Inter', 'Pretendard Variable', system-ui, sans-serif;
+  letter-spacing: 0;
+  opacity: 0;
+  transform: translateY(14px);
+}
+/* 브라우저 기본 버튼 테두리·배경을 걷는다 — 우선순위 0 이라 각 버튼의 클래스 규칙이 그대로 이긴다 */
+:where(.figma) button { border: 0; background: none; color: inherit; cursor: pointer; }
+:where(.figma) button:focus-visible { outline: 1px solid var(--figma); outline-offset: 1px; }
+.about--reveal .about-room.is-active .figma { animation: figma-on 720ms var(--ease) 140ms forwards; }
+@keyframes figma-on { to { opacity: 1; transform: none; } }
+
+/* 윗줄 — 로고, 도구, 파일 이름, 사람, Share */
+.figma__bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--figma-line);
+  background: var(--figma-ui);
+}
+.figma__logo { display: grid; grid-template-columns: repeat(2, 6px); gap: 0; width: 12px; }
+.figma__logo i { width: 6px; height: 6px; border-radius: 3px 0 0 3px; }
+.figma__logo i:nth-child(1) { background: #f24e1e; }
+.figma__logo i:nth-child(2) { background: #ff7262; border-radius: 0 3px 3px 0; }
+.figma__logo i:nth-child(3) { background: #a259ff; }
+.figma__logo i:nth-child(4) { background: #1abcfe; border-radius: 50%; }
+.figma__logo i:nth-child(5) { background: #0acf83; border-radius: 3px 0 3px 3px; }
+.figma__tools { display: flex; gap: 2px; }
+.figma__tools svg {
+  width: 26px;
+  height: 26px;
+  padding: 6px;
+  border-radius: 5px;
+  fill: none;
+  stroke: var(--figma-text);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.figma__tools svg:first-child { background: var(--figma); }
+.figma__file { flex: 1; margin: 0; overflow: hidden; font-size: 11.5px; font-weight: 500; text-align: center; white-space: nowrap; text-overflow: ellipsis; }
+.figma__file span { color: var(--figma-dim); font-weight: 400; }
+.figma__people b {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #9747ff;
+  font-size: 10px;
+  font-weight: 600;
+}
+.figma__share { padding: 5px 10px; border-radius: 5px; background: var(--figma); font-size: 11px; font-weight: 600; }
+
+/* 레이어 패널 — Section(시기) 아래 Frame(작업) */
+.figma__layers {
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 0;
+  border-right: 1px solid var(--figma-line);
+  background: var(--figma-ui);
+  font-size: 11px;
+}
+.figma__panel-title { margin: 0 12px 8px; font-weight: 600; }
+.figma__group { margin-bottom: 6px; }
+.figma__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  background: none;
+  color: var(--figma-text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.figma__row--section { color: var(--figma-text); font-weight: 500; }
+.figma__row--section > span { color: var(--figma-dim); font-size: 8px; }
+.figma__row--section svg { flex: none; width: 11px; height: 11px; fill: none; stroke: var(--figma-dim); }
+.figma__row--section.is-current svg { stroke: var(--figma); }
+.figma__row--frame { padding-left: 30px; color: #c9c9c9; cursor: pointer; }
+.figma__row--frame > span { color: var(--figma-dim); }
+.figma__row--frame:hover { box-shadow: inset 0 0 0 1px var(--figma); }
+.figma__row--frame.is-selected { background: rgba(13, 153, 255, .28); color: #fff; }
+.figma__row--frame:focus-visible { outline: 1px solid var(--figma); outline-offset: -1px; }
+
+/* 캔버스 — 점 격자 위에 Section 세 개 */
+.figma__canvas {
+  --sx: 0px; --sy: 0px; --sw: 0px; --sh: 0px;
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+  padding: 30px 26px 26px;
+  overflow: hidden;
+  background-color: #1e1e1e;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, .07) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.figma-section {
+  position: relative;
+  min-height: 0;
+  padding: 12px 12px 10px;
+  border: 1px solid #4a4a4a;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, .035);
+  opacity: 0;
+  transform: translateY(8px);
+}
+.about--reveal .about-room.is-active .figma-section { animation: figma-on 560ms var(--ease) calc(520ms + var(--i) * 120ms) forwards; }
+.figma-section__title {
+  position: absolute;
+  left: -1px;
+  bottom: calc(100% + 1px);
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: 3px 3px 0 0;
+  background: #4a4a4a;
+  font-size: 10.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.figma-section__frames {
+  display: flex;
+  gap: 18px;
+  height: 100%;
+  min-height: 0;
+}
+.figma-frame {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0;
+  cursor: pointer;
+}
+.figma-frame__name { color: var(--figma-dim); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.figma-frame.is-selected .figma-frame__name { color: var(--figma); }
+.figma-frame__art { display: block; min-height: 0; overflow: hidden; background: #2a2a2a; }
+.figma-frame__art img { display: block; width: 100%; height: 100%; object-fit: cover; transition: filter 200ms ease; filter: brightness(.86); }
+.figma-frame.is-selected .figma-frame__art img { filter: none; }
+
+/* Figma 선택 — 파란 테두리, 흰 네모 핸들 네 개, 위에 레이어 이름, 아래에 크기 */
+.figma-select {
+  position: absolute;
+  z-index: 3;
+  left: var(--sx);
+  top: var(--sy);
+  width: var(--sw);
+  height: var(--sh);
+  border: 1.5px solid var(--figma);
+  pointer-events: none;
+  opacity: 0;
+  transition: left 260ms cubic-bezier(.2, .8, .2, 1), top 260ms cubic-bezier(.2, .8, .2, 1),
+    width 260ms cubic-bezier(.2, .8, .2, 1), height 260ms cubic-bezier(.2, .8, .2, 1), opacity 160ms ease;
+}
+.figma__canvas.is-selecting .figma-select { opacity: 1; }
+.figma-select > i {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid var(--figma);
+  background: #fff;
+}
+.figma-select > i:nth-of-type(1) { left: -4.5px; top: -4.5px; }
+.figma-select > i:nth-of-type(2) { right: -4.5px; top: -4.5px; }
+.figma-select > i:nth-of-type(3) { left: -4.5px; bottom: -4.5px; }
+.figma-select > i:nth-of-type(4) { right: -4.5px; bottom: -4.5px; }
+.figma-select__name { display: none; }   /* Frame 이름은 캔버스의 이름표가 파랗게 바뀌는 것으로 대신한다 */
+.figma-select__size {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 6px);
+  padding: 3px 5px;
+  border-radius: 2px;
+  background: var(--figma);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* 멀티플레이어 커서 — 손을 떼고 있으면 "Hyomin" 이 Frame 을 하나씩 골라 본다 */
+.figma-bot {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(60%, 60%);
+  transition: transform 900ms cubic-bezier(.45, 0, .2, 1), opacity 240ms ease;
+}
+.figma__canvas.is-bot .figma-bot { opacity: 1; }
+.figma-bot svg { width: 15px; height: 17px; fill: #9747ff; stroke: #fff; stroke-width: 1.2; }
+.figma-bot span { margin-top: 13px; padding: 2px 6px; border-radius: 3px; background: #9747ff; color: #fff; font-size: 10px; font-weight: 600; }
+.figma__zoom { position: absolute; right: 10px; bottom: 8px; color: var(--figma-dim); font-size: 10px; }
+
+/* 커서 챗 — 말을 걸면 이름표가 말풍선으로 커진다(Figma 커서 챗처럼 커서 오른쪽 아래) */
+.figma-bot span.is-saying {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 190px;
+  padding: 8px 11px 9px;
+  border-radius: 4px 14px 14px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: normal;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .45);
+  transform-origin: 0 0;
+  animation: figma-say 380ms cubic-bezier(.2, 1.4, .4, 1) both;
+}
+@keyframes figma-say { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+/* 가리키며 누르는 시늉 — 커서가 톡톡 눌리고 끝에서 파동이 번진다. 말풍선은 커서 왼쪽 */
+.figma-bot.is-pointing span.is-saying {
+  position: absolute;
+  top: 16px;
+  right: calc(100% - 4px);
+  max-width: none;
+  white-space: nowrap;
+  border-radius: 14px 4px 14px 14px;
+  transform-origin: 100% 0;
+}
+.figma-bot.is-pointing svg { transform-origin: 2px 2px; animation: figma-tap 1.3s ease-in-out infinite; }
+.figma-bot.is-pointing::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #9747ff;
+  border-radius: 50%;
+  opacity: 0;
+  animation: figma-ripple 1.3s ease-out infinite;
+}
+@keyframes figma-tap {
+  0%, 30%, 100% { transform: none; }
+  42% { transform: scale(.78); }
+  56% { transform: none; }
+}
+@keyframes figma-ripple {
+  0%, 40% { opacity: 0; transform: scale(.3); }
+  46% { opacity: .9; }
+  90%, 100% { opacity: 0; transform: scale(1.6); }
+}
+
+/* 눌러 볼 곳 — 파란 링이 숨 쉬듯 번진다 */
+.figma__share.is-nudge,
+.figma-share__role > button.is-nudge { animation: figma-nudge 1.6s ease-out infinite; }
+.figma-share__role > button.is-nudge { background: rgba(13, 153, 255, .16); }
+.figma-share__role ul button.is-nudge { animation: figma-glow 1.3s ease-in-out infinite; }
+@keyframes figma-nudge {
+  0% { box-shadow: 0 0 0 0 rgba(13, 153, 255, .75); }
+  70%, 100% { box-shadow: 0 0 0 9px rgba(13, 153, 255, 0); }
+}
+@keyframes figma-glow { 50% { background: rgba(13, 153, 255, .38); } }
+
+/* 공유 창이 열려도 커서는 어두워진 판 위에 떠 있다 */
+.figma:has(.figma-share) .figma-bot { z-index: 6; }
+
+/* can hire — 커서가 깜짝 놀라 튀어 오르고, "!!" 말풍선은 Figma 커서 챗처럼 덜덜 떤다.
+   튀어 오르기는 개별 속성(translate·rotate·scale), 떨림은 transform 이라 둘이 겹쳐도 서로 지우지 않는다 */
+.figma__canvas.is-jumping .figma-bot > * { animation: figma-jump 760ms cubic-bezier(.3, 0, .3, 1); }
+.figma__canvas.is-jumping .figma-bot span.is-saying { animation: figma-jump 760ms cubic-bezier(.3, 0, .3, 1), figma-say 380ms cubic-bezier(.2, 1.4, .4, 1) both; }
+.figma__canvas .figma-bot[data-say='wow'] span.is-saying {
+  animation: figma-jump 760ms cubic-bezier(.3, 0, .3, 1), figma-shake 70ms linear infinite alternate;
+}
+@keyframes figma-jump {
+  0% { translate: 0 0; rotate: 0deg; scale: 1; }
+  18% { translate: 0 3px; scale: 1.08 .88; }
+  42% { translate: 0 -26px; rotate: -8deg; scale: 1; }
+  62% { translate: 0 -26px; rotate: 6deg; }
+  82% { translate: 0 2px; rotate: 0deg; scale: 1.04 .94; }
+  100% { translate: 0 0; rotate: 0deg; scale: 1; }
+}
+@keyframes figma-shake {
+  0% { transform: translate(-1.5px, .5px) rotate(-3deg); }
+  50% { transform: translate(1px, -1px) rotate(2deg); }
+  100% { transform: translate(1.5px, .5px) rotate(3.5deg); }
+}
+
+/* Share 창 — Figma UI3 다크. 오른쪽 위 Share 버튼 아래에 뜬다 */
+.figma-share {
+  position: absolute;
+  z-index: 5;
+  inset: 38px 0 0;
+  background: rgba(0, 0, 0, .42);
+  animation: figma-fade 180ms ease both;
+}
+@keyframes figma-fade { from { opacity: 0; } }
+.figma-share__dialog {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  width: min(318px, calc(100% - 20px));
+  border-radius: 13px;
+  background: var(--figma-ui);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 18px 48px rgba(0, 0, 0, .6);
+  font-size: 11px;
+  animation: figma-pop 220ms cubic-bezier(.2, .9, .3, 1) both;
+}
+@keyframes figma-pop { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+.figma-share__dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 10px 9px 16px;
+  border-bottom: 1px solid var(--figma-line);
+}
+.figma-share__dialog header b { font-size: 12px; font-weight: 600; }
+.figma-share__dialog header button {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  color: var(--figma-dim);
+  font-size: 16px;
+  line-height: 1;
+}
+.figma-share__dialog header button:hover { background: rgba(255, 255, 255, .08); color: var(--figma-text); }
+.figma-share__label { margin: 12px 16px 4px; color: var(--figma-dim); font-weight: 500; }
+.figma-share__people { margin: 0; padding: 0 8px 8px; list-style: none; }
+.figma-share__people > li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.figma-share__people > li > span { flex: 1; min-width: 0; font-weight: 500; }
+.figma-share__people small {
+  display: block;
+  color: var(--figma-dim);
+  font-size: 10px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.figma-share__people > li > em { color: var(--figma-dim); font-style: normal; }
+.figma-share__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0fa958;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.figma-share__avatar--owner { background: #9747ff; }
+.figma-share__role { position: relative; }
+.figma-share__role > button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  color: var(--figma-text);
+  font: inherit;
+}
+.figma-share__role > button:hover,
+.figma-share__role > button[aria-expanded='true'] { background: rgba(255, 255, 255, .08); }
+.figma-share__role > button i { color: var(--figma-dim); font-size: 8px; font-style: normal; }
+.figma-share__role ul {
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 124px;
+  margin: 0;
+  padding: 6px 0;
+  border-radius: 10px;
+  background: #1e1e1e;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 10px 28px rgba(0, 0, 0, .6);
+  list-style: none;
+  animation: figma-pop 160ms ease both;
+}
+.figma-share__role ul button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 5px 12px 5px 6px;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+}
+.figma-share__role ul button:hover { background: var(--figma); }
+.figma-share__role ul button i { width: 14px; font-style: normal; text-align: center; }
+.figma-share__role ul small {
+  margin-left: auto;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #9747ff;
+  font-size: 9px;
+  font-weight: 600;
+}
+.figma-share__dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 12px 12px 10px;
+  border-top: 1px solid var(--figma-line);
+}
+.figma-share__request {
+  padding: 7px 12px;
+  border-radius: 5px;
+  background: var(--figma);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.figma-share__request:hover { background: #0b88e3; }
+
+/* Figma 토스트 — 판 아래 가운데, 검은 알약 */
+.figma-toast {
+  position: absolute;
+  z-index: 7;
+  left: 50%;
+  bottom: 16px;
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: #111;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 8px 24px rgba(0, 0, 0, .55);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
+  animation: figma-toast 2200ms ease both;
+}
+@keyframes figma-toast {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  10%, 86% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, 0); }
+}
+
+
+/* 왼쪽 기록 — 가리킨 층의 시기·온도·이름·남긴 것 */
+.core-readout {
+  margin-top: 30px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(157, 222, 215, .2);
+  animation: core-readout-in 420ms var(--ease) both;
+}
+@keyframes core-readout-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.core-readout__meta.sys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 0;
+  color: var(--frost);
+  font-size: 10px;
+}
+.core-readout__meta span { color: var(--muted); }
+.core-readout__name {
+  display: block;
+  margin-top: 12px;
+  color: var(--text);
+  font: 400 clamp(19px, 1.6vw, 24px)/1.35 var(--serif);
+  word-break: keep-all;
+}
+.core-readout__kept {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  max-width: 50ch;
+  color: rgba(241, 242, 239, .8);
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 1.75;
+  word-break: keep-all;
+}
+.core-readout__kept .sys { color: var(--muted); font-size: 9.5px; }
+.core-readout__hint { margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; word-break: keep-all; }
+.core-readout .about-room__evidence { margin-top: 18px; }
+
+/* 층의 작업물 — 덩어리 속에서 작게 보이던 것을 크게. 누르면 화면 가득 본다 */
+.core-readout__works {
+  display: flex;
+  align-items: flex-start;   /* 비율이 다른 이미지도 윗선을 맞춘다 */
+  gap: 14px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.core-readout__works li {
+  flex: 0 1 auto;
+  max-width: calc(50% - 7px);
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  opacity: 0;
+  animation: core-readout-in 520ms var(--ease) calc(120ms + var(--i) * 90ms) forwards;
+}
+.core-readout__works button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.core-readout__works img {
+  display: block;
+  /* 자르지 않는다 — 세로 작업은 높이에, 가로 작업은 칸 폭에 맞춰 원래 비율 그대로 */
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: clamp(150px, 27vh, 260px);
+  filter: saturate(.9) brightness(.92);
+  transition: filter 260ms ease, transform 520ms var(--ease);
+}
+.core-readout__works button:hover img,
+.core-readout__works button:focus-visible img { filter: none; transform: scale(1.03); }
+.core-readout__works span.sys { color: var(--muted); font-size: 9.5px; }
+
+.about-zoom {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 72px 24px 40px;
+  background: rgba(6, 8, 9, .9);
+  backdrop-filter: blur(6px);
+  cursor: zoom-out;
+  animation: core-readout-in 320ms var(--ease) both;
+}
+.about-zoom img {
+  max-width: min(92vw, 1200px);
+  max-height: calc(100svh - 150px);
+  object-fit: contain;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+}
+.about-zoom p { margin: 0; color: var(--muted); font-size: 10px; }
 
 /* SKILLS — 네트워크와 텍스트가 공간 양쪽에서 맞물리되 박스는 쓰지 않는다. */
 .about-room--skills { --beam-x: 48%; }
@@ -942,15 +1522,9 @@
 .about-skill li:not(:last-child)::after { content: '·'; margin-left: 5px; color: rgba(157, 222, 215, .48); }
 .about-room--skills .about-room__evidence { margin-top: 12px; }
 
-/* APPROACH — 구현 도식은 오른쪽 아래로 밀어 진행 방향을 만든다. */
+/* APPROACH — 배치는 version-history.css (Figma 버전 기록) */
 .about-room--build { --beam-x: 64%; }
-.about-room--build .about-room__content { left: 8vw; top: 15vh; width: min(49vw, 760px); }
-.about-room--build .about-room-visual { right: 7vw; top: 23vh; width: 35vw; height: 54vh; opacity: .54; }
 
-/* WORK — 프로젝트 근거가 실제 선택 대상이 되도록 행 형태로 확장한다. */
-.about-room--detail { --beam-x: 34%; }
-.about-room--detail .about-room__content { left: 38vw; top: 15vh; width: min(52vw, 800px); }
-.about-room--detail .about-room-visual { left: 5vw; right: auto; top: 18vh; width: 29vw; opacity: .42; }
 .about-room__evidence { margin-top: 24px; }
 .about-room__evidence > p { margin-bottom: 8px; }
 .about-room__evidence ul { display: grid; gap: 0; }
@@ -979,8 +1553,7 @@
   .about-room__content,
   .about-room--observe .about-room__content,
   .about-room--skills .about-room__content,
-  .about-room--build .about-room__content,
-  .about-room--detail .about-room__content {
+  .about-room--build .about-room__content {
     left: 22px;
     top: 94px;
     width: calc(100vw - 44px);
@@ -992,8 +1565,7 @@
   .about-room__note { max-width: 42ch; }
   .about-room-visual,
   .about-room--observe .about-room-visual,
-  .about-room--build .about-room-visual,
-  .about-room--detail .about-room-visual {
+  .about-room--build .about-room-visual {
     left: auto;
     right: -18vw;
     top: 9vh;
@@ -1041,4 +1613,33 @@
   .profile-record__label { margin-top: 14px; }
   .profile-record__legend { margin-top: 12px; }
   .profile-record__row--now a { margin-top: 3px; }
+}
+
+/* 좁은 화면 — Figma 화면은 아래 내비게이션 위에 가로로 두고 레이어 패널은 숨긴다. 기록은 그 위에서 스크롤된다 */
+@media (max-width: 760px) {
+  .about-room--observe .about-room__content { max-height: calc(100svh - 94px - 62vw - 118px); padding-bottom: 12px; }
+  .about-room--observe .about-room-visual--figma {
+    left: 22px;
+    right: auto;
+    top: auto;
+    bottom: 96px;
+    width: calc(100vw - 44px);
+    height: 62vw;
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .figma { grid-template-columns: minmax(0, 1fr); grid-template-rows: 30px minmax(0, 1fr); }
+  .figma__layers, .figma__tools, .figma__people, .figma__share { display: none; }
+  .figma__file { font-size: 10px; }
+  .figma__canvas { gap: 18px; padding: 22px 12px 12px; }
+  .figma-section { padding: 6px; }
+  .figma-section__title { font-size: 9px; padding: 2px 5px; }
+  .figma-frame__name { display: none; }
+  .figma-frame { grid-template-rows: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .figma, .figma-section { opacity: 1; transform: none; animation: none !important; }
+  .figma-select, .figma-bot { transition: none; }
+  .figma-bot.is-pointing svg, .figma-bot.is-pointing::before, .figma__share.is-nudge, .figma-share__role .is-nudge { animation: none; }
+  .figma__canvas .figma-bot[data-say='wow'] span.is-saying, .figma__canvas.is-jumping .figma-bot > * { animation: none; }
 }

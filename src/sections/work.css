@@ -419,3 +419,6 @@
   .work__ice-field { transition: none; }
   .work__window, .work__media { transition: none; }
 }
+
+/* 마지막 프로젝트 — 더 내리면 엔딩이 있다는 걸 서리색으로 살짝 알린다 */
+.work__scroll.is-end { color: var(--accent); }
