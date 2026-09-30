@@ -228,7 +228,8 @@ function useUnderSnow(phase, selected) {
     let fogDrawn = false;
     const glow = Object.fromEntries(Object.keys(KEYS).map((id) => [id, 0.5]));
     let W = 0; let H = 0; let dpr = 1;
-    let descent = 0;
+    // 방 주소(#/about/:id)로 바로 들어오면 이미 깊은 곳에 있다
+    let descent = phaseRef.current === 'map' ? 0 : 1;
     let raf = 0;
     let last = performance.now();
     let clock = 0;
@@ -436,6 +437,14 @@ function ProfileRecord({ record }) {
   );
 }
 
+/* 주소의 #/about/:id — 프로젝트를 보고 뒤로 오거나 새로고침해도 그 방으로 돌아온다 */
+const chamberFromHash = () => {
+  const m = window.location.hash.match(/^#\/about\/([\w-]+)$/);
+  return m && CHAMBERS.some((item) => item.id === m[1]) ? m[1] : null;
+};
+/* 방 사이를 옮겨 다니는 순서 — 번호 순 */
+const ROOM_ORDER = [...CHAMBERS].sort((a, b) => a.no.localeCompare(b.no));
+
 function ProjectEvidence({ ids, onOpenProject }) {
   if (!ids?.length) return null;
   return (
@@ -460,9 +469,9 @@ function ProjectEvidence({ ids, onOpenProject }) {
 }
 
 export default function About({ onGoMain, onOpenProject }) {
-  const [selected, setSelected] = useState(null);
-  const [phase, setPhase] = useState('map');
-  const [visited, setVisited] = useState(() => new Set());
+  const [selected, setSelected] = useState(chamberFromHash);
+  const [phase, setPhase] = useState(() => (chamberFromHash() ? 'reveal' : 'map'));
+  const [visited, setVisited] = useState(() => new Set(selected ? [selected] : []));
   const chamber = useMemo(() => CHAMBERS.find((item) => item.id === selected) || null, [selected]);
   const motion = useUnderSnow(phase, selected);
 
@@ -476,6 +485,26 @@ export default function About({ onGoMain, onOpenProject }) {
     if (!chamber || phase === 'travel' || phase === 'impact') return;
     setPhase('return');
   }, [chamber, phase]);
+
+  /* 방 안에서 다른 방으로 바로 옮긴다 — 지도로 떠올랐다 다시 내려가지 않고, 전등만 다시 켠다 */
+  const switchTo = useCallback((id) => {
+    if (phase !== 'reveal' || id === selected) return;
+    setSelected(id);
+    setPhase('impact');
+  }, [phase, selected]);
+
+  const roomIndex = ROOM_ORDER.findIndex((item) => item.id === selected);
+  const nextRoom = ROOM_ORDER[(roomIndex + 1) % ROOM_ORDER.length];
+  const prevRoom = ROOM_ORDER[(roomIndex - 1 + ROOM_ORDER.length) % ROOM_ORDER.length];
+
+  // 지금 있는 방을 주소에 남긴다 — 프로젝트 상세에서 뒤로 가면 이 방으로 돌아온다
+  useEffect(() => {
+    if (!window.location.hash.startsWith('#/about')) return;
+    const target = phase === 'reveal' && selected ? `#/about/${selected}` : phase === 'map' ? '#/about' : null;
+    if (target && window.location.hash !== target) {
+      window.history.replaceState(null, '', `${window.location.pathname}${target}`);
+    }
+  }, [phase, selected]);
 
   useEffect(() => {
     if (phase === 'travel') {
@@ -509,6 +538,11 @@ export default function About({ onGoMain, onOpenProject }) {
     // 방이 열려 있는 동안 Esc 는 '지도로'만 뜻한다.
     // App 도 window 에서 Esc 를 받아 MAIN 으로 보내므로, 캡처 단계에서 먼저 받고 거기서 멈춘다.
     const onKeyDown = (event) => {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+        event.preventDefault();
+        switchTo(event.key === 'ArrowRight' ? nextRoom.id : prevRoom.id);
+        return;
+      }
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -516,7 +550,7 @@ export default function About({ onGoMain, onOpenProject }) {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [chamber, leave]);
+  }, [chamber, leave, nextRoom, prevRoom, switchTo]);
 
   const style = chamber ? {
     '--camera-x': `${CAMERA.x - chamber.room.x}vw`,
@@ -531,7 +565,7 @@ export default function About({ onGoMain, onOpenProject }) {
       aria-label="About me"
       style={style}
       onClick={(event) => {
-        if (phase === 'reveal' && !event.target.closest('.about-room')) leave();
+        if (phase === 'reveal' && !event.target.closest('.about-room, .about-rooms')) leave();
       }}
     >
       <div ref={motion.hostRef} className="about-under" aria-hidden="true" />
@@ -600,8 +634,10 @@ export default function About({ onGoMain, onOpenProject }) {
                     {item.tags.map((tag) => <li key={tag}>{tag}</li>)}
                   </ul>
                 )}
-                <ProjectEvidence ids={item.projects} onOpenProject={onOpenProject} />
-                <button type="button" className="about-room__return sys" onClick={leave}>← RETURN TO MAP</button>
+                <ProjectEvidence
+                  ids={item.projects}
+                  onOpenProject={(project) => onOpenProject?.(project, { chamber: item.id, label: item.label })}
+                />
               </div>
               {item.record && <ProfileRecord record={item.record} />}
             </div>
@@ -620,12 +656,47 @@ export default function About({ onGoMain, onOpenProject }) {
         <span className="sys">OBSERVED {String(visited.size).padStart(2, '0')} / 05</span>
       </div>
 
+      {/* 방 안의 길잡이 — 지도로 돌아가기, 다른 방으로 바로 가기, 다음 방 */}
+      <nav
+        className={`about-rooms ${phase === 'reveal' || phase === 'impact' ? 'is-on' : ''}`}
+        aria-label="ABOUT 방 이동"
+        aria-hidden={phase !== 'reveal'}
+        inert={phase !== 'reveal' ? '' : undefined}
+      >
+        <button type="button" className="about-rooms__map sys" onClick={leave}>
+          <i aria-hidden="true">←</i> MAP
+        </button>
+        <ol>
+          {ROOM_ORDER.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className={`sys ${selected === item.id ? 'is-current' : ''} ${visited.has(item.id) ? 'is-visited' : ''}`}
+                aria-current={selected === item.id ? 'true' : undefined}
+                aria-label={`${item.label} 방으로 이동`}
+                onClick={() => switchTo(item.id)}
+              >
+                <span className="about-rooms__no">{item.no}</span>
+                <span className="about-rooms__label">{item.label}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        <button
+          type="button"
+          className="about-rooms__next sys"
+          onClick={() => switchTo(nextRoom.id)}
+          aria-label={`다음 방 ${nextRoom.label}`}
+        >
+          <span className="about-rooms__label">NEXT</span> <i aria-hidden="true">→</i>
+        </button>
+      </nav>
+
       <button type="button" className="about-back sys" onClick={onGoMain}>← MAIN</button>
       <p className="about-instruction sys">
         {phase === 'map' && 'HOVER TO UNEARTH · CLICK TO DESCEND'}
         {phase === 'travel' && `FOLLOWING ${chamber?.label} SIGNAL`}
         {phase === 'impact' && 'IMPACT · LIGHTING CHAMBER'}
-        {phase === 'reveal' && 'ESC · RETURN TO MAP'}
         {phase === 'return' && 'ASCENDING TO OBSERVATION MAP'}
       </p>
     </section>

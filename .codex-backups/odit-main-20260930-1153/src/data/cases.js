@@ -26,13 +26,6 @@ export const CASES = {
      01 ODIT — 진행 중
      ───────────────────────────────────────────────────────── */
   odit: {
-    cinematicHero: {
-      src: '/cases/odit/main-v1.webp',
-      width: 3840,
-      height: 2160,
-      background: '#fff0c4',
-      alt: '오딧 — 외우는 역사에서 발견하는 재미가 있는 역사로. 홈 화면과 오딧맵을 담은 휴대폰 목업과 탐험 캐릭터',
-    },
     year: '2026',
     categories: ['UX/UI DESIGN', 'FRONTEND'],
     role: ['UX Research', 'UI Design', 'Frontend'],

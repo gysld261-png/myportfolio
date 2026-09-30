@@ -150,7 +150,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   const [revealed, setRevealed] = useState(false);
   const [metaRevealed, setMetaRevealed] = useState(false);
   const data = renderSpec ? getCase(renderSpec.id) : null;
-  const cinematicCover = data?.cinematicHero || null;
+  const cinematicCover = renderSpec?.id === 'walga' ? data?.cinematicHero : null;
   const projectHero = data?.hero?.src || (renderSpec?.id === 'tchaikim' ? '/cases/tchaikim-home.jpg' : null);
   const heroAlt = data?.hero?.alt || (projectHero ? '차이킴 웹사이트 디자인' : '');
 
@@ -409,7 +409,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
               <header className="dhero dhero--cinematic">
                 <h2 className="dhero__a11y" tabIndex={-1}>{renderSpec.ko}</h2>
                 <div className="dhero__cinema-pin">
-                  <figure className="dhero__cinema-frame" style={cinematicCover.background ? { background: cinematicCover.background } : undefined}>
+                  <figure className="dhero__cinema-frame">
                     <img
                       src={cinematicCover.src}
                       alt={cinematicCover.alt || `${renderSpec.ko} 프로젝트 표지`}

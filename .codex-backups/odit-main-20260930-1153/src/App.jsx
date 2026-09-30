@@ -94,7 +94,6 @@ export default function App() {
       [
         '/cases/walga/boards/main.webp',
         '/cases/tchaikim/hero-mockup.webp',
-        '/cases/odit/main-v1.webp',
         '/cases/odit-preview.jpg',
       ].forEach((src) => {
         const image = new Image();

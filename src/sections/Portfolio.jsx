@@ -25,7 +25,7 @@ const hashId = () => {
  * SCROLL 은 이름이 끝없이 흘러가고 가운데 창에 화면이 비친다(WorkScroll).
  * LIST 는 장식적 보조 화면이 아니라 모든 프로젝트 정보에 도달하는 완전한 대체 경로다.
  */
-export default function Portfolio() {
+export default function Portfolio({ returnTo = null }) {
   const [mode, setMode] = useState('field');
   const [activeIndex, setActiveIndex] = useState(0);
   const [selected, setSelected] = useState(hashId);
@@ -265,6 +265,7 @@ export default function Portfolio() {
         portal={!selected && Boolean(portal)}
         onClose={() => select(null)}
         onSwitch={select}
+        returnTo={returnTo}
       />
     </section>
   );

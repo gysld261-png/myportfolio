@@ -530,6 +530,57 @@
   color: var(--muted);
   cursor: pointer;
 }
+/* 방 안에서는 MAIN 대신 방 이동 막대가 바닥을 맡는다 — 둘이 나란히 있으면 어디로 가는지 헷갈린다 */
+.about:not(.about--map) .about-back { opacity: 0; pointer-events: none; }
+
+/* 방 이동 막대 — 지도로 / 다섯 방 / 다음 방. 방 안에서만 떠오른다 */
+.about-rooms {
+  position: absolute;
+  z-index: 12;
+  left: 50%;
+  bottom: 28px;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid rgba(175, 194, 200, .16);
+  border-radius: 999px;
+  background: rgba(8, 10, 11, .62);
+  backdrop-filter: blur(12px);
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 360ms ease, transform 520ms var(--ease);
+}
+.about-rooms.is-on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.about-rooms ol { display: flex; gap: 2px; margin: 0; padding: 0 4px; list-style: none; border-inline: 1px solid rgba(175, 194, 200, .14); }
+.about-rooms button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 200ms ease, background 200ms ease;
+}
+.about-rooms button i { font-style: normal; }
+.about-rooms button:hover,
+.about-rooms button:focus-visible { color: var(--text); background: rgba(175, 194, 200, .08); }
+.about-rooms button:focus-visible { outline: 1px solid var(--frost); outline-offset: 1px; }
+.about-rooms__no { opacity: .55; }
+.about-rooms ol button.is-visited .about-rooms__no { color: var(--frost); opacity: .8; }
+.about-rooms ol button.is-current { color: var(--bg); background: var(--frost); }
+.about-rooms ol button.is-current .about-rooms__no { color: inherit; opacity: .7; }
+.about-rooms__map,
+.about-rooms__next { color: var(--frost) !important; }
+
 .about-instruction {
   position: absolute;
   z-index: 10;
@@ -573,6 +624,13 @@
   .about-hud { top: auto; bottom: 68px; right: var(--gutter); width: 42vw; }
   .about-instruction { display: none; }
   .about-back { bottom: 24px; }
+  /* 좁은 화면 — 방 이름은 번호만 남긴다 */
+  .about-rooms { bottom: 16px; max-width: calc(100vw - 24px); }
+  .about-rooms ol .about-rooms__label { display: none; }
+  .about-rooms button { height: 34px; padding: 0 11px; }
+  /* 방 안에서는 막대가 바닥을 차지한다 — 계기판은 숨기고, 글은 막대 위에서 끝나게 */
+  .about:not(.about--map) .about-hud { display: none; }
+  .about-room__content { padding-bottom: 84px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

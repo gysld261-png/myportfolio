@@ -6,7 +6,7 @@
      2. 캡션 없음. 이미지가 스스로 설명 못 하면 그 이미지를 안 쓴다.
      3. 자세한 건 링크 한 줄로 밀어낸다.
 
-   배경은 필드와 같은 어둠을 유지하고, K95 의 색면 대신 옅은 격자만 깐다.
+   배경은 필드와 같은 어둠 위에, K95 의 색면 대신 그 프로젝트의 색을 공기처럼 옅게 번지게 한다.
    ───────────────────────────────────────────────────────────── */
 
 .detail {
@@ -24,6 +24,58 @@
     opacity 420ms var(--ease),
     visibility 0s linear 420ms;
 }
+/* ── 온도 — 스크롤할수록 승화한다 ──
+   무늬(격자)로 공간을 만들지 않고, 배경의 온도만 바꾼다.
+   맨 위는 −78.5°C 의 고체 — 푸른 기가 도는 차가운 먹색. 끝까지 내려가면 기체로 풀린 따뜻한 먹색.
+   --heat(0→1)은 ProjectDetail 이 스크롤 진행도로 쓴다. 이미지 뒤에서는 거의 느껴지지 않을 만큼만. */
+.detail__air {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -8%,
+      rgba(150, 190, 205, calc(.10 * (1 - var(--heat, 0)))), transparent 72%),
+    radial-gradient(ellipse 70% 45% at 50% 108%,
+      rgba(205, 160, 120, calc(.07 * var(--heat, 0))), transparent 72%),
+    color-mix(in srgb, #0a1418 calc((1 - var(--heat, 0)) * 100%), #1a130e);
+}
+
+/* ── 서리선 — 오른쪽 끝, 읽은 만큼 서리가 차오른다 ──
+   메인 네비의 서리선(승화 진행도)을 세로로 옮겼다. 요소는 이것 하나뿐이다. */
+.detail__frost {
+  position: absolute;
+  z-index: 6;
+  top: calc(var(--nav-h) + 16px);
+  bottom: 28px;
+  right: clamp(10px, 1.1vw, 20px);
+  width: 1px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, var(--accent-border) 12%, var(--accent-border) 88%, transparent);
+  opacity: 0;
+  transition: opacity 420ms var(--ease) 200ms;
+}
+.detail.is-revealed .detail__frost { opacity: 1; }
+.detail__frost i {
+  position: absolute;
+  inset: 0 0 auto;
+  height: calc(var(--heat, 0) * 100%);
+  background: linear-gradient(180deg, transparent, var(--accent-bright));
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+/* 차오르는 끝 — 결정 한 알 */
+.detail__frost i::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -2px;
+  width: 5px;
+  height: 5px;
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px var(--accent-glow);
+  transform: translateX(-50%) rotate(45deg);
+}
+
 .detail.is-open {
   z-index: 50;
   opacity: 1;
@@ -89,6 +141,8 @@
 .detail--cinematic .detail__brand { text-shadow: none; }
 .detail--cinematic .detail__dismiss { background: transparent; backdrop-filter: none; }
 .detail--cinematic .detail__dismiss:hover { background: rgba(255, 255, 255, .14); }
+.detail--cinematic .detail__return { background: transparent; backdrop-filter: none; border-color: rgba(255, 255, 255, .6); }
+.detail--cinematic .detail__return:hover { background: rgba(255, 255, 255, .14); }
 
 /* 얼음이 녹고 남은 표본 — 로고를 흐릿하고 크게, 스크롤과 상관없이 배경에 남긴다.
    얼음 속으로 들어온 직후처럼 크고 흐리게 시작해 제자리로 가라앉는다. */
@@ -135,17 +189,14 @@
 
 .detail__scroll {
   position: absolute;
-  z-index: 1;
+  /* z-index 를 주지 않는다 — 쌓임 맥락이 생기면 표지 이미지의 lighten 합성이 뒤의 공기를 못 본다.
+     DOM 순서상 공기·고스트(z 0) 다음이라 여전히 그 위에 그려진다. */
+  z-index: auto;
   inset: 0;
   overflow-y: auto;
   overflow-x: hidden;
   opacity: 0;
   transition: opacity 420ms var(--ease);
-  /* 격자 — K95 의 색면 위 그리드를 어둠 위로 옮긴 것 */
-  background-image:
-    linear-gradient(to right, rgba(175, 194, 200, 0.035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(175, 194, 200, 0.035) 1px, transparent 1px);
-  background-size: clamp(90px, 8vw, 150px) clamp(90px, 8vw, 150px);
   scrollbar-width: none;
 }
 .detail__scroll::-webkit-scrollbar { display: none; }
@@ -167,6 +218,28 @@
 .detail.is-revealed .detail__chrome { opacity: 1; }
 /* 글꼴·크기는 .nav__mark 를 그대로 쓴다. 그림자만 .nav 에서 물려받던 걸 옮겨 둔다. */
 .detail__brand { text-shadow: 0 1px 14px rgba(0, 0, 0, .78); }
+.detail__actions { display: flex; align-items: center; gap: 14px; }
+.detail__return {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 999px;
+  background: rgba(11, 13, 14, .42);
+  color: var(--text);
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  white-space: nowrap;
+  cursor: pointer;
+  backdrop-filter: blur(7px);
+  transition: background 220ms var(--ease), border-color 220ms var(--ease);
+}
+.detail__return i { font-style: normal; transition: transform 220ms var(--ease); }
+.detail__return:hover { background: rgba(11, 13, 14, .7); border-color: rgba(255, 255, 255, .5); }
+.detail__return:hover i { transform: translateX(-3px); }
+.detail__return:focus-visible { outline: 1px solid var(--text); outline-offset: 2px; }
 .detail__dismiss {
   position: relative;
   width: 44px;
@@ -294,12 +367,16 @@
   aspect-ratio: 16 / 10;
   background: transparent;
   transform: none;
+  will-change: auto;   /* 쌓임 맥락을 만들면 안의 lighten 합성이 공기를 못 본다 */
 }
 .dhero--project .dhero__plate img {
   object-fit: cover;
   object-position: center;
   animation: none;
   filter: none;
+  /* 목업 이미지에 구워진 검은 배경이 물든 공기 위에서 사각형으로 뜨지 않게 —
+     밝은 쪽만 남겨 어둠은 공기에 녹인다. 화면과 기기는 배경보다 밝아서 그대로다. */
+  mix-blend-mode: lighten;
 }
 
 /* Transparent project mockups sit directly on the dark page, without a card. */
@@ -665,27 +742,42 @@
   overflow: hidden;
   background: rgba(175, 194, 200, 0.028);
 }
-.shot img {
+.shot img,
+.shot video {
   display: block;
   width: 100%;
   height: auto;
 }
 /* 빈 자리표도 같이 울렁여야 한다. 안 그러면 사진 있는 줄만 움직여서 따로 논다. */
 .shot img,
+.shot video,
+.shot__stack,
 .shot__slot {
   /* 1.06 만큼 미리 키워 두는 건 여백을 만들기 위해서다.
      그래야 안에서 밀거나 기울여도 프레임 가장자리에 빈틈이 안 생긴다. */
   /* --py 는 스크롤 트리거의 패럴랙스(smooth.js attachScrollReveal).
      사진이 프레임보다 느리게 흘러 깊이가 생긴다. 흐르는 폭만큼 더 키워 둔다. */
+  /* 이미지가 목업(기기가 여백 안에 놓인 구성)이라 크게 키우면 기기 가장자리가 잘린다.
+     1.12 → 1.04 로 줄이고, 흐르는 폭도 그만큼만 준다 */
   transform:
-    scale(1.12)
-    translateY(calc(var(--py, 0) * 4%))
-    translateY(calc(var(--sv, 0) * -18px))
+    scale(1.04)
+    translateY(calc(var(--py, 0) * 1.5%))
+    translateY(calc(var(--sv, 0) * -8px))
     scaleY(calc(1 + var(--sva, 0) * 0.05))
     skewY(calc(var(--sv, 0) * 0.9deg));
   transform-origin: 50% 50%;
   will-change: transform;
 }
+/* 겹친 영상 — 사진과 영상을 한 겹(.shot__stack)으로 움직인다. 안쪽은 따로 흐르지 않는다 */
+.shot__stack { position: relative; }
+.shot__stack img,
+.shot__stack video { transform: none; will-change: auto; }
+.shot__overlay {
+  position: absolute;
+  box-shadow: 0 20px 45px rgba(41, 31, 15, 0.22);   /* Figma 의 카드 그림자(2x 기준 0 40 90)와 같다 */
+}
+.shot__overlay video { display: block; width: 100%; height: auto; }
+
 /* 아직 없는 이미지는 비워두지 않고 자리를 잡아둔다 — 리듬이 먼저 보여야 한다 */
 .shot__slot {
   display: block;
@@ -725,6 +817,86 @@
 }
 .dconcept__body p:last-child { margin-bottom: 0; }
 
+/* ── 배포 사이트 — 떠 있는 버튼 ──
+   상세 어디를 보고 있든 오른쪽 아래에 남는다. 스크롤 안내(cinema-cue)는 그 위로 비켜 선다. */
+.detail__visit.sys {
+  position: absolute;
+  z-index: 7;
+  right: max(var(--dg), 26px);
+  bottom: max(28px, 4vh);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 20px 0 16px;
+  border: 1px solid rgba(157, 222, 215, .55);
+  border-radius: 999px;
+  background: rgba(8, 10, 11, .9);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .32), 0 0 24px rgba(157, 222, 215, .22);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 420ms var(--ease) 260ms, transform 420ms var(--ease) 260ms, box-shadow 240ms ease, background 240ms ease;
+}
+.detail.is-revealed .detail__visit { opacity: 1; transform: translateY(0); }
+.detail__visit i { color: var(--frost); font-style: normal; font-size: 13px; transition: transform 240ms var(--ease); }
+.detail__visit.sys:hover { border-color: var(--frost); background: #000; box-shadow: 0 14px 36px rgba(0, 0, 0, .38), 0 0 30px rgba(157, 222, 215, .36); }
+.detail__visit:hover i { transform: translate(2px, -2px); }
+.detail__visit:focus-visible { outline: 1px solid var(--text); outline-offset: 3px; }
+/* 살아 있는 사이트라는 표시 — 천천히 숨 쉬는 점 */
+.detail__visit-dot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--frost); color: var(--frost); }
+.detail__visit-dot::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  animation: visit-pulse 1.8s ease-out infinite;
+}
+@keyframes visit-pulse { from { opacity: .7; transform: scale(.5); } to { opacity: 0; transform: scale(1.5); } }
+.detail.has-live .dhero__cinema-cue { bottom: calc(max(28px, 4vh) + 60px); }
+
+/* ── 직접 써 보기 — 이미지 리듬 끝, 다음 프로젝트 앞 ── */
+.dlive {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--dg);
+  padding: clamp(80px, 12vh, 140px) var(--dg);
+}
+.dlive__link {
+  display: grid;
+  gap: 22px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid rgba(157, 222, 215, .28);
+  color: var(--text);
+  text-decoration: none;
+}
+.dlive__title {
+  font: 500 clamp(36px, 5vw, 84px)/1.02 var(--kr);
+  letter-spacing: -.04em;
+  word-break: keep-all;
+  transition: color 280ms ease;
+}
+.dlive__meta { display: flex; justify-content: space-between; gap: 16px; color: var(--muted); }
+.dlive__go { color: var(--frost); }
+.dlive__go i { display: inline-block; font-style: normal; transition: transform 240ms var(--ease); }
+.dlive__link:hover .dlive__title { color: var(--frost); }
+.dlive__link:hover .dlive__go i { transform: translate(3px, -3px); }
+.dlive__link:hover { border-bottom-color: var(--frost); }
+
+@media (max-width: 700px) {
+  .detail__visit.sys { right: 16px; bottom: 16px; height: 42px; padding: 0 16px 0 14px; font-size: 10px; }
+  .detail.has-live .dhero__cinema-cue { bottom: 72px; }
+  .dlive { grid-template-columns: 1fr; gap: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail__visit-dot::after { animation: none; }
+}
+
 /* ── 다음 프로젝트 — 한 화면, 작은 카드 한 장 ──
    왼쪽: 라벨·이름·한 줄 소개 / 가운데: 카드 / 오른쪽: 역할·연도·이동
    화면을 사진으로 채우지 않고, 글자도 사진 위에 얹지 않는다. 어둠 위에 카드만 떠 있다. */
@@ -732,11 +904,6 @@
   position: relative;
   z-index: 1;
   border-top: 1px solid rgba(157, 222, 215, .13);
-  background-color: var(--bg);
-  background-image:
-    linear-gradient(to right, rgba(157, 222, 215, .035) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(157, 222, 215, .035) 1px, transparent 1px);
-  background-size: clamp(90px, 8vw, 150px) clamp(90px, 8vw, 150px);
 }
 .dnext__stage {
   display: grid;
@@ -855,6 +1022,8 @@
   /* 전역 .nav 의 모바일 배치와 맞춘다 */
   .detail__chrome { align-items: flex-start; padding-top: 14px; }
   .detail__dismiss { margin-top: -10px; }
+  .detail__actions { align-items: flex-start; gap: 8px; }
+  .detail__return { height: 32px; margin-top: -4px; padding: 0 12px; font-size: 9.5px; }
 }
 
 @media (max-width: 700px) {
