@@ -5,13 +5,12 @@ import './intro.css';
  * 인트로 — 두꺼운 얼음판이 갈라져 떨어진다.
  *   1 얼음판   두꺼운 얼음처럼 투명하지만 흐릿한 막이 화면을 덮고, 가장자리부터 서리가 짙어진다(backdrop-filter)
  *   2 금       한 점에서 가는 금이 뻗고, 뒤따라 얼음 속이 하얗게 탁해지는 균열면이 번진다. 얼음판이 묵직하게 한 번 처진다
- *              가만히 두면 가운데서, 먼저 누르면 누른 자리에서
+ *              누른 자리에서(키보드·SKIP 은 가운데서). 가만히 두면 깨지지 않고 기다린다
  *   3 깨짐     큼직한 덩어리가 잠깐 버티다 중력에 끌려 무겁게 떨어지고(거의 돌지 않는다), 틈에서 드라이아이스 냉기가 피어오른다
  * 유리처럼 '쨍그랑' 가볍지 않게 — 반짝이·빛 번쩍임 대신 탁한 균열과 무게, 연기.
  * 조각은 금이 가는 순간 그 점을 중심으로 만든다 — 깨지기 전엔 한 장이라 이음매가 보이지 않는다.
  */
 const RAYS = 8;           // 방사형 금 — 적을수록 조각이 큼직해 무겁다
-const T_WAIT = 2600;      // 얼음판에 서리가 짙어지고 글씨가 읽히는 시간 — 그사이 누르면 그 자리에서 깨진다
 const T_CRACK = 900;      // 금 → 균열면이 번지는 시간(얼음판이 묵직하게 처진다)
 const T_FALL = 1250;      // 덩어리가 떨어지는 시간(중력 — 처음엔 버티다가 점점 빨리)
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -144,18 +143,18 @@ export default function Intro({ phase = 'active', onLeave }) {
     later(() => onLeave?.(), T_CRACK + T_FALL * 0.6);
   }, [onLeave]);
 
-  // 첫 몇 초는 메인 3D 준비로 화면이 끊긴다 — 부드러워진 뒤(최대 2.5초) 잠시 얼음판을 보여 주고 스스로 깨진다
+  // 스스로 깨지지 않는다 — 발표 때 콘셉트를 설명하는 동안 얼음판이 그대로 기다린다.
+  // 클릭(누른 자리) · SKIP · 키보드/프레젠터 리모컨(가운데)으로만 깨진다.
   useEffect(() => {
-    let raf = 0; let prev = 0; let smooth = 0; const born = performance.now();
-    const tick = (now) => {
-      smooth = prev && now - prev < 34 ? smooth + 1 : 0;
-      prev = now;
-      if (smooth >= 6 || now - born > 2500) { later(() => crack(), T_WAIT); return; }
-      raf = requestAnimationFrame(tick);
+    const onKey = (event) => {
+      if (!['Enter', ' ', 'PageDown', 'ArrowRight', 'ArrowDown'].includes(event.key)) return;
+      if (event.target.closest?.('.intro__skip')) return;
+      event.preventDefault();
+      crack();
     };
-    raf = requestAnimationFrame(tick);
+    window.addEventListener('keydown', onKey);
     const list = timers.current;
-    return () => { cancelAnimationFrame(raf); list.forEach((id) => window.clearTimeout(id)); list.length = 0; };
+    return () => { window.removeEventListener('keydown', onKey); list.forEach((id) => window.clearTimeout(id)); list.length = 0; };
   }, [crack]);
 
   // 뒤의 메인 얼음이 인트로 아래에서 커서에 반응하지 않게(잡고 돌리기·DRAG 표시) 여기서 멈춘다

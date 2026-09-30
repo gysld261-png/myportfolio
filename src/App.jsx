@@ -224,9 +224,11 @@ export default function App() {
   useEffect(() => {
     if (intro === 'done') return undefined;
     const reduced = prefersReduced();
-    // 인트로(이름 승화)는 연기가 걷힐 때 onLeave 를 부른다. 여기 시간은 무슨 일이 있어도 넘어가게 하는 안전장치
+    // 인트로(얼음판)는 깨질 때 onLeave 를 부른다. 스스로 깨지지 않으니 active 에는 시간 제한을 두지 않는다
+    // — 움직임 줄이기에서만 얼음판을 건너뛴다.
+    if (intro === 'active' && !reduced) return undefined;
     const timer = intro === 'active'
-      ? window.setTimeout(() => setIntro('leaving'), reduced ? 80 : 12000)
+      ? window.setTimeout(() => setIntro('leaving'), 80)
       : window.setTimeout(() => setIntro('done'), reduced ? 160 : 560);
     return () => window.clearTimeout(timer);
   }, [intro]);
