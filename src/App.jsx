@@ -41,6 +41,26 @@ const REWIND_DURATION = 1100;
 /* 지도 화면일 때만 되돌아간다. 방 안에서의 스크롤은 방 내용을 읽는 데 쓴다 */
 const aboutOnMap = () => Boolean(document.querySelector('.about--map:not([aria-hidden="true"])'));
 
+/* 첫 얼음이 실제로 그려진 뒤 초점을 맞춘다. WebGL이 없는 경우에도 이동은 끝낸다. */
+const waitForPortfolioScene = (stage, signal) => new Promise((resolve) => {
+  if (!stage || signal.aborted) { resolve(); return; }
+  let timer;
+  const finish = () => {
+    observer.disconnect();
+    window.clearTimeout(timer);
+    signal.removeEventListener('abort', finish);
+    resolve();
+  };
+  const check = () => {
+    if (stage.querySelector('.work__ice-field[data-ready="true"]')) finish();
+  };
+  const observer = new MutationObserver(check);
+  observer.observe(stage, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-ready'] });
+  signal.addEventListener('abort', finish, { once: true });
+  timer = window.setTimeout(finish, 3000);
+  check();
+});
+
 /**
  * 세로 문서가 아니라 하나의 고정된 전시 공간이다.
  * INTRO → MAIN → (scroll) ABOUT, PORTFOLIO 는 탭으로만 진입한다.
@@ -69,6 +89,11 @@ export default function App() {
   const [origin, setOrigin] = useState(null);
   const [evidenceArrival, setEvidenceArrival] = useState(false);
   const evidenceRef = useRef({ busy: false, transition: null, animation: null });
+  const [portfolioArrival, setPortfolioArrival] = useState(false);
+  const [portfolioWarmed, setPortfolioWarmed] = useState(false);
+  const [portfolioWarmReady, setPortfolioWarmReady] = useState(false);
+  const markPortfolioReady = useCallback(() => setPortfolioWarmReady(true), []);
+  const portfolioPassageRef = useRef({ busy: false, transition: null, animation: null, controller: null });
   /* 엔딩 단계 — idle · pull(미는 중) · closing(끝까지 닫히는 중) · credits · opening(다시 열리는 중) */
   const [ending, setEnding] = useState('idle');
   const endingRef = useRef('idle');
@@ -88,6 +113,18 @@ export default function App() {
   const backAccum = useRef(0);      // ABOUT 에서 위로 민 양
   const backAt = useRef(0);
   const rewindStarted = useRef(0);
+
+  useEffect(() => {
+    if (current !== 'about' || portfolioWarmed) return undefined;
+    // ABOUT을 읽는 동안 첫 얼음을 준비하고, 첫 프레임 이후 GPU 루프는 쉰다.
+    const warm = () => setPortfolioWarmed(true);
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(warm, { timeout: 1600 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 800);
+    return () => window.clearTimeout(id);
+  }, [current, portfolioWarmed]);
 
   useEffect(() => {
     if (mainCached || current !== 'about') return undefined;
@@ -176,12 +213,20 @@ export default function App() {
       return;
     }
     if (!['main', 'about', 'portfolio'].includes(id)) return;
+    if (id !== 'portfolio') {
+      setPortfolioWarmed(false);
+      setPortfolioWarmReady(false);
+      portfolioPassageRef.current.controller?.abort();
+      portfolioPassageRef.current.transition?.skipTransition();
+      portfolioPassageRef.current.animation?.cancel();
+    }
 
     setContactOpen(false);
     // 어디로 가든 관측창은 다시 활짝 연 상태로 시작한다
     setEnding('idle');
     setCurrent(id);
     setEvidenceArrival(false);
+    setPortfolioArrival(false);
     if (id === 'main') setMainCached(true);
     if (id === 'about') {
       setAboutCached(true);
@@ -219,7 +264,64 @@ export default function App() {
 
   // 숨겨진 About은 진행도 갱신 때마다 다시 렌더링하지 않도록 콜백도 고정한다.
   const aboutToMain = useCallback(() => go('main', { rewind: true }), [go]);
-  const aboutToPortfolio = useCallback(() => go('portfolio'), [go]);
+  const aboutToPortfolio = useCallback(async () => {
+    const operation = portfolioPassageRef.current;
+    if (operation.busy) return;
+    operation.busy = true;
+    const controller = new AbortController();
+    operation.controller = controller;
+    const source = window.location.hash;
+    const stage = shellRef.current?.querySelector('.app-stage');
+    const update = async () => {
+      if (controller.signal.aborted || window.location.hash !== source) return;
+      flushSync(() => {
+        go('portfolio');
+        setPortfolioArrival(true);
+      });
+      await waitForPortfolioScene(stage, controller.signal);
+    };
+    try {
+      if (prefersReduced()) {
+        flushSync(() => { go('portfolio'); setPortfolioArrival(true); });
+      } else {
+        document.documentElement.classList.add('is-about-portfolio-opening');
+        if (document.startViewTransition) {
+          operation.transition = document.startViewTransition(update);
+          operation.transition.ready.catch(() => {});
+          await operation.transition.finished.catch(() => {});
+        } else {
+          operation.animation = stage?.animate([
+            { opacity: 1, transform: 'scale(1)', filter: 'blur(0)' },
+            { opacity: 0, transform: 'scale(.96)', filter: 'blur(4px)' },
+          ], { duration: 460, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'both' });
+          await operation.animation?.finished.catch(() => {});
+          if (controller.signal.aborted) return;
+          await update();
+          operation.animation?.cancel();
+          if (controller.signal.aborted || window.location.hash !== '#/portfolio') return;
+          operation.animation = stage?.animate([
+            { opacity: 0, transform: 'scale(1.018)', filter: 'blur(8px)' },
+            { opacity: 1, transform: 'scale(1)', filter: 'blur(0)' },
+          ], { duration: 900, delay: 180, easing: 'cubic-bezier(.22, 0, .2, 1)', fill: 'both' });
+          await operation.animation?.finished.catch(() => {});
+        }
+      }
+    } finally {
+      operation.controller?.abort();
+      operation.animation?.cancel();
+      document.documentElement.classList.remove('is-about-portfolio-opening');
+      operation.busy = false;
+      operation.transition = null;
+      operation.animation = null;
+      operation.controller = null;
+    }
+  }, [go]);
+  useEffect(() => () => {
+    portfolioPassageRef.current.controller?.abort();
+    portfolioPassageRef.current.transition?.skipTransition();
+    portfolioPassageRef.current.animation?.cancel();
+    document.documentElement.classList.remove('is-about-portfolio-opening');
+  }, []);
   const aboutToProject = useCallback(async (project, from) => {
     const operation = evidenceRef.current;
     if (operation.busy) return;
@@ -352,6 +454,9 @@ export default function App() {
 
   useEffect(() => {
     const onPop = () => {
+      portfolioPassageRef.current.controller?.abort();
+      portfolioPassageRef.current.transition?.skipTransition();
+      portfolioPassageRef.current.animation?.cancel();
       exitTarget.current = 0;
       exitValue.current = 0;
       setMainExit(0);
@@ -366,6 +471,8 @@ export default function App() {
       setEnding('idle');
       setCurrent(next);
       setEvidenceArrival(false);
+      setPortfolioArrival(false);
+      if (next !== 'portfolio') { setPortfolioWarmed(false); setPortfolioWarmReady(false); }
       if (next === 'main') setMainCached(true);
       if (next === 'about') {
         setAboutCached(true);
@@ -512,7 +619,7 @@ export default function App() {
       />
 
       <main
-        className={`app-stage app-stage--${current} ${evidenceArrival ? 'is-evidence-arrival' : ''}`}
+        className={`app-stage app-stage--${current} ${evidenceArrival ? 'is-evidence-arrival' : ''} ${portfolioArrival ? 'is-portfolio-arrival' : ''}`}
         inert={ending === 'credits' ? '' : undefined}
       >
         {mainCached && (
@@ -533,15 +640,17 @@ export default function App() {
             onOpenProject={aboutToProject}
           />
         )}
-        {current === 'portfolio' && (
+        {(current === 'portfolio' || portfolioWarmed) && (
           <Portfolio
+            active={current === 'portfolio'}
+            onReady={markPortfolioReady}
             returnTo={origin ? {
               label: origin.label,
               onBack: () => go('about', { chamber: origin.chamber }),
             } : null}
             onEndProgress={onEndProgress}
             endControlRef={endControl}
-            suspended={ending === 'credits'}
+            suspended={ending === 'credits' || (current !== 'portfolio' && portfolioWarmReady)}
           />
         )}
       </main>

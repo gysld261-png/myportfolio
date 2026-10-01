@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SPECIMENS, byId } from '../data/specimens';
 import StateReadout from '../components/StateReadout';
 import ProjectDetail from './ProjectDetail';
@@ -17,7 +17,7 @@ const hashId = () => {
  * SCROLL 은 이름이 끝없이 흘러가고 가운데 창에 화면이 비친다(WorkScroll).
  * LIST 는 장식적 보조 화면이 아니라 모든 프로젝트 정보에 도달하는 완전한 대체 경로다.
  */
-export default function Portfolio({ returnTo = null, onEndProgress = null, endControlRef = null, suspended = false }) {
+export default function Portfolio({ returnTo = null, onEndProgress = null, endControlRef = null, suspended = false, active = true, onReady = null }) {
   const [mode, setMode] = useState('field');
   /* 보기 전환 — 캡슐의 선택 칸이 먼저 넘어가고(pending), 지금 화면이 흐려지며 빠진 뒤 새 화면이 떠오른다 */
   const [pendingMode, setPendingMode] = useState(null);
@@ -30,6 +30,13 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
   const hud = { state: 'SOLID', temp: 'LOW', tempValue: 0 };
   const returnTarget = useRef(selected);
   const sectionRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!active) return;
+    const id = hashId();
+    setSelected(id);
+    if (id) setActiveIndex(SPECIMENS.findIndex(spec => spec.id === id));
+  }, [active]);
 
   const visibleSpecimens = SPECIMENS;
   const activeSpec = visibleSpecimens[activeIndex] || visibleSpecimens[0];
@@ -93,7 +100,8 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
   }, [restoreFocus]);
 
   return (
-    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''} ${portal && !selected ? 'is-portal' : ''}`}>
+    <section ref={sectionRef} className={`screen portfolio ${selected ? 'is-open' : ''} ${portal && !selected ? 'is-portal' : ''} ${!active ? 'is-preparing' : ''}`}
+      aria-hidden={!active} inert={!active ? '' : undefined}>
       <div
         className={`portfolio__stage portfolio__stage--${mode} ${pendingMode ? 'is_leaving' : ''} ${switched ? 'is_switched' : ''}`}
         inert={selected ? '' : undefined}
@@ -109,6 +117,8 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
             paused={Boolean(selected) || suspended}
             onEndProgress={onEndProgress}
             endControlRef={endControlRef}
+            onReady={onReady}
+            active={active}
           />
         ) : (
           <ProjectList

@@ -44,6 +44,36 @@ body {
 }
 .app-stage--portfolio { animation: scene-in 420ms var(--ease) both; }
 
+/* ABOUT 하단 PORTFOLIO — 글이 멀어지고 얼음으로 초점을 옮긴다. */
+.is-about-portfolio-opening .app-stage { view-transition-name: about-portfolio; animation: none; pointer-events: none; }
+.app-stage.is-portfolio-arrival { animation: none; }
+.app-stage > .portfolio.is-preparing { position: absolute; inset: 0; visibility: hidden; pointer-events: none; }
+.is-about-portfolio-opening::view-transition-group(about-portfolio) { animation: none; }
+.is-about-portfolio-opening::view-transition-image-pair(about-portfolio) { isolation: isolate; }
+.is-about-portfolio-opening::view-transition-old(about-portfolio),
+.is-about-portfolio-opening::view-transition-new(about-portfolio) {
+  mix-blend-mode: normal;
+}
+.is-about-portfolio-opening::view-transition-old(about-portfolio) {
+  animation: about-portfolio-out 460ms cubic-bezier(.4, 0, .2, 1) both;
+  z-index: 1;
+}
+.is-about-portfolio-opening::view-transition-new(about-portfolio) {
+  /* ABOUT이 사라진 뒤 잠깐 비워 두고, 얼음이 천천히 초점을 찾는다. */
+  animation: about-portfolio-in 900ms cubic-bezier(.22, 0, .2, 1) 640ms both;
+  z-index: 2;
+}
+.is-about-portfolio-opening::view-transition-old(root),
+.is-about-portfolio-opening::view-transition-new(root) { animation: none; }
+@keyframes about-portfolio-out {
+  from { opacity: 1; transform: scale(1); filter: blur(0); }
+  to { opacity: 0; transform: scale(.96); filter: blur(4px); }
+}
+@keyframes about-portfolio-in {
+  from { opacity: 0; transform: scale(1.018); filter: blur(8px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
 /* ──────────────────────────────────────────────
    얼음 통과 — MAIN 의 스크롤 끝에서 ABOUT 으로 넘어올 때만.
    MAIN 의 마지막 프레임(연기로 덮인 화면)을 이어받아, 연기 속을 앞으로 걸어 나가듯

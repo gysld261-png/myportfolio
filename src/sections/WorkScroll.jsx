@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createWorkDrift } from '../lib/workDriftScene';
 import { approach, clamp, prefersReduced } from '../lib/smooth';
 import ScrambleText from '../components/ScrambleText';
@@ -52,7 +52,7 @@ const END_TRAVEL = 0.95;
 const END_GLIDE = 0.92;  // 이만큼 넘게 밀면 나머지는 저절로 끝까지 — 거의 끝까지 손으로 민다
 const END_OMEGA = 1.6;   // 엔딩 구간의 따라붙는 속도 — 목록(4.2)보다 훨씬 무겁게, 민 뒤에도 천천히 풀린다
 
-export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused, onEndProgress, endControlRef }) {
+export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen, onEnter, paused, onEndProgress, endControlRef, onReady, active = true }) {
   // 엔딩 진행도(0 열림 → 1 닫힘)를 App 에 알린다
   const endProgressRef = useRef(onEndProgress);
   endProgressRef.current = onEndProgress;
@@ -73,6 +73,9 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   onActiveRef.current = onActiveChange;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
+  useLayoutEffect(() => { iceFieldRef.current?.setPaused(paused); }, [paused]);
   const hoverRef = useRef(null);
   const previewRef = useRef(null);
   previewRef.current = previewIndex;
@@ -118,12 +121,16 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     let field = null;
     import('../lib/workIceScene').then(({ createWorkIceField }) => {
       if (cancelled) return;
-      const created = createWorkIceField(iceHostRef.current, rootRef.current, specs.map(spec => spec.id), { initialIndex: activeRef.current });
+      const created = createWorkIceField(iceHostRef.current, rootRef.current, specs.map(spec => spec.id), {
+        initialIndex: activeRef.current,
+        onReady: () => readyRef.current?.(),
+      });
       field = created;
       iceFieldRef.current = created;
       created.setPaused(pausedRef.current);
     }).catch(() => {
       // WebGL을 만들 수 없는 환경에서도 텍스트 탐색과 상세 진입은 그대로 동작한다.
+      if (!cancelled) readyRef.current?.();
     });
     return () => {
       cancelled = true;
@@ -469,7 +476,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
   }, [paused]);
 
   useEffect(() => {
-    if (paused) return undefined;
+    if (paused || !active) return undefined;
     const onKey = (event) => {
       if (event.target.closest('input, textarea, select')) return;
       if (['ArrowDown', 'PageDown'].includes(event.key)) {
@@ -488,7 +495,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [launch, paused, specs.length, step]);
+  }, [active, launch, paused, specs.length, step]);
 
   // 영상은 창에 비칠 때만 돈다
   useEffect(() => {

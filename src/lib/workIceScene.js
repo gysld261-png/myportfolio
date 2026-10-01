@@ -1310,7 +1310,7 @@ function createSublimationDust(count = GRAIN_COUNT) {
  * WorkScroll 전용 단일 렌더러.
  * 세 번 복제된 행 중 화면에 가장 가까운 앵커 하나만 프로젝트별로 선택한다.
  */
-export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
+export function createWorkIceField(host, root, ids, { initialIndex = 0, onReady = null } = {}) {
   const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);
@@ -1708,6 +1708,7 @@ export function createWorkIceField(host, root, ids, { initialIndex = 0 } = {}) {
     if (!firstPaint) {
       firstPaint = true;
       host.dataset.ready = 'true';
+      onReady?.();
     }
   };
   frame = requestAnimationFrame(tick);
