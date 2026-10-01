@@ -22,7 +22,7 @@ const HeroIce = lazy(() => import('../components/HeroIce'));
 // 드라이아이스 — 고체인데 가만히 있지 않는다. 뒷줄은 기울여 '멈추지 않음'을 글자 모양으로도 보여 준다.
 const CLAIM = ['Solid,', 'but never still.'];
 
-export default function Main({ active = true, onScrollCue, onReady, onSettled, introEntrance = false, transitionProgress = 0, rewinding = false }) {
+export default function Main({ active = true, onScrollCue, onReady, onSettled, transitionProgress = 0, rewinding = false }) {
   const [cubeReady, setCubeReady] = useState(false);
   // 마지막 글자가 자리 잡으면 true — 그때부터 제목은 얼음 뒤 배경(굴절되는 쪽)이 맡는다
   const [claimSettled, setClaimSettled] = useState(
@@ -67,7 +67,6 @@ export default function Main({ active = true, onScrollCue, onReady, onSettled, i
       <Suspense fallback={<div className="ice-cube-hero ice-cube-hero--loading" />}>
         <HeroIce
           active={active}
-          initialEntrance={introEntrance}
           exitProgress={transitionProgress}
           onReadout={updateReadout}
           onReady={ready}

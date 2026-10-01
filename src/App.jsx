@@ -632,7 +632,7 @@ export default function App() {
   return (
     <div
       ref={shellRef}
-      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''} ${ending !== 'idle' ? 'app-shell--ending' : ''} ${endingDrawn ? 'app-shell--ending-drawn' : ''}`}
+      className={`app-shell app-shell--${current} app-shell--intro-${intro} ${introCracking ? 'app-shell--intro-cracking' : ''} ${arrival === 'ice' ? 'app-shell--arrive-ice' : ''} ${ending !== 'idle' ? 'app-shell--ending' : ''} ${endingDrawn ? 'app-shell--ending-drawn' : ''}`}
       onWheel={onWheel}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
@@ -652,7 +652,6 @@ export default function App() {
         {mainCached && (
           <Main
             active={current === 'main'}
-            introEntrance={intro !== 'done'}
             onReady={markMainReady}
             onSettled={markMainSettled}
             transitionProgress={mainExit}
@@ -719,7 +718,7 @@ export default function App() {
       )}
 
       <Contact open={contactOpen} onClose={() => setContactOpen(false)} />
-      {intro !== 'done' && <Intro phase={intro} onLeave={leaveIntro} onCrack={markIntroCracking} />}
+      {intro !== 'done' && <Intro phase={intro} ready={mainReady} onLeave={leaveIntro} onCrack={markIntroCracking} />}
       {/* 따라다니는 점 — 링크 위에서 링, 표본·보드 위에서 라벨이 붙는다 */}
       <CustomCursor />
     </div>

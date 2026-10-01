@@ -209,22 +209,23 @@
     transform 860ms var(--ease);
 }
 
-.app-shell--intro-active .main__claim,
-.app-shell--intro-active .main__eyebrow,
-.app-shell--intro-active .main__role,
-.app-shell--intro-active .main__lead,
-.app-shell--intro-active .main__hint,
-.app-shell--intro-active .main__cue,
-.app-shell--intro-active .instrument {
+/* 금이 가기 시작하면 얼음판 뒤에서 메인을 먼저 드러낸다. */
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__claim,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__eyebrow,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__role,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__lead,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__hint,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__cue,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .instrument {
   opacity: 0;
 }
 
-.app-shell--intro-active .main__eyebrow,
-.app-shell--intro-active .main__role,
-.app-shell--intro-active .main__hint { transform: translateX(-16px); }
-.app-shell--intro-active .main__lead,
-.app-shell--intro-active .instrument { transform: translateX(16px); }
-.app-shell--intro-active .main__cue { transform: translate(-50%, 10px); }
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__eyebrow,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__role,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__hint { transform: translateX(-16px); }
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__lead,
+.app-shell--intro-active:not(.app-shell--intro-cracking) .instrument { transform: translateX(16px); }
+.app-shell--intro-active:not(.app-shell--intro-cracking) .main__cue { transform: translate(-50%, 10px); }
 
 .app-shell--intro-leaving .main__claim { transition-delay: 60ms; }
 .app-shell--intro-leaving .main__eyebrow { transition-delay: 150ms; }
@@ -290,8 +291,8 @@
   55% { opacity: 1; }
   to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
-/* 인트로가 끝나기 전엔 올라오지 않는다 */
-.app-shell--intro-active .claimchar { animation-play-state: paused; }
+/* 금이 가는 동안 시작해 조각이 떨어질 때 제목이 이어서 보이도록 한다. */
+.app-shell--intro-active:not(.app-shell--intro-cracking) .claimchar { animation-play-state: paused; }
 
 /* ABOUT 에서 되돌아온 경우엔 마스크 리빌을 다시 재생하지 않는다.
    안개가 걷히면서 글자가 제자리로 내려오는 것만으로 충분하고,

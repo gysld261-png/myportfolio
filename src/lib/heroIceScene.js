@@ -217,10 +217,10 @@ export function createHeroIce(host, { initialEntrance = false, getExit = () => 0
   window.addEventListener('pointercancel', onUp);
   document.documentElement.addEventListener('pointerleave', onLeave);
 
-  const tick = (now) => {
+  const tick = (now, prime = false) => {
     frame = 0;
-    if (!live || !getActive()) return;
-    frame = requestAnimationFrame(tick);
+    if (!live || (!prime && !getActive())) return;
+    if (getActive()) frame = requestAnimationFrame(tick);
     const dt = Math.min(0.05, Math.max(0.001, (now - last) / 1000));
     last = now;
     const reduced = reducedQuery.matches;
@@ -354,9 +354,9 @@ export function createHeroIce(host, { initialEntrance = false, getExit = () => 0
     smoke.group.visible = group.visible;
     renderer.render(scene, camera);
   };
-  // 숨겨진 동안에도 첫 렌더로 셰이더를 준비하되, 지속 렌더링은 하지 않는다.
-  renderer.render(scene, camera);
-  if (getActive()) frame = requestAnimationFrame(tick);
+  // 실제 크기·위치·불투명도로 첫 장면을 그린 뒤에 인트로에 준비 완료를 알린다.
+  // 숨겨진 경우에도 한 장은 준비하지만 지속 렌더링은 하지 않는다.
+  tick(performance.now(), true);
   onReady?.(true);
 
   return {

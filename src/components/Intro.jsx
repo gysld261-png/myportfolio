@@ -123,14 +123,12 @@ function Words({ style }) {
   );
 }
 
-export default function Intro({ phase = 'active', onLeave, onCrack }) {
+export default function Intro({ phase = 'active', ready = false, onLeave, onCrack }) {
   const [stage, setStage] = useState('pane');   // pane → crack → fall
+  const [crackComplete, setCrackComplete] = useState(false);
   const [geo, setGeo] = useState(null);
   const stageRef = useRef(stage);
   stageRef.current = stage;
-  const timers = useRef([]);
-
-  const later = (fn, ms) => { timers.current.push(window.setTimeout(fn, ms)); };
 
   // 금 → 깨짐 → 나가기
   const crack = useCallback((x, y) => {
@@ -140,9 +138,24 @@ export default function Intro({ phase = 'active', onLeave, onCrack }) {
     const w = window.innerWidth; const h = window.innerHeight;
     setGeo(shatter(x ?? w / 2, y ?? h * 0.5, w, h));
     setStage('crack');
-    later(() => setStage('fall'), T_CRACK);
-    later(() => onLeave?.(), T_CRACK + T_FALL * 0.6);
-  }, [onLeave, onCrack]);
+  }, [onCrack]);
+
+  useEffect(() => {
+    if (stage !== 'crack') return undefined;
+    const timer = window.setTimeout(() => setCrackComplete(true), T_CRACK);
+    return () => window.clearTimeout(timer);
+  }, [stage]);
+
+  // 메인이 준비되기 전에는 금이 간 얼음판을 유지해 빈 배경을 드러내지 않는다.
+  useEffect(() => {
+    if (stage === 'crack' && crackComplete && ready) setStage('fall');
+  }, [stage, crackComplete, ready]);
+
+  useEffect(() => {
+    if (stage !== 'fall') return undefined;
+    const timer = window.setTimeout(() => onLeave?.(), T_FALL * 0.6);
+    return () => window.clearTimeout(timer);
+  }, [stage, onLeave]);
 
   // 스스로 깨지지 않는다 — 발표 때 콘셉트를 설명하는 동안 얼음판이 그대로 기다린다.
   // 클릭(누른 자리) · SKIP · 키보드/프레젠터 리모컨(가운데)으로만 깨진다.
@@ -154,8 +167,7 @@ export default function Intro({ phase = 'active', onLeave, onCrack }) {
       crack();
     };
     window.addEventListener('keydown', onKey);
-    const list = timers.current;
-    return () => { window.removeEventListener('keydown', onKey); list.forEach((id) => window.clearTimeout(id)); list.length = 0; };
+    return () => window.removeEventListener('keydown', onKey);
   }, [crack]);
 
   // 뒤의 메인 얼음이 인트로 아래에서 커서에 반응하지 않게(잡고 돌리기·DRAG 표시) 여기서 멈춘다
