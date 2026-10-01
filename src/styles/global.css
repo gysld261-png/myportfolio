@@ -32,6 +32,10 @@ body {
 .app-stage { animation: scene-in 620ms var(--ease) both; }
 /* MAIN은 캐시된 WebGL 화면. 복귀 연기가 전환을 맡으므로 전체 blur/scale을 겹치지 않는다. */
 .app-stage--main { animation: none; }
+/* 메인의 위쪽 경계에서 브라우저가 화면을 튕겨 다른 레이어를 비치지 않게 한다. */
+html:has(.app-shell--main),
+body:has(.app-shell--main),
+.app-shell--main { overscroll-behavior-y: none; }
 .app-stage--about {
   background: var(--bg);
   /* MAIN 의 연기 속에서 걸어 나오듯 등장한다 — 밀려 들어오지 않는다 */

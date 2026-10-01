@@ -458,9 +458,11 @@ export default function App() {
       if (next >= 0.94 && exitTarget.current >= 0.999 && !exitTimer.current) {
         exitTimer.current = window.setTimeout(() => {
           exitTimer.current = 0;
+          // 예약 뒤 위로 되돌렸다면 다음 프레임을 기다리지 않고 이동을 취소한다.
+          if (exitTarget.current < 0.999) return;
           go('about', { via: 'ice' });
         }, 40);
-      } else if (next < 0.9 && exitTimer.current) {
+      } else if ((next < 0.9 || exitTarget.current < 0.999) && exitTimer.current) {
         window.clearTimeout(exitTimer.current);
         exitTimer.current = 0;
       }
@@ -560,6 +562,19 @@ export default function App() {
       if (exitTarget.current > WHEEL_COMMIT && exitTarget.current < 1) exitTarget.current = 1;
     }, 200);
   }, [contactOpen, current, go, intro, rewinding]);
+
+  // 고정된 메인은 휠을 승화 진행도로만 사용한다. 브라우저의 경계 스크롤은 막는다.
+  // React의 wheel 리스너는 passive라 별도 non-passive 리스너에서 기본 동작을 취소한다.
+  useEffect(() => {
+    if (current !== 'main' || contactOpen) return undefined;
+    const shell = shellRef.current;
+    if (!shell) return undefined;
+    const preventNativeScroll = (event) => {
+      if (!event.ctrlKey && Math.abs(event.deltaY) >= Math.abs(event.deltaX)) event.preventDefault();
+    };
+    shell.addEventListener('wheel', preventNativeScroll, { passive: false });
+    return () => shell.removeEventListener('wheel', preventNativeScroll);
+  }, [current, contactOpen]);
 
   const onTouchStart = useCallback((event) => {
     backAccum.current = 0;

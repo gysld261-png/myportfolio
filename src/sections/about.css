@@ -1,6 +1,6 @@
 /* 메인과 함께 준비해 둔 지도는 레이아웃을 차지하지 않고, 비활성일 땐 입력도 받지 않는다. */
 .app-stage > .about { position: absolute; inset: 0; }
-.about[aria-hidden="true"] { visibility: hidden; pointer-events: none; }
+.about[aria-hidden="true"] { visibility: hidden; opacity: 0; pointer-events: none; }
 
 .about {
   height: 100svh;
