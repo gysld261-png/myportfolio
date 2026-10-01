@@ -14,13 +14,9 @@ const IDLE_AFTER = 2600;   // 손을 뗀 뒤 커서가 혼자 움직이기 시�
 const IDLE_STEP = 2300;    // 혼자 움직일 때 Frame 하나에 머무는 시간(ms)
 
 /* Share 를 누른 사람만 아는 것 — 공유 창의 권한 목록에 'can hire' 가 숨어 있고,
-   파란 버튼 하나로 메일이 이어진다. 'can hire' 를 고르면 캔버스의 Hyomin 커서가 놀라 튀어 오른다.
+   'can hire' 를 고르면 캔버스의 Hyomin 커서가 놀라 튀어 오르고, Send offer 를 누르면 답한다.
    메인이 아니라서 누를 것은 권한 메뉴와 파란 버튼뿐 — 커서 말풍선은 반응만 한다 */
 const EMAIL = 'gysld261@gmail.com';
-const mailto = (role) => {
-  const subject = role === 'can hire' ? '[채용 제안] 박효민 님께' : '[포트폴리오] 함께 작업하고 싶어요';
-  return `mailto:${EMAIL}?subject=${encodeURIComponent(subject)}`;
-};
 const SAY = {
   share: 'Share 눌러서 초대해 주세요 ↑',
   hello: '👋 초대해 주시면 바로 합류할게요!',
@@ -50,7 +46,6 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
   const [role, setRole] = useState('can view');
   const [roleMenu, setRoleMenu] = useState(false);
   const [say, setSay] = useState(null);       // Hyomin 커서 옆 말풍선(SAY 의 키)
-  const [toast, setToast] = useState(null);
   const [opened, setOpened] = useState(false);  // Share 를 한 번이라도 열었나 — 그 전까지 Share 가 숨 쉰다
   const [hired, setHired] = useState(false);    // 'can hire' 를 찾아냈나 — 그 뒤로는 안내하지 않는다
   const shareRef = useRef(share);
@@ -58,15 +53,6 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
   const hiredRef = useRef(hired);
   hiredRef.current = hired;
   const shareBtnRef = useRef(null);
-
-  const notify = (text) => {
-    setToast({ text, at: Date.now() });
-  };
-  useEffect(() => {
-    if (!toast) return undefined;
-    const timer = window.setTimeout(() => setToast(null), 2200);
-    return () => window.clearTimeout(timer);
-  }, [toast]);
 
   // Hyomin 커서를 캔버스 왼쪽 아래로 데려와 말을 걸게 한다 — 오른쪽 위의 공유 창에 가리지 않는 자리
   const summon = (line) => {
@@ -122,7 +108,6 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
       canvasRef.current?.classList.remove('is-jumping');
       void canvasRef.current?.offsetWidth;          // 연달아 골라도 매번 다시 튀어 오르게
       canvasRef.current?.classList.add('is-jumping');
-      window.setTimeout(() => setSay((now) => (now === 'wow' ? 'hired' : now)), 1100);
     } else {
       summon('hello');
     }
@@ -210,7 +195,7 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
   }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onCanvasMove = (event) => {
-    // 공유 창이 열려 있는 동안 커서는 말을 건 자리에 머문다(말풍선의 Reply 를 누를 수 있게)
+    // 공유 창이 열려 있는 동안 커서는 말을 건 자리에 머문다.
     if (shareRef.current || event.target.closest?.('.figma-bot')) return;
     userAt.current = performance.now();
     canvasRef.current?.classList.remove('is-bot');
@@ -362,19 +347,18 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
                 </li>
               </ul>
               <footer>
-                <a
+                <button
+                  type="button"
                   className="figma-share__request"
-                  href={mailto(role)}
-                  onClick={() => notify(role === 'can hire' ? 'Hyomin에게 제안을 보냈어요 — 기다리고 있을게요' : 'Hyomin에게 요청을 보냈어요')}
+                  onClick={() => summon(role === 'can hire' ? 'hired' : 'hello')}
                 >
                   {role === 'can hire' ? 'Send offer' : 'Request edit access'}
-                </a>
+                </button>
               </footer>
             </div>
           </div>
         )}
 
-        {toast && <p className="figma-toast" key={toast.at} role="status">{toast.text}</p>}
       </div>
     </div>
   );

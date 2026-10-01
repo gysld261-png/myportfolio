@@ -85,6 +85,28 @@
   transition: opacity 600ms var(--ease), visibility 0s linear 0s;
 }
 
+/* NEXT — 현재 상세가 위로 빠지는 만큼 다음 상세 첫 화면이 아래에서 올라온다. */
+.detail.is-open:not(.is-portal) { view-transition-name: project-detail; }
+.is-project-next::view-transition-group(project-detail) { animation: none; }
+.is-project-next::view-transition-image-pair(project-detail) { isolation: isolate; }
+.is-project-next::view-transition-old(project-detail),
+.is-project-next::view-transition-new(project-detail) {
+  mix-blend-mode: normal;
+  animation: 500ms cubic-bezier(.65, 0, .35, 1) both;
+}
+.is-project-next::view-transition-old(project-detail) { animation-name: detail-next-out; }
+.is-project-next::view-transition-new(project-detail) { animation-name: detail-next-in; }
+.is-project-next::view-transition-old(root),
+.is-project-next::view-transition-new(root) { animation: none; }
+@keyframes detail-next-out {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+@keyframes detail-next-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
 /* 실제 상세가 열린 동안에는 전역 사이트 네비를 완전히 치운다.
    상세 자체의 이름 + 닫기 버튼만 남겨 레퍼런스와 같은 독립 화면으로 보이게 한다. */
 .app-shell:has(.detail.is-open:not(.is-portal)) > .nav {

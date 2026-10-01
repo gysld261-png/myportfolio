@@ -162,10 +162,10 @@ export const CASES = {
     /* 케이스 스터디 보드 — Figma에서 2x PNG로 내보낸 16:9 슬라이드.
        보드를 고치면 같은 이름으로 다시 내보내 덮어쓰면 된다. */
     blocks: [
-      { type: 'full', src: '/cases/walga/boards/01.webp', width: 3840, height: 2160, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요. 역할 PM·IA·UI Design·Frontend, 팀 5명, 2026년 8월 26일부터 9월 18일까지 진행' },
+      { type: 'full', src: '/cases/walga/boards/01.webp', width: 3840, height: 2160, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요. 역할 PM·IA·UI Design·Frontend, 팀 5명, 5주 동안 진행' },
       { type: 'full', src: '/cases/walga/boards/02.webp', width: 3840, height: 2160, alt: '문제 — 다른 판단이 궁금하지만 이유를 비교하기 어려웠다. 사용자 설문 결과와 핵심 인사이트' },
       { type: 'full', src: '/cases/walga/boards/03.webp', width: 3840, height: 2160, alt: '판단 근거 제공, 다양한 관점 비교, 참여 범위 선택이라는 세 가지 설계 원칙과 사용자 흐름' },
-      { type: 'full', src: '/cases/walga/boards/04-2.webp', width: 3840, height: 2160, alt: '리서치에서 매일의 실행까지 흐름을 설계한 PM 역할과 14일간의 작업 과정' },
+      { type: 'full', src: '/cases/walga/boards/04-2.webp', width: 3840, height: 2160, alt: '리서치에서 매일의 실행까지 흐름을 설계한 PM 역할과 5주간의 작업 과정' },
       { type: 'full', src: '/cases/walga/boards/05.webp', width: 3840, height: 2160, alt: '왈랑이와 왈가닥이 캐릭터 시스템과 투표 선택지, 판결 결과, 명판관 트로피 적용 사례' },
       { type: 'full', src: '/cases/walga/boards/06.webp', width: 3840, height: 2160, alt: '이달의 명판관 랭킹, 사건 정렬 필터와 투표 상태 배지를 갖춘 배심원 광장' },
       { type: 'full', src: '/cases/walga/boards/07-2.webp', width: 3840, height: 2160, alt: '사건 작성, 추가 질문, AI 요약, 공개 범위 선택과 접수 완료까지의 사건 접수 흐름' },

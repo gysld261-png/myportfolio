@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
 import { attachSmoothScroll, attachScrollVelocity, attachScrollReveal } from '../lib/smooth';
@@ -149,6 +150,10 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
   const [metaRevealed, setMetaRevealed] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const switchRef = useRef({ busy: false, target: null, transition: null, animation: null, disposed: false });
+  const specRef = useRef(spec);
+  specRef.current = spec;
   const data = renderSpec ? getCase(renderSpec.id) : null;
   const cinematicCover = data?.cinematicHero || null;
   const projectHero = data?.hero?.src || (renderSpec?.id === 'tchaikim' ? '/cases/tchaikim-home.jpg' : null);
@@ -194,6 +199,81 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
     height: 1800,
     alt: '오딧 홈·오딧맵·배지 화면을 담은 휴대폰 목업 3개',
   } : null);
+
+  useEffect(() => {
+    const operation = switchRef.current;
+    operation.disposed = false;
+    return () => {
+      operation.disposed = true;
+      operation.transition?.skipTransition();
+      operation.animation?.cancel();
+      document.documentElement.classList.remove('is-project-next');
+    };
+  }, []);
+
+  useEffect(() => {
+    const operation = switchRef.current;
+    if (operation.busy && operation.target !== spec?.id) {
+      operation.transition?.skipTransition();
+      operation.animation?.cancel();
+    }
+  }, [spec?.id]);
+
+  // NEXT 에서만 두 상세 화면을 위로 넘긴다. 표지를 먼저 준비해 빈 화면이 올라오지 않게 한다.
+  const openNext = async () => {
+    const operation = switchRef.current;
+    if (!next || operation.busy) return;
+    operation.busy = true;
+    operation.target = next.id;
+    setSwitching(true);
+    const from = specRef.current?.id;
+    const update = () => {
+      flushSync(() => {
+        setRenderSpec(next);
+        onSwitch(next.id);
+      });
+      const scroller = scrollRef.current;
+      if (scroller) {
+        scroller.scrollTop = 0;
+        scroller.style.setProperty('--cinema-scale', '1');
+        scroller.style.setProperty('--cinema-radius', '0px');
+        scroller.style.setProperty('--cinema-cue', '1');
+        scroller.style.setProperty('--cinema-shadow', '0');
+      }
+      articleRef.current?.style.setProperty('--heat', '0');
+    };
+
+    try {
+      if (nextPreview?.src) {
+        const image = new Image();
+        image.src = nextPreview.src;
+        await image.decode().catch(() => {});
+      }
+      if (operation.disposed || specRef.current?.id !== from) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        update();
+      } else if (document.startViewTransition) {
+        document.documentElement.classList.add('is-project-next');
+        operation.transition = document.startViewTransition(update);
+        // 스냅샷이 생략돼도 update 에서 실제 데이터 이동은 진행된다.
+        operation.transition.ready.catch(() => {});
+        await operation.transition.finished.catch(() => {});
+      } else {
+        update();
+        operation.animation = articleRef.current?.animate(
+          [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }],
+          { duration: 500, easing: 'cubic-bezier(.65, 0, .35, 1)' },
+        );
+        await operation.animation?.finished.catch(() => {});
+      }
+    } finally {
+      document.documentElement.classList.remove('is-project-next');
+      operation.transition = null;
+      operation.animation = null;
+      operation.busy = false;
+      if (!operation.disposed) setSwitching(false);
+    }
+  };
 
   /* concept 자리표가 없으면 리듬 맨 끝에 붙인다 — 글이 사라지는 일은 없게 */
   const blocks = useMemo(() => {
@@ -556,7 +636,8 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
               <button
                 type="button"
                 className="dnext__stage"
-                onClick={() => onSwitch(next.id)}
+                onClick={openNext}
+                disabled={switching}
                 data-cursor="NEXT PROJECT"
                 aria-label={`다음 프로젝트 ${next.ko} 보기`}
               >
