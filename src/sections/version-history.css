@@ -1,6 +1,15 @@
 /* APPROACH — GitHub Pull Request (VersionHistory.jsx).
    01 BACKGROUND 의 어두운 Figma 캔버스와 같은 자리에, 밝은 GitHub 화면으로 대비를 준다 */
-.about-room--build .about-room__content { left: 9vw; top: 15vh; width: min(38vw, 580px); }
+.about-room--build .about-room__content {
+  left: 9vw; top: 15vh; width: min(38vw, 580px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.about-room--build .about-room__main { min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.about-room--build .about-room__main::-webkit-scrollbar { display: none; }
+.about-room--build .vh-readout,
+.about-room--build .about-room__evidence { flex-shrink: 0; }
 .about-room--build .about-room-visual--history {
   right: 4.5vw;
   top: clamp(186px, 23vh, 232px);
@@ -11,6 +20,16 @@
   background: none;
   opacity: 1;
 }
+
+/* 제목과 설명을 각각 같은 행에 놓아 호버할 때 줄 수가 달라도 다음 영역을 밀지 않는다. */
+.core-readout.vh-readout { animation: none; }
+.vh-readout__entries { display: grid; }
+.vh-readout__entry { display: contents; }
+.vh-readout__entry > * { visibility: hidden; opacity: 0; transition: opacity 180ms ease; }
+.vh-readout__entry.is-current > * { visibility: visible; opacity: 1; }
+.vh-readout__entry > .core-readout__meta { grid-area: 1 / 1; }
+.vh-readout__entry > .core-readout__name { grid-area: 2 / 1; }
+.vh-readout__entry > .core-readout__hint { grid-area: 3 / 1; }
 
 .gh {
   --gh-bg: #fff;
@@ -292,6 +311,7 @@
 .vh-entry--head.is-current i { background: var(--gh-purple); }
 
 @media (prefers-reduced-motion: reduce) {
+  .vh-readout__entry > * { transition: none; }
   .gh { opacity: 1; transform: none; animation: none !important; }
   .vh-zone.is-on, .vh-comment, .vh-compare img, .vh__stage { animation: none; }
 }

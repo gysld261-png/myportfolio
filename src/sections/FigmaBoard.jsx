@@ -53,6 +53,7 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
   const hiredRef = useRef(hired);
   hiredRef.current = hired;
   const shareBtnRef = useRef(null);
+  const shareDialogRef = useRef(null);
 
   // Hyomin 커서를 캔버스 왼쪽 아래로 데려와 말을 걸게 한다 — 오른쪽 위의 공유 창에 가리지 않는 자리
   const summon = (line) => {
@@ -93,6 +94,17 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
   useEffect(() => {
     onModal?.(share ? closeShare : null);
     return () => onModal?.(null);
+  }, [share]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Figma 판 밖도 포함해 공유 창 바깥을 누르면 닫는다.
+  useEffect(() => {
+    if (!share) return undefined;
+    const onOutsidePointer = (event) => {
+      if (shareDialogRef.current?.contains(event.target) || shareBtnRef.current?.contains(event.target)) return;
+      closeShare();
+    };
+    document.addEventListener('pointerdown', onOutsidePointer, true);
+    return () => document.removeEventListener('pointerdown', onOutsidePointer, true);
   }, [share]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleMenu = () => {
@@ -296,6 +308,7 @@ export default function FigmaBoard({ strips, current, active, onHover, onZoom, o
           <div className="figma-share" onClick={closeShare}>
             <div
               className="figma-share__dialog"
+              ref={shareDialogRef}
               role="dialog"
               aria-modal="true"
               aria-label="Share this file"

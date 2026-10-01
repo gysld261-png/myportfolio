@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom';
 import { SPECIMENS } from '../data/specimens';
 import { getCase } from '../data/cases';
 import { attachSmoothScroll, attachScrollVelocity, attachScrollReveal } from '../lib/smooth';
+import { animateProjectArrival } from '../lib/projectMotion';
 import RollText from '../components/RollText';
 import CaseStudyBoards from '../components/CaseStudyBoards';
 import './detail.css';
@@ -130,6 +131,89 @@ function Row({ block }) {
   return null;
 }
 
+/* 서리선을 직접 끌어 읽을 위치를 고른다. DOM으로 갱신해 드래그 중 재렌더를 피한다. */
+function DetailScrollRail({ scrollRef, railRef, projectId }) {
+  useEffect(() => {
+    const rail = railRef.current;
+    const scroller = scrollRef.current;
+    if (!rail || !scroller) return undefined;
+    let pointer = null;
+    let offset = 0;
+    const max = () => Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    const sync = () => {
+      const progress = max() ? scroller.scrollTop / max() : 0;
+      rail.style.setProperty('--heat', Math.min(1, Math.max(0, progress)));
+      rail.setAttribute('aria-valuenow', Math.round(progress * 100));
+    };
+    const moveTo = (y) => {
+      const box = rail.getBoundingClientRect();
+      scroller.scrollTop = Math.min(1, Math.max(0, (y - offset - box.top) / box.height)) * max();
+      sync();
+    };
+    const start = (event) => {
+      if (pointer !== null || !event.isPrimary || event.button !== 0) return;
+      event.preventDefault();
+      pointer = event.pointerId;
+      const box = rail.getBoundingClientRect();
+      const thumbY = box.top + (max() ? scroller.scrollTop / max() : 0) * box.height;
+      offset = Math.abs(event.clientY - thumbY) <= 12 ? event.clientY - thumbY : 0;
+      rail.setPointerCapture(pointer);
+      rail.classList.add('is-dragging');
+      rail.focus({ preventScroll: true });
+      moveTo(event.clientY);
+    };
+    const move = (event) => {
+      if (event.pointerId === pointer) moveTo(event.clientY);
+    };
+    const end = (event) => {
+      if (event.pointerId !== pointer) return;
+      pointer = null;
+      rail.classList.remove('is-dragging');
+      if (rail.hasPointerCapture(event.pointerId)) rail.releasePointerCapture(event.pointerId);
+    };
+    const onKey = (event) => {
+      let next;
+      switch (event.key) {
+        case 'ArrowDown': case 'ArrowRight': next = scroller.scrollTop + max() * .03; break;
+        case 'ArrowUp': case 'ArrowLeft': next = scroller.scrollTop - max() * .03; break;
+        case 'PageDown': next = scroller.scrollTop + scroller.clientHeight; break;
+        case 'PageUp': next = scroller.scrollTop - scroller.clientHeight; break;
+        case 'Home': next = 0; break;
+        case 'End': next = max(); break;
+        default: return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      scroller.scrollTop = Math.min(max(), Math.max(0, next));
+      sync();
+    };
+    rail.addEventListener('pointerdown', start);
+    rail.addEventListener('pointermove', move);
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((name) => rail.addEventListener(name, end));
+    rail.addEventListener('keydown', onKey);
+    scroller.addEventListener('scroll', sync, { passive: true });
+    scroller.addEventListener('load', sync, true);
+    window.addEventListener('resize', sync);
+    sync();
+    return () => {
+      if (pointer !== null && rail.hasPointerCapture(pointer)) rail.releasePointerCapture(pointer);
+      rail.classList.remove('is-dragging');
+      rail.removeEventListener('pointerdown', start);
+      rail.removeEventListener('pointermove', move);
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((name) => rail.removeEventListener(name, end));
+      rail.removeEventListener('keydown', onKey);
+      scroller.removeEventListener('scroll', sync);
+      scroller.removeEventListener('load', sync, true);
+      window.removeEventListener('resize', sync);
+    };
+  }, [projectId, railRef, scrollRef]);
+
+  return <div ref={railRef} className="detail__frost" role="slider" tabIndex={0}
+    aria-label="프로젝트 스크롤 위치" aria-orientation="vertical" aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}>
+    <i aria-hidden="true" />
+  </div>;
+}
+
 /**
  * PROJECT DETAIL
  *
@@ -146,6 +230,7 @@ function Row({ block }) {
 export default function ProjectDetail({ spec, onClose, onSwitch, portal = false, returnTo = null }) {
   const scrollRef = useRef(null);
   const articleRef = useRef(null);
+  const railRef = useRef(null);
   const metaRef = useRef(null);
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
@@ -260,10 +345,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
         await operation.transition.finished.catch(() => {});
       } else {
         update();
-        operation.animation = articleRef.current?.animate(
-          [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }],
-          { duration: 500, easing: 'cubic-bezier(.65, 0, .35, 1)' },
-        );
+        operation.animation = animateProjectArrival(articleRef.current);
         await operation.animation?.finished.catch(() => {});
       }
     } finally {
@@ -417,7 +499,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   // 거기에 속도를 CSS 로 흘려보내서, 빠르게 내릴수록 이미지가 울렁이게 한다.
   useEffect(() => {
     if (!spec || portal) return undefined;
-    const off1 = attachSmoothScroll(scrollRef.current, { tau: 0.2 });
+    const off1 = attachSmoothScroll(scrollRef.current, { tau: 0.2, controls: railRef.current });
     const off2 = attachScrollVelocity(scrollRef.current, { max: 2400, tau: 0.07 });
     return () => { off1(); off2(); };
   }, [portal, spec]);
@@ -441,7 +523,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
     >
       {/* 온도 — 스크롤할수록 차가운 먹색에서 따뜻한 먹색으로. 서리선은 읽은 만큼 차오른다 (detail.css) */}
       <div className="detail__air" aria-hidden="true" />
-      {!portal && renderSpec && <span className="detail__frost" aria-hidden="true"><i /></span>}
+      {!portal && renderSpec && <DetailScrollRail scrollRef={scrollRef} railRef={railRef} projectId={renderSpec.id} />}
       {renderSpec && data && (
         <>
           <header className="detail__chrome">

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
+import { getCase } from './data/cases';
+import { animateProjectArrival } from './lib/projectMotion';
 import Nav from './components/Nav';
 import Intro from './components/Intro';
 import Main from './sections/Main';
@@ -64,6 +67,8 @@ export default function App() {
   const [passage, setPassage] = useState(false);
   /* ABOUT 의 방에서 프로젝트로 건너왔을 때 — 상세에 '그 방으로 돌아가기'를 띄운다 */
   const [origin, setOrigin] = useState(null);
+  const [evidenceArrival, setEvidenceArrival] = useState(false);
+  const evidenceRef = useRef({ busy: false, transition: null, animation: null });
   /* 엔딩 단계 — idle · pull(미는 중) · closing(끝까지 닫히는 중) · credits · opening(다시 열리는 중) */
   const [ending, setEnding] = useState('idle');
   const endingRef = useRef('idle');
@@ -176,6 +181,7 @@ export default function App() {
     // 어디로 가든 관측창은 다시 활짝 연 상태로 시작한다
     setEnding('idle');
     setCurrent(id);
+    setEvidenceArrival(false);
     if (id === 'main') setMainCached(true);
     if (id === 'about') {
       setAboutCached(true);
@@ -214,7 +220,56 @@ export default function App() {
   // 숨겨진 About은 진행도 갱신 때마다 다시 렌더링하지 않도록 콜백도 고정한다.
   const aboutToMain = useCallback(() => go('main', { rewind: true }), [go]);
   const aboutToPortfolio = useCallback(() => go('portfolio'), [go]);
-  const aboutToProject = useCallback((project, from) => go('portfolio', { project, from }), [go]);
+  const aboutToProject = useCallback(async (project, from) => {
+    const operation = evidenceRef.current;
+    if (operation.busy) return;
+    operation.busy = true;
+    const source = window.location.hash;
+    const update = () => flushSync(() => {
+      go('portfolio', { project, from });
+      setEvidenceArrival(true);
+    });
+    try {
+      const data = getCase(project);
+      const cover = data?.cinematicHero || data?.hero;
+      if (cover?.src) {
+        const image = new Image();
+        image.src = cover.src;
+        await image.decode().catch(() => {});
+      }
+      if (window.location.hash !== source) return;
+      if (prefersReduced()) {
+        update();
+      } else {
+        document.documentElement.classList.add('is-evidence-opening');
+        if (document.startViewTransition) {
+          operation.transition = document.startViewTransition(update);
+          operation.transition.ready.catch(() => {});
+          await operation.transition.finished.catch(() => {});
+        } else {
+          update();
+          operation.animation = animateProjectArrival(shellRef.current?.querySelector('.app-stage'));
+          await operation.animation?.finished.catch(() => {});
+        }
+      }
+    } finally {
+      document.documentElement.classList.remove('is-evidence-opening');
+      operation.transition = null;
+      operation.animation = null;
+      operation.busy = false;
+    }
+  }, [go]);
+  useEffect(() => {
+    if (current !== 'portfolio') {
+      evidenceRef.current.transition?.skipTransition();
+      evidenceRef.current.animation?.cancel();
+    }
+  }, [current]);
+  useEffect(() => () => {
+    evidenceRef.current.transition?.skipTransition();
+    evidenceRef.current.animation?.cancel();
+    document.documentElement.classList.remove('is-evidence-opening');
+  }, []);
   const finishPassage = useCallback(() => setPassage(false), []);
 
   /* 버튼·키보드로 한 번에 넘어갈 때도 값을 순간이동시키지 않고 목표만 올린다 */
@@ -310,6 +365,7 @@ export default function App() {
       if (next !== 'portfolio') setOrigin(null);
       setEnding('idle');
       setCurrent(next);
+      setEvidenceArrival(false);
       if (next === 'main') setMainCached(true);
       if (next === 'about') {
         setAboutCached(true);
@@ -456,7 +512,7 @@ export default function App() {
       />
 
       <main
-        className={`app-stage app-stage--${current}`}
+        className={`app-stage app-stage--${current} ${evidenceArrival ? 'is-evidence-arrival' : ''}`}
         inert={ending === 'credits' ? '' : undefined}
       >
         {mainCached && (

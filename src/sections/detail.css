@@ -48,17 +48,30 @@
   z-index: 6;
   top: calc(var(--nav-h) + 16px);
   bottom: 28px;
-  right: clamp(10px, 1.1vw, 20px);
-  width: 1px;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent, var(--accent-border) 12%, var(--accent-border) 88%, transparent);
+  right: calc(clamp(10px, 1.1vw, 20px) - 12px);
+  width: 24px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
   opacity: 0;
   transition: opacity 420ms var(--ease) 200ms;
 }
+.detail__frost::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 50%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--accent-border) 12%, var(--accent-border) 88%, transparent);
+}
+.detail__frost.is-dragging { cursor: grabbing; }
+.detail__frost:focus-visible { outline: 1px solid var(--accent-border); outline-offset: 2px; }
 .detail.is-revealed .detail__frost { opacity: 1; }
 .detail__frost i {
   position: absolute;
-  inset: 0 0 auto;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  pointer-events: none;
   height: calc(var(--heat, 0) * 100%);
   background: linear-gradient(180deg, transparent, var(--accent-bright));
   box-shadow: 0 0 8px var(--accent-glow);
@@ -85,27 +98,45 @@
   transition: opacity 600ms var(--ease), visibility 0s linear 0s;
 }
 
-/* NEXT — 현재 상세가 위로 빠지는 만큼 다음 상세 첫 화면이 아래에서 올라온다. */
+/* NEXT·EVIDENCE — 짧게 상승하면서 드러나고, 끝으로 갈수록 천천히 멈춘다. */
 .detail.is-open:not(.is-portal) { view-transition-name: project-detail; }
-.is-project-next::view-transition-group(project-detail) { animation: none; }
-.is-project-next::view-transition-image-pair(project-detail) { isolation: isolate; }
+.is-project-next::view-transition-group(project-detail),
+.is-evidence-opening::view-transition-group(evidence-page) { animation: none; }
+.is-project-next::view-transition-image-pair(project-detail),
+.is-evidence-opening::view-transition-image-pair(evidence-page) { isolation: isolate; }
 .is-project-next::view-transition-old(project-detail),
-.is-project-next::view-transition-new(project-detail) {
+.is-project-next::view-transition-new(project-detail),
+.is-evidence-opening::view-transition-old(evidence-page),
+.is-evidence-opening::view-transition-new(evidence-page) {
   mix-blend-mode: normal;
-  animation: 500ms cubic-bezier(.65, 0, .35, 1) both;
+  animation: 800ms cubic-bezier(.22, 1, .36, 1) both;
 }
-.is-project-next::view-transition-old(project-detail) { animation-name: detail-next-out; }
-.is-project-next::view-transition-new(project-detail) { animation-name: detail-next-in; }
+.is-project-next::view-transition-old(project-detail),
+.is-evidence-opening::view-transition-old(evidence-page) { animation-name: detail-next-out; z-index: 1; }
+.is-project-next::view-transition-new(project-detail),
+.is-evidence-opening::view-transition-new(evidence-page) { animation-name: detail-next-in; z-index: 2; }
 .is-project-next::view-transition-old(root),
-.is-project-next::view-transition-new(root) { animation: none; }
+.is-project-next::view-transition-new(root),
+.is-evidence-opening::view-transition-old(root),
+.is-evidence-opening::view-transition-new(root) { animation: none; }
 @keyframes detail-next-out {
-  from { transform: translateY(0); }
-  to { transform: translateY(-100%); }
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(-32px); opacity: 0; }
 }
 @keyframes detail-next-in {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  from { transform: translateY(64px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
+
+.is-evidence-opening .app-stage { view-transition-name: evidence-page; animation: none; }
+.is-evidence-opening .detail.is-open:not(.is-portal) { view-transition-name: none; }
+.is-evidence-opening .detail,
+.is-evidence-opening .detail__scroll,
+.is-evidence-opening .detail__chrome { transition: none; }
+.is-evidence-opening .detail.is-open .detail__scroll,
+.is-evidence-opening .detail.is-open .detail__chrome { opacity: 1; }
+/* 전환이 끝난 뒤 기본 등장 모션이 다시 시작하지 않게 한다. */
+.app-stage.is-evidence-arrival { animation: none; }
 
 /* 실제 상세가 열린 동안에는 전역 사이트 네비를 완전히 치운다.
    상세 자체의 이름 + 닫기 버튼만 남겨 레퍼런스와 같은 독립 화면으로 보이게 한다. */

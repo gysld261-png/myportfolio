@@ -160,7 +160,7 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
       <ProjectDetail
         spec={selected ? byId(selected) : (portal ? byId(portal) : null)}
         portal={!selected && Boolean(portal)}
-        onClose={() => select(null)}
+        onClose={returnTo?.onBack || (() => select(null))}
         onSwitch={select}
         returnTo={returnTo}
       />

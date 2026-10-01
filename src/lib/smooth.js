@@ -172,7 +172,7 @@ export function attachScrollReveal(el, {
  *
  * @returns {() => void} 해제 함수
  */
-export function attachSmoothScroll(el, { tau = 0.19, multiplier = 1 } = {}) {
+export function attachSmoothScroll(el, { tau = 0.19, multiplier = 1, controls = null } = {}) {
   if (!el || prefersReduced()) return () => {};
 
   let target = el.scrollTop;
@@ -232,13 +232,19 @@ export function attachSmoothScroll(el, { tau = 0.19, multiplier = 1 } = {}) {
   const sync = () => {
     if (!running) target = el.scrollTop;
   };
+  // 직접 스크롤 위치를 잡는 동안 남은 휠 관성이 다시 끌어당기지 않게 한다.
+  const takeControl = () => { stop(); target = el.scrollTop; };
 
   el.addEventListener('wheel', onWheel, { passive: false });
   el.addEventListener('scroll', sync, { passive: true });
+  controls?.addEventListener('pointerdown', takeControl, true);
+  controls?.addEventListener('keydown', takeControl, true);
 
   return () => {
     stop();
     el.removeEventListener('wheel', onWheel);
     el.removeEventListener('scroll', sync);
+    controls?.removeEventListener('pointerdown', takeControl, true);
+    controls?.removeEventListener('keydown', takeControl, true);
   };
 }

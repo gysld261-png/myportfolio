@@ -229,7 +229,7 @@ function Preview({ entry, onInteract, onAutoEnd }) {
   );
 }
 
-export default function VersionHistory({ active, current, onSelect }) {
+export default function VersionHistory({ active, current, onSelect, preserveSelection = false }) {
   const index = Math.max(0, VERSIONS.findIndex((v) => v.id === current));
   const entry = VERSIONS[index];
   const indexRef = useRef(index);
@@ -239,7 +239,7 @@ export default function VersionHistory({ active, current, onSelect }) {
   manualRef.current = manual;
   const holdRef = useRef(0);
 
-  useEffect(() => { if (!active) setManual(false); }, [active]);
+  useEffect(() => { if (!active && !preserveSelection) setManual(false); }, [active, preserveSelection]);
 
   const advance = useCallback(() => {
     onSelect(VERSIONS[(indexRef.current + 1) % VERSIONS.length].id);
@@ -320,16 +320,23 @@ export default function VersionHistory({ active, current, onSelect }) {
 /* 왼쪽 문장 아래 — 지금 고른 커밋 */
 export function VersionReadout({ current, children }) {
   const index = Math.max(0, VERSIONS.findIndex((v) => v.id === current));
-  const entry = VERSIONS[index];
   return (
-    <div className="core-readout vh-readout" key={entry.id} aria-live="polite">
-      <p className="core-readout__meta sys">
-        {entry.tag}
-        <span>{String(index + 1).padStart(2, '0')} / {String(VERSIONS.length).padStart(2, '0')}</span>
-        <span>TCHAIKIM SHOP</span>
-      </p>
-      <b className="core-readout__name">{entry.title}</b>
-      <p className="core-readout__hint">{entry.text}</p>
+    <div className="core-readout vh-readout" aria-live="polite">
+      {/* 같은 행에 겹쳐 가장 긴 제목·설명만큼 자리를 확보한다. 줄 수가 바뀌어도 EVIDENCE는 움직이지 않는다. */}
+      <div className="vh-readout__entries">
+        {VERSIONS.map((entry, i) => (
+          <div key={entry.id} className={`vh-readout__entry ${i === index ? 'is-current' : ''}`}
+            aria-hidden={i !== index}>
+            <p className="core-readout__meta sys">
+              {entry.tag}
+              <span>{String(i + 1).padStart(2, '0')} / {String(VERSIONS.length).padStart(2, '0')}</span>
+              <span>TCHAIKIM SHOP</span>
+            </p>
+            <b className="core-readout__name">{entry.title}</b>
+            <p className="core-readout__hint">{entry.text}</p>
+          </div>
+        ))}
+      </div>
       {children}
     </div>
   );

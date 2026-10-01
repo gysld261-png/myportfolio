@@ -565,6 +565,12 @@ function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProjec
   const modalClose = useRef(null);          // 방 안에 열린 작은 창(Figma 공유 창)을 닫는 함수
   const onModal = useCallback((close) => { modalClose.current = close; }, []);
   const pendingRoute = useRef(undefined);
+  const projectReturnRef = useRef(null);
+
+  const openEvidence = useCallback((project, item) => {
+    projectReturnRef.current = { chamber: item.id, strip, version };
+    onOpenProject?.(project, { chamber: item.id, label: item.label });
+  }, [onOpenProject, strip, version]);
 
   // 캐시된 방은 재진입 주소에 맞춘다. 사용자 문구/방 구성은 바꾸지 않는다.
   useLayoutEffect(() => {
@@ -576,14 +582,16 @@ function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProjec
       return;
     }
     const room = chamberFromHash();
+    const restore = projectReturnRef.current;
+    projectReturnRef.current = null;
     pendingRoute.current = room;
     motion.controlRef.current?.resetView(room);
     setSelected(room);
     setPhase(room ? 'reveal' : 'map');
     setVisited(new Set(room ? [room] : []));
     setZoom(null);
-    setStrip(null);
-    setVersion('v1');
+    setStrip(room === restore?.chamber ? restore.strip : null);
+    setVersion(room === restore?.chamber ? restore.version : 'v1');
     modalClose.current = null;
   }, [active, entry]);
 
@@ -766,6 +774,7 @@ function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProjec
             ) : item.versions ? (
               <VersionHistory
                 active={active && selected === item.id && phase === 'reveal'}
+                preserveSelection={projectReturnRef.current?.chamber === item.id}
                 current={version}
                 onSelect={setVersion}
               />
@@ -782,21 +791,23 @@ function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProjec
                   <StripReadout strips={STRIPS} current={strip} onZoom={setZoom}>
                     <ProjectEvidence
                       ids={STRIPS.find((entry) => entry.id === strip)?.projects}
-                      onOpenProject={(project) => onOpenProject?.(project, { chamber: item.id, label: item.label })}
+                      onOpenProject={(project) => openEvidence(project, item)}
                     />
                   </StripReadout>
-                ) : item.versions ? (
-                  <VersionReadout current={version} />
-                ) : (
+                ) : !item.versions ? (
                   <ul className="about-room__tags sys">
                     {item.tags.map((tag) => <li key={tag}>{tag}</li>)}
                   </ul>
-                )}
-                <ProjectEvidence
+                ) : null}
+                {!item.versions && <ProjectEvidence
                   ids={item.projects}
-                  onOpenProject={(project) => onOpenProject?.(project, { chamber: item.id, label: item.label })}
-                />
+                  onOpenProject={(project) => openEvidence(project, item)}
+                />}
               </div>
+              {item.versions && <>
+                <VersionReadout current={version} />
+                <ProjectEvidence ids={item.projects} onOpenProject={(project) => openEvidence(project, item)} />
+              </>}
               {item.record && <ProfileRecord record={item.record} />}
             </div>
             </>}
