@@ -124,8 +124,8 @@ export default function App() {
   const rewindStarted = useRef(0);
 
   useEffect(() => {
-    if (current !== 'about' || portfolioWarmed) return undefined;
-    // ABOUT을 읽는 동안 첫 얼음을 준비하고, 첫 프레임 이후 GPU 루프는 쉰다.
+    if (current !== 'about' || portfolioWarmed || passage) return undefined;
+    // 전환 연기가 다 걷힌 뒤 첫 프로젝트를 준비해 컴파일이 전환 중 겹치지 않게 한다.
     const warm = () => setPortfolioWarmed(true);
     if ('requestIdleCallback' in window) {
       const id = window.requestIdleCallback(warm, { timeout: 1600 });
@@ -133,7 +133,7 @@ export default function App() {
     }
     const id = window.setTimeout(warm, 800);
     return () => window.clearTimeout(id);
-  }, [current, portfolioWarmed]);
+  }, [current, portfolioWarmed, passage]);
 
   useEffect(() => {
     if (mainCached || current !== 'about') return undefined;

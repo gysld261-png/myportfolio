@@ -11,7 +11,7 @@ import './intro.css';
  * 조각은 금이 가는 순간 그 점을 중심으로 만든다 — 깨지기 전엔 한 장이라 이음매가 보이지 않는다.
  */
 const RAYS = 8;           // 방사형 금 — 적을수록 조각이 큼직해 무겁다
-const T_CRACK = 900;      // 금 → 균열면이 번지는 시간(얼음판이 묵직하게 처진다)
+const T_CRACK = 1200;     // 금이 약 860ms 안에 번진 뒤, 약 340ms 머물고 깨진다.
 const T_FALL = 1250;      // 덩어리가 떨어지는 시간(중력 — 처음엔 버티다가 점점 빨리)
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -74,7 +74,7 @@ function shatter(px, py, w, h) {
           '--rx': `${rand(-16, 16).toFixed(0)}deg`,
           '--ry': `${rand(-10, 10).toFixed(0)}deg`,
           '--rz': `${rand(-11, 11).toFixed(0)}deg`,
-          '--delay': `${Math.round((d / reach) * 280 + (1 - c[1] / h) * 140 + rand(0, 110))}ms`,
+          '--delay': `${Math.round((d / reach) * 90 + (1 - c[1] / h) * 45 + rand(0, 35))}ms`,
           '--dur': `${Math.round(rand(0.88, 1.12) * T_FALL)}ms`,
           '--ox': `${(c[0] - box.x).toFixed(1)}px`,
           '--oy': `${(c[1] - box.y).toFixed(1)}px`,
@@ -113,10 +113,10 @@ function shatter(px, py, w, h) {
   return { shards, rays, rings, spurs, puffs, p: [px, py], w, h };
 }
 
-// 얼음에 새긴 글씨 — 아이스브레이킹. 얼음판과 한 몸이라 깨질 때 같이 쪼개진다
-function Words({ style }) {
+// 얼음에 새긴 글씨 — 조각이 떨어지기 시작할 때 부드럽게 사라진다.
+function Words() {
   return (
-    <div className="intro__words" style={style}>
+    <div className="intro__words" aria-hidden="true">
       <p className="intro__title">Let&apos;s break the ice.</p>
       <p className="intro__sub sys">CLICK TO BREAK</p>
     </div>
@@ -181,18 +181,19 @@ export default function Intro({ phase = 'active', ready = false, onLeave, onCrac
   return (
     <div className={`intro intro--${phase} intro--${stage}`} role="status" aria-label="포트폴리오 시작" onPointerDown={onPointerDown} onPointerMove={hold} onPointerUp={hold}>
       {/* 깨지기 전 — 한 장의 얼음판. 얼음에 새긴 글씨 */}
-      {stage !== 'fall' && <div className="intro__pane" aria-hidden="true"><Words /></div>}
+      {stage !== 'fall' && <div className="intro__pane" aria-hidden="true" />}
 
-      {/* 깨진 뒤 — 금을 따라 나뉜 조각들. 글씨도 조각마다 제자리 몫을 들고 같이 쪼개진다 */}
+      {/* 문구는 한 겹으로 유지해 실제 깨짐 순간부터 사라진다. */}
+      <Words />
+
+      {/* 깨진 뒤 — 얼음 조각만 떨어지고 문구는 제자리에서 옅어진다. */}
       {stage === 'fall' && geo?.shards.map((s) => (
         <div
           key={s.key}
           className="intro__shard"
           aria-hidden="true"
           style={{ left: s.box.x, top: s.box.y, width: s.box.w, height: s.box.h, clipPath: s.clip, ...s.style }}
-        >
-          <Words style={{ left: -s.box.x, top: -s.box.y, width: geo.w, height: geo.h }} />
-        </div>
+        />
       ))}
 
       {/* 갈라지는 순간 — 틈에서 냉기가 피어오른다 */}
@@ -202,11 +203,11 @@ export default function Intro({ phase = 'active', ready = false, onLeave, onCrac
       {geo && (
         <svg className="intro__cracks" aria-hidden="true">
           <circle className="intro__impact" cx={geo.p[0]} cy={geo.p[1]} r="3" />
-          {geo.rays.map((d, i) => <path key={`fr${i}`} className="intro__fracture" d={d} style={{ '--i': i }} />)}
-          {geo.rings.map((d, i) => <path key={`fg${i}`} className="intro__fracture intro__fracture--ring" d={d} style={{ '--i': i }} />)}
-          {geo.rays.map((d, i) => <path key={`r${i}`} className="intro__crack intro__crack--ray" d={d} style={{ '--i': i }} />)}
-          {geo.rings.map((d, i) => <path key={`g${i}`} className="intro__crack intro__crack--ring" d={d} style={{ '--i': i }} />)}
-          {geo.spurs.map((d, i) => <path key={`s${i}`} className="intro__crack intro__crack--spur" d={d} style={{ '--i': i }} />)}
+          {geo.rays.map((d, i) => <path key={`fr${i}`} className="intro__fracture" pathLength="1" d={d} style={{ '--i': i }} />)}
+          {geo.rings.map((d, i) => <path key={`fg${i}`} className="intro__fracture intro__fracture--ring" pathLength="1" d={d} style={{ '--i': i }} />)}
+          {geo.rays.map((d, i) => <path key={`r${i}`} className="intro__crack intro__crack--ray" pathLength="1" d={d} style={{ '--i': i }} />)}
+          {geo.rings.map((d, i) => <path key={`g${i}`} className="intro__crack intro__crack--ring" pathLength="1" d={d} style={{ '--i': i }} />)}
+          {geo.spurs.map((d, i) => <path key={`s${i}`} className="intro__crack intro__crack--spur" pathLength="1" d={d} style={{ '--i': i }} />)}
         </svg>
       )}
 

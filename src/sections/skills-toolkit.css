@@ -10,8 +10,14 @@
   scrollbar-width: thin;
   scrollbar-color: #89aaa230 transparent;
   color: #dae2df;
+  opacity: 0;
 }
 .skills-toolkit.is-settling { overflow-y: hidden; }
+/* BACKGROUND와 같은 타이밍 — 물결 중에는 숨기고, 방이 열린 뒤 내용을 밝힌다. */
+.about--reveal .about-room.is-active .skills-toolkit {
+  animation: skills-panel-in 720ms var(--ease) 140ms forwards;
+}
+@keyframes skills-panel-in { to { opacity: 1; } }
 
 .skills-toolkit__intro {
   padding-bottom: 46px;
@@ -347,6 +353,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .about--reveal .about-room.is-active .skills-toolkit { opacity: 1; animation: none; }
   .skills-toolkit *, .skills-toolkit *::before, .skills-toolkit *::after, .about-room--skills .skills-toolkit h2 > span {
     animation: none !important;
     transition: none !important;

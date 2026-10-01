@@ -105,7 +105,7 @@ export default function Main({ active = true, onScrollCue, onReady, onSettled, t
           ))}
         </h1>
         <p className="sys main__role">
-          WEB DESIGNER
+          UX/UI DESIGNER
           <br />
           FRONTEND DEVELOPER
         </p>

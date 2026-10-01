@@ -48,7 +48,7 @@ export default function SmokeVeil({ progress = 0, active = true, clearing = fals
           drawn = false;
           return; // 메인이 가만히 있을 땐 빈 캔버스 RAF도 돌리지 않는다.
         }
-        smoke.draw({ gather, progress: 0 });
+        smoke.draw({ gather, progress: 0, front: sublimationFront(state.progress) });
         drawn = true;
       }
       raf = requestAnimationFrame(frame);

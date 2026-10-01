@@ -140,7 +140,7 @@ export function createSmokeRenderer(canvas) {
   // 연기는 원래 흐릿하다 — 해상도를 낮춰도 티가 안 나고 fbm 6옥타브가 가벼워진다.
   // 하나의 캔버스를 왕복 재사용한다. 큰 모니터에서도 노이즈 연산량이 폭증하지 않게 제한한다.
   const resize = () => {
-    const scale = Math.min(0.5, Math.sqrt(450000 / (window.innerWidth * window.innerHeight)));
+    const scale = Math.min(0.4, Math.sqrt(200000 / (window.innerWidth * window.innerHeight)));
     canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
     canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -151,16 +151,22 @@ export function createSmokeRenderer(canvas) {
   gl.uniform2f(uOrigin, -0.12, -0.1);
 
   return {
-    draw({ progress = 0, gather = 1, origin = null } = {}) {
+    draw({ progress = 0, gather = 1, origin = null, front = 1 } = {}) {
       if (origin) gl.uniform2f(uOrigin, origin[0], origin[1]);
       gl.uniform1f(uTime, smokeTime());
       gl.uniform1f(uProgress, progress);
       gl.uniform1f(uGather, gather);
+      // 이전 경계 위쪽의 잔상까지 투명하게 지운 뒤, 실제 보이는 아래쪽만 계산한다.
+      gl.disable(gl.SCISSOR_TEST);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(0, 0, canvas.width, Math.ceil(canvas.height * Math.min(1, Math.max(0, front))));
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.disable(gl.SCISSOR_TEST);
     },
     clear() {
+      gl.disable(gl.SCISSOR_TEST);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
     },

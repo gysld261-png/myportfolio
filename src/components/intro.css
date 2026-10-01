@@ -48,7 +48,7 @@
   35% { transform: translate3d(0, 7px, 0); }
   100% { transform: translate3d(0, 4px, 0); }
 }
-/* 얼음에 새긴 글씨 — "Let's break the ice." 서리처럼 옅게 떠 있다가, 깨질 때 조각과 함께 쪼개진다 */
+/* 얼음에 새긴 글씨 — 조각이 떨어지는 순간부터 제자리에서 사라진다. */
 .intro__words {
   position: absolute;
   inset: 0;
@@ -57,8 +57,11 @@
   justify-items: center;
   gap: 18px;
   pointer-events: none;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 480ms cubic-bezier(.4, 0, .2, 1);
 }
-.intro__shard > .intro__words { inset: auto; }
+.intro--fall .intro__words { opacity: 0; }
 .intro__title {
   margin: 0;
   color: rgba(244, 250, 251, .92);
@@ -66,14 +69,14 @@
   letter-spacing: -.01em;
   text-shadow: 0 1px 0 rgba(255, 255, 255, .35), 0 0 22px rgba(220, 240, 244, .35), 0 2px 18px rgba(30, 50, 56, .25);
 }
-.intro__pane .intro__title { animation: intro-words 1100ms cubic-bezier(.2, .8, .2, 1) 350ms both; }
+.intro__title { animation: intro-words 1100ms cubic-bezier(.2, .8, .2, 1) 350ms both; }
 .intro__sub.sys {
   margin: 0;
   color: rgba(236, 246, 248, .72);
   font-size: 10px;
   letter-spacing: .3em;
 }
-.intro__pane .intro__sub { animation: intro-words 900ms ease 1000ms both, intro-hint 1600ms ease-in-out 1900ms infinite; }
+.intro__sub { animation: intro-words 900ms ease 1000ms both, intro-hint 1600ms ease-in-out 1900ms infinite; }
 @keyframes intro-words { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
 @keyframes intro-hint { 50% { opacity: .35; } }
 /* 가장자리 서리 — 얼음판의 두께 */
@@ -123,13 +126,13 @@
   stroke-width: 9;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: blur(4px);
-  stroke-dasharray: 3000;
-  stroke-dashoffset: 3000;
+  /* 긴 금마다 별도 블러 표면을 만들면 균열 중 큰 화면이 멈출 수 있어 선만 그린다. */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
 }
 .intro__fracture--ring { stroke-width: 6; stroke: rgba(236, 246, 248, .16); }
-.intro--crack .intro__fracture { animation: intro-crack 820ms cubic-bezier(.3, .6, .2, 1) calc(160ms + var(--i) * 30ms) forwards; }
-.intro--crack .intro__fracture--ring { animation-delay: calc(420ms + var(--i) * 90ms); }
+.intro--crack .intro__fracture { animation: intro-crack 460ms steps(3, end) calc(120ms + var(--i) * 24ms) forwards; }
+.intro--crack .intro__fracture--ring { animation-duration: 420ms; animation-delay: calc(200ms + var(--i) * 16ms); }
 .intro--fall .intro__fracture { stroke-dashoffset: 0; animation: intro-crack-out 420ms ease forwards; }
 
 /* 금 — 방사형이 먼저 뻗고, 동심원이 이어진다. 깨지는 순간 조각과 함께 사라진다 */
@@ -140,13 +143,12 @@
   stroke-width: .9;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 1.5px rgba(210, 245, 240, .35));
-  stroke-dasharray: 3000;
-  stroke-dashoffset: 3000;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
 }
-.intro--crack .intro__crack--ray { animation: intro-crack 560ms cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 18ms) forwards; }
-.intro--crack .intro__crack--ring { stroke-width: .7; stroke: rgba(236, 246, 248, .38); animation: intro-crack 700ms cubic-bezier(.3, .7, .2, 1) calc(260ms + var(--i) * 110ms) forwards; }
-.intro--crack .intro__crack--spur { stroke-width: .6; stroke: rgba(236, 246, 248, .3); animation: intro-crack 420ms ease-out calc(380ms + var(--i) * 22ms) forwards; }
+.intro--crack .intro__crack--ray { animation: intro-crack 360ms steps(3, end) calc(var(--i) * 20ms) forwards; }
+.intro--crack .intro__crack--ring { stroke-width: .7; stroke: rgba(236, 246, 248, .38); animation: intro-crack 360ms steps(3, end) calc(220ms + var(--i) * 16ms) forwards; }
+.intro--crack .intro__crack--spur { stroke-width: .6; stroke: rgba(236, 246, 248, .3); animation: intro-crack 260ms steps(2, end) calc(280ms + var(--i) * 16ms) forwards; }
 @keyframes intro-crack { to { stroke-dashoffset: 0; } }
 .intro--fall .intro__crack { stroke-dashoffset: 0; animation: intro-crack-out 380ms ease forwards; }
 @keyframes intro-crack-out { to { opacity: 0; } }
@@ -180,5 +182,6 @@ html:has(.intro) .cursor { width: 14px !important; height: 14px !important; bord
 
 @media (prefers-reduced-motion: reduce) {
   .intro { transition: none; }
+  .intro__words { transition: none; }
   .intro__shard, .intro__crack, .intro__fracture, .intro__pane, .intro__pane::before, .intro__vapor, .intro__title, .intro__sub { animation: none !important; }
 }

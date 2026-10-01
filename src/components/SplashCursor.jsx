@@ -109,7 +109,8 @@ function SplashCursor({
         halfFloat = g.getExtension('OES_texture_half_float');
         supportLinearFiltering = g.getExtension('OES_texture_half_float_linear');
       }
-      g.clearColor(0.0, 0.0, 0.0, 1.0);
+      // 연기가 없는 픽셀은 메인을 가리지 않도록 투명하게 비운다.
+      g.clearColor(0.0, 0.0, 0.0, 0.0);
 
       const halfFloatTexType = isWebGL2 ? g.HALF_FLOAT : halfFloat && halfFloat.HALF_FLOAT_OES;
 
@@ -445,7 +446,7 @@ function SplashCursor({
           gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
         }
         if (clear) {
-          gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          gl.clearColor(0.0, 0.0, 0.0, 0.0);
           gl.clear(gl.COLOR_BUFFER_BIT);
         }
         gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -676,7 +677,8 @@ function SplashCursor({
       displayMaterial.bind();
       if (config.SHADING) gl.uniform2f(displayMaterial.uniforms.texelSize, 1.0 / width, 1.0 / height);
       gl.uniform1i(displayMaterial.uniforms.uTexture, dye.read.attach(0));
-      blit(target);
+      // 이전 캔버스 내용 위에 합성하지 않고 현재 연기만 투명 바탕에 그린다.
+      blit(target, true);
     }
 
     function render(target) {
