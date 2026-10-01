@@ -73,6 +73,14 @@ export default function App() {
   const [current, setCurrent] = useState(initialView.current);
   const [contactOpen, setContactOpen] = useState(false);
   const [intro, setIntro] = useState(initialView.current === 'main' ? 'active' : 'done');
+  const [introCracking, setIntroCracking] = useState(false);
+  const [mainReady, setMainReady] = useState(false);
+  const [mainSettled, setMainSettled] = useState(false);
+  const [cursorPrepared, setCursorPrepared] = useState(false);
+  const markMainReady = useCallback(() => setMainReady(true), []);
+  const markMainSettled = useCallback(() => setMainSettled(true), []);
+  const markIntroCracking = useCallback(() => setIntroCracking(true), []);
+  const [portfolioEntry, setPortfolioEntry] = useState(0);
   const [mainExit, setMainExit] = useState(0);
   const [rewinding, setRewinding] = useState(false);
   // MAIN은 한 번 준비한 뒤 보관한다. 숨겨진 장면의 GPU 루프는 따로 멈춘다.
@@ -94,6 +102,7 @@ export default function App() {
   const [portfolioWarmReady, setPortfolioWarmReady] = useState(false);
   const markPortfolioReady = useCallback(() => setPortfolioWarmReady(true), []);
   const portfolioPassageRef = useRef({ busy: false, transition: null, animation: null, controller: null });
+  const assetsWarmed = useRef(false);
   /* 엔딩 단계 — idle · pull(미는 중) · closing(끝까지 닫히는 중) · credits · opening(다시 열리는 중) */
   const [ending, setEnding] = useState('idle');
   const endingRef = useRef('idle');
@@ -139,9 +148,9 @@ export default function App() {
   }, [current, mainCached]);
 
   useEffect(() => {
-    if (aboutCached || current !== 'main') return undefined;
+    if (aboutCached || current !== 'main' || intro !== 'done' || !mainSettled) return undefined;
     // 전환 한가운데 PMREM·얼음 셰이더·방 UI를 만들지 않는다.
-    // 인트로/메인 유휴 시간에 첫 프레임까지 준비하고, 숨겨진 GPU 루프는 멈춘다.
+    // 메인 제목이 자리 잡은 뒤 준비하고, 숨겨진 GPU 루프는 멈춘다.
     const warm = () => setAboutCached(true);
     if ('requestIdleCallback' in window) {
       const id = window.requestIdleCallback(warm, { timeout: 1000 });
@@ -149,7 +158,20 @@ export default function App() {
     }
     const id = window.setTimeout(warm, 250);
     return () => window.clearTimeout(id);
-  }, [current, aboutCached]);
+  }, [current, aboutCached, intro, mainSettled]);
+
+  useEffect(() => {
+    if (cursorPrepared || !mainReady) return undefined;
+    // 기다리는 인트로에서 먼저 준비한다. 이미 깨기 시작했다면 제목이 자리 잡은 뒤 준비한다.
+    if (!(intro === 'active' && !introCracking) && !(intro === 'done' && mainSettled)) return undefined;
+    const warm = () => setCursorPrepared(true);
+    if ('requestIdleCallback' in window) {
+      const id = window.requestIdleCallback(warm, { timeout: 1200 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 250);
+    return () => window.clearTimeout(id);
+  }, [cursorPrepared, mainReady, mainSettled, intro, introCracking]);
 
   /* 브라우저 탭을 벗어났을 때만 짧은 메시지를 보여주고,
      다시 돌아오면 포트폴리오 제목으로 즉시 복원한다. */
@@ -171,10 +193,12 @@ export default function App() {
   /* 프로젝트를 누르는 순간 모듈 다운로드·대형 이미지 디코딩·셰이더 컴파일이 한꺼번에
      겹치지 않도록, 메인 화면의 유휴 시간에 다음 장면과 표지를 미리 준비한다. */
   useEffect(() => {
+    if (assetsWarmed.current || intro !== 'done' || (current === 'main' && !mainSettled)) return undefined;
     let idleId = 0;
     let timerId = 0;
     const images = [];
     const warm = () => {
+      assetsWarmed.current = true;
       import('./lib/workIceScene').catch(() => {});
       [
         '/cases/walga-logo.svg',
@@ -199,7 +223,7 @@ export default function App() {
       if (idleId) window.cancelIdleCallback(idleId);
       window.clearTimeout(timerId);
     };
-  }, []);
+  }, [intro, current, mainSettled]);
 
   /**
    * rewind: MAIN 으로 되돌아갈 때 승화를 거꾸로 재생한다.
@@ -225,6 +249,7 @@ export default function App() {
     // 어디로 가든 관측창은 다시 활짝 연 상태로 시작한다
     setEnding('idle');
     setCurrent(id);
+    if (id === 'portfolio') setPortfolioEntry(entry => entry + 1);
     setEvidenceArrival(false);
     setPortfolioArrival(false);
     if (id === 'main') setMainCached(true);
@@ -470,6 +495,7 @@ export default function App() {
       if (next !== 'portfolio') setOrigin(null);
       setEnding('idle');
       setCurrent(next);
+      setContactOpen(false);
       setEvidenceArrival(false);
       setPortfolioArrival(false);
       if (next !== 'portfolio') { setPortfolioWarmed(false); setPortfolioWarmReady(false); }
@@ -486,6 +512,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (event) => {
       if (contactOpen || intro !== 'done' || rewinding) return;
+      if (event.defaultPrevented || event.target.closest?.('button, a, input, textarea, select, [contenteditable="true"]')) return;
       if (current === 'main' && ['ArrowDown', 'PageDown', ' '].includes(event.key)) {
         event.preventDefault();
         requestExit();
@@ -612,7 +639,7 @@ export default function App() {
       onTouchEnd={onTouchEnd}
     >
       <Nav
-        suspended={ending === 'credits'}
+        suspended={ending === 'credits' || intro !== 'done'}
         current={contactOpen ? 'contact' : current}
         onGo={go}
         progress={current === 'main' ? mainExit : 0}
@@ -620,12 +647,14 @@ export default function App() {
 
       <main
         className={`app-stage app-stage--${current} ${evidenceArrival ? 'is-evidence-arrival' : ''} ${portfolioArrival ? 'is-portfolio-arrival' : ''}`}
-        inert={ending === 'credits' ? '' : undefined}
+        inert={ending === 'credits' || intro !== 'done' ? '' : undefined}
       >
         {mainCached && (
           <Main
             active={current === 'main'}
             introEntrance={intro !== 'done'}
+            onReady={markMainReady}
+            onSettled={markMainSettled}
             transitionProgress={mainExit}
             rewinding={rewinding}
             onScrollCue={requestExit}
@@ -643,6 +672,7 @@ export default function App() {
         {(current === 'portfolio' || portfolioWarmed) && (
           <Portfolio
             active={current === 'portfolio'}
+            entry={portfolioEntry}
             onReady={markPortfolioReady}
             returnTo={origin ? {
               label: origin.label,
@@ -684,12 +714,12 @@ export default function App() {
            CONTACT 가 열려 있을 때도 끈다 — 그때는 읽고 연락하는 화면이다.
 
            빼려면 이 블록과 위의 import 한 줄만 지우면 된다. */}
-      {intro === 'done' && mainCached && (
-        <SplashCursor active={current === 'main' && !contactOpen && !rewinding && mainExit <= 0.01} />
+      {cursorPrepared && mainCached && (
+        <SplashCursor active={intro === 'done' && current === 'main' && !contactOpen && !rewinding && mainExit <= 0.01} />
       )}
 
       <Contact open={contactOpen} onClose={() => setContactOpen(false)} />
-      {intro !== 'done' && <Intro phase={intro} onLeave={leaveIntro} />}
+      {intro !== 'done' && <Intro phase={intro} onLeave={leaveIntro} onCrack={markIntroCracking} />}
       {/* 따라다니는 점 — 링크 위에서 링, 표본·보드 위에서 라벨이 붙는다 */}
       <CustomCursor />
     </div>

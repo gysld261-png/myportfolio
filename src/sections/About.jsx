@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { byId } from '../data/specimens';
 import { prefersReduced } from '../lib/smooth';
+import { prepareWhenIdle } from '../lib/prepareWhenIdle';
 import { createUnderSnow } from '../lib/aboutUnderScene';
 import { createRoomFog, TRAIL, TRAIL_LIFE } from '../lib/roomFog';
 import FigmaBoard, { StripReadout } from './FigmaBoard';
@@ -27,14 +28,14 @@ const CHAMBERS = [
           label: 'EDUCATION',
           rows: [
             { at: '2026.04', text: '이젠아카데미 AI활용 UI/UX 부트캠프', sub: '이젠아카데미DX교육센터 강남 · 2026.10 수료' },
-            { at: '2026.02', text: '인덕대학교 시각디자인학과 졸업' },
+            { at: '2026.02', text: '시각디자인학과 졸업' },
           ],
         },
         {
           label: 'AWARDS',
           rows: [
             { at: '2026.08', text: 'AI활용 UI/UX 부트캠프 최우수상', sub: '이젠아카데미DX교육센터 강남' },
-            { at: '2025.11', text: '시각디자인학과 2025 졸업전시회 우수상', sub: '인덕대학교' },
+            { at: '2025.11', text: '시각디자인학과 2025 졸업전시회 우수상' },
             { at: '2025.07', text: '커뮤니케이션디자인국제공모전 입상', sub: '한국커뮤니케이션디자인협회' },
           ],
         },
@@ -224,7 +225,7 @@ function useUnderSnow(phase, selected, visible) {
   phaseRef.current = phase;
   selectedRef.current = selected;
 
-  useEffect(() => {
+  useEffect(() => prepareWhenIdle((signal) => {
     const host = hostRef.current;
     const overlay = overlayRef.current;
     if (!host || !overlay) return undefined;
@@ -428,7 +429,14 @@ function useUnderSnow(phase, selected, visible) {
       },
     };
     // 숨겨진 상태에서도 첫 장면을 한 번 그려 셰이더를 준비한 뒤 RAF를 쉰다.
-    tick(last);
+    if (scene?.ready) scene.ready.then(() => {
+      if (signal.aborted) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      last = performance.now();
+      tick(last);
+    });
+    else tick(last);
     return () => {
       cancelAnimationFrame(raf);
       controlRef.current = null;
@@ -438,7 +446,7 @@ function useUnderSnow(phase, selected, visible) {
       scene?.dispose();
       fog?.dispose();
     };
-  }, []);
+  }), []);
 
   useLayoutEffect(() => { controlRef.current?.sync(); }, [visible]);
 

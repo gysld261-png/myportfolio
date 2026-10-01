@@ -26,7 +26,7 @@ const SEED = 3;
 const BASE_ROTATION = [0.12, -0.36, -0.07];
 const FROST = 0.9;
 
-export async function createHeroIce(host, { initialEntrance = false, getExit = () => 0, getActive = () => true, onReadout, onReady } = {}) {
+export function createHeroIce(host, { initialEntrance = false, getExit = () => 0, getActive = () => true, onReadout, onReady } = {}) {
   const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 0);

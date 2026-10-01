@@ -106,13 +106,25 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     if (!track || !root) return;
     const firstSet = track.children[0];
     const s = scroll.current;
+    const previousHeight = s.viewportHeight || root.clientHeight;
+    const previousMax = Math.max(0, s.setHeight - previousHeight);
     s.setHeight = firstSet.offsetHeight || 1;
     s.centers = [...firstSet.querySelectorAll('.work-row')].map((row) => row.offsetTop + row.offsetHeight / 2);
+    const height = root.clientHeight;
     if (!s.ready) {
-      const max = Math.max(0, s.setHeight - root.clientHeight);
-      s.current = s.target = clamp(s.centers[activeRef.current] - root.clientHeight / 2, 0, max);
+      const max = Math.max(0, s.setHeight - height);
+      s.current = s.target = clamp(s.centers[activeRef.current] - height / 2, 0, max);
       s.ready = true;
+    } else if (previousHeight !== height) {
+      const ratio = height / Math.max(1, previousHeight);
+      const max = Math.max(0, s.setHeight - height);
+      s.current = s.current > previousMax
+        ? max + (s.current - previousMax) * ratio
+        : s.current * ratio;
+      s.target = s.over > 0 ? max + s.over * height * END_TRAVEL : clamp(s.target * ratio, 0, max);
+      s.vel = (s.vel || 0) * ratio;
     }
+    s.viewportHeight = height;
   }, []);
 
   // 표본은 렌더러 하나를 공유한다. 현재 표본부터 준비하고 다른 로고를 기다리지 않는다.
@@ -222,7 +234,9 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
         const d = Math.abs(c - center);
         if (d < bestDistance) { bestDistance = d; best = i; }
       });
-      if (best !== activeRef.current) onActiveRef.current(best);
+      // 버튼·키보드로 고른 목적지는 도착 전 중간 프로젝트가 가로채지 않는다.
+      if (s.programmatic && Math.abs(s.target - s.current) < 2) s.programmatic = false;
+      if (!s.programmatic && best !== activeRef.current) onActiveRef.current(best);
 
       // 레퍼런스처럼 라벨은 표본보다 먼저 흐려지고 중앙 부근에서만 또렷해진다.
       track.querySelectorAll('.work-row').forEach((row, index) => {
@@ -319,6 +333,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       if (pausedRef.current) return;
       if (event.ctrlKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
       event.preventDefault();
+      s.programmatic = false;
       if (s.lockUntil && performance.now() < s.lockUntil) return;
       const unit = event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? root.clientHeight : 1;
       if (pushEnd(event.deltaY * unit)) { pointer.current.dirty = true; return; }
@@ -334,8 +349,11 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       pointer.current.dirty = true;
     };
     let touchY = null;
-    const onPointerDown = (event) => { if (event.pointerType !== 'mouse') touchY = event.clientY; };
+    const onPointerDown = (event) => {
+      if (!pausedRef.current && event.pointerType !== 'mouse') { touchY = event.clientY; s.programmatic = false; }
+    };
     const onPointerMove = (event) => {
+      if (pausedRef.current) return;
       if (event.pointerType === 'mouse') Object.assign(pointer.current, { x: event.clientX, y: event.clientY, inside: true, dirty: true });
       const bounds = root.getBoundingClientRect();
       drift.setPointer((event.clientX - bounds.left) / bounds.width - 0.5, (event.clientY - bounds.top) / bounds.height - 0.5);
@@ -354,7 +372,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       touchY = event.clientY;
     };
     const onPointerUp = () => {
-      if (touchY !== null && s.centers.length) {
+      if (touchY !== null && !pausedRef.current && !(s.over > 0) && s.centers.length) {
         let nearest = 0;
         let distance = Infinity;
         const center = s.target + root.clientHeight / 2;
@@ -375,6 +393,8 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     root.addEventListener('pointerdown', onPointerDown);
     root.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', onPointerUp);
+    const onPointerCancel = () => { touchY = null; };
+    window.addEventListener('pointercancel', onPointerCancel);
 
     return () => {
       cancelAnimationFrame(frame);
@@ -385,6 +405,7 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
       root.removeEventListener('pointermove', onPointerMove);
       root.removeEventListener('pointerleave', onPointerLeave);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
     };
   }, [measure]);
 
@@ -412,6 +433,9 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     activeRef.current = next;
     s.snapIndex = next;
     s.push = 0;
+    s.snapAt = 0;
+    s.snapped = true;
+    s.programmatic = true;
     onActiveRef.current(next);
     s.target = clamp(s.centers[next] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
   }, []);
@@ -424,6 +448,9 @@ export default function WorkScroll({ specs, activeIndex, onActiveChange, onOpen,
     activeRef.current = next;
     s.snapIndex = next;
     s.push = 0;
+    s.snapAt = 0;
+    s.snapped = true;
+    s.programmatic = true;
     onActiveRef.current(next);
     s.target = clamp(s.centers[next] - root.clientHeight / 2, 0, Math.max(0, s.setHeight - root.clientHeight));
   }, []);

@@ -465,11 +465,14 @@ export function createUnderSnow(host, { keys, labels = {} }) {
   (async () => {
     try { await document.fonts.load('600 120px "Pretendard Variable"'); } catch { /* 글꼴이 없으면 대체 글꼴로 만든다 */ }
     if (disposed) return;
-    Object.keys(keys).forEach((id) => {
+    for (const id of Object.keys(keys)) {
+      // 단어 네 개의 윤곽 추출·입체화를 한 작업으로 몰지 않는다.
+      await new Promise(resolve => window.setTimeout(resolve, 0));
+      if (disposed) return;
       const text = labels[id];
-      if (!text) return;
+      if (!text) continue;
       const geometry = createIceWordGeometry(text);
-      if (!geometry) return;
+      if (!geometry) continue;
       const material = createWorkIceMaterial(trail.sample);
       material.opacity = 1;
       material.userData.ice.uTouchFog.value = 0;
@@ -480,7 +483,7 @@ export function createUnderSnow(host, { keys, labels = {} }) {
       mesh.visible = false;
       scene.add(mesh);
       words[id] = { mesh, geometry, material, aspect: geometry.boundingBox.max.x * 2 };
-    });
+    }
   })();
 
   // 단면 — 윗선은 눈밭의 z=0 높이(heroEnvironment createTerrain 의 dunes 항)를 따른다
@@ -586,10 +589,14 @@ export function createUnderSnow(host, { keys, labels = {} }) {
   const projected = new THREE.Vector3();
   let time = 0;
   let lookX = 0; let lookY = 0;
+  let compiled = false;
+  const ready = renderer.compileAsync(scene, camera).catch(() => {}).then(() => { compiled = true; });
 
   return {
+    ready,
     /** 한 장면 — glow: 키워드별 밝기, drop: 카메라가 내려간 거리(px), look: 커서 시차(-0.5~0.5), mist: 승화 연기 세기 */
     render(dt, { glow, drop, look, mist: mistStrength = 0.3 }) {
+      if (!compiled || disposed) return;
       time += dt;
       mistMaterial.uniforms.uTime.value = time;
       mistMaterial.uniforms.uStrength.value = mistStrength;

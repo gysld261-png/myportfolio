@@ -18,19 +18,17 @@ export default function HeroIce({ active = true, onReadout, onReady, initialEntr
   useEffect(() => {
     let cancelled = false;
     let scene = null;
-    import('../lib/heroIceScene').then(({ createHeroIce }) => createHeroIce(hostRef.current, {
-      initialEntrance,
-      getExit: () => exitRef.current,
-      getActive: () => activeRef.current,
-      onReadout: (value) => callbacks.current.onReadout?.(value),
-      onReady: (value) => callbacks.current.onReady?.(value),
-    })).then((created) => {
-      if (cancelled) created.dispose();
-      else {
-        scene = created;
-        sceneRef.current = created;
-        created.setActive(activeRef.current);
-      }
+    import('../lib/heroIceScene').then(({ createHeroIce }) => {
+      if (cancelled || !hostRef.current) return;
+      scene = createHeroIce(hostRef.current, {
+        initialEntrance,
+        getExit: () => exitRef.current,
+        getActive: () => activeRef.current,
+        onReadout: (value) => callbacks.current.onReadout?.(value),
+        onReady: (value) => callbacks.current.onReady?.(value),
+      });
+      sceneRef.current = scene;
+      scene.setActive(activeRef.current);
     }).catch(() => {
       if (!cancelled) callbacks.current.onReady?.(false);
     });

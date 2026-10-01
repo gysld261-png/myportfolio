@@ -123,7 +123,7 @@ function Words({ style }) {
   );
 }
 
-export default function Intro({ phase = 'active', onLeave }) {
+export default function Intro({ phase = 'active', onLeave, onCrack }) {
   const [stage, setStage] = useState('pane');   // pane → crack → fall
   const [geo, setGeo] = useState(null);
   const stageRef = useRef(stage);
@@ -136,12 +136,13 @@ export default function Intro({ phase = 'active', onLeave }) {
   const crack = useCallback((x, y) => {
     if (stageRef.current !== 'pane') return;
     stageRef.current = 'crack';
+    onCrack?.();
     const w = window.innerWidth; const h = window.innerHeight;
     setGeo(shatter(x ?? w / 2, y ?? h * 0.5, w, h));
     setStage('crack');
     later(() => setStage('fall'), T_CRACK);
     later(() => onLeave?.(), T_CRACK + T_FALL * 0.6);
-  }, [onLeave]);
+  }, [onLeave, onCrack]);
 
   // 스스로 깨지지 않는다 — 발표 때 콘셉트를 설명하는 동안 얼음판이 그대로 기다린다.
   // 클릭(누른 자리) · SKIP · 키보드/프레젠터 리모컨(가운데)으로만 깨진다.

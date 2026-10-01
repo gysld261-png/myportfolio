@@ -9,8 +9,7 @@ import { useEffect, useRef, useState } from 'react';
  */
 export default function FrostEdge({ paused = false }) {
   const [grow, setGrow] = useState(0);
-  const raf = useRef(0);
-  const started = useRef(0);
+  const elapsed = useRef(0);
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -19,21 +18,19 @@ export default function FrostEdge({ paused = false }) {
     }
     if (paused) return undefined;
 
-    started.current = performance.now();
-    let last = 0;
-
-    const tick = (now) => {
-      /* 4Hz 로만 갱신한다 — 성에는 천천히 자란다. 매 프레임 리렌더할 이유가 없다. */
-      if (now - last > 250) {
-        const elapsed = (now - started.current) / 1000;
-        setGrow(Math.min(1, elapsed / 46));
-        last = now;
-      }
-      raf.current = requestAnimationFrame(tick);
+    if (elapsed.current >= 46000) return undefined;
+    const started = performance.now();
+    let timer;
+    const tick = () => {
+      const total = elapsed.current + performance.now() - started;
+      setGrow(Math.min(1, total / 46000));
+      if (total < 46000) timer = window.setTimeout(tick, 250);
     };
-
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
+    timer = window.setTimeout(tick, 250);
+    return () => {
+      window.clearTimeout(timer);
+      elapsed.current = Math.min(46000, elapsed.current + performance.now() - started);
+    };
   }, [paused]);
 
   return (

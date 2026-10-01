@@ -17,7 +17,7 @@ const hashId = () => {
  * SCROLL 은 이름이 끝없이 흘러가고 가운데 창에 화면이 비친다(WorkScroll).
  * LIST 는 장식적 보조 화면이 아니라 모든 프로젝트 정보에 도달하는 완전한 대체 경로다.
  */
-export default function Portfolio({ returnTo = null, onEndProgress = null, endControlRef = null, suspended = false, active = true, onReady = null }) {
+export default function Portfolio({ returnTo = null, onEndProgress = null, endControlRef = null, suspended = false, active = true, entry = 0, onReady = null }) {
   const [mode, setMode] = useState('field');
   /* 보기 전환 — 캡슐의 선택 칸이 먼저 넘어가고(pending), 지금 화면이 흐려지며 빠진 뒤 새 화면이 떠오른다 */
   const [pendingMode, setPendingMode] = useState(null);
@@ -35,8 +35,12 @@ export default function Portfolio({ returnTo = null, onEndProgress = null, endCo
     if (!active) return;
     const id = hashId();
     setSelected(id);
-    if (id) setActiveIndex(SPECIMENS.findIndex(spec => spec.id === id));
-  }, [active]);
+    setPortal(null);
+    if (id) {
+      returnTarget.current = id;
+      setActiveIndex(SPECIMENS.findIndex(spec => spec.id === id));
+    }
+  }, [active, entry]);
 
   const visibleSpecimens = SPECIMENS;
   const activeSpec = visibleSpecimens[activeIndex] || visibleSpecimens[0];
