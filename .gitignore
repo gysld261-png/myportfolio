@@ -8,3 +8,5 @@ Thumbs.db
 .codex-backups/ 
 design-assets/approach/ 
 design-assets/tchaikim/
+
+/output/
