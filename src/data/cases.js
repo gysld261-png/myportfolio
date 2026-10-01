@@ -65,7 +65,7 @@ export const CASES = {
     year: '2026',
     categories: ['UX/UI DESIGN', 'FRONTEND', 'DESIGN SYSTEM'],
     role: ['UI Design', 'Frontend', 'Design System'],
-    info: '한복 브랜드 차이킴의 영문 웹사이트를 5인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 DL 기록 체계로 팀의 디자인 시스템과 핸드오프 기준을 만들었습니다.',
+    info: '한복 브랜드 차이킴의 영문 웹사이트를 5인 팀으로 리디자인했습니다. 저는 Shop 페이지와 메인의 모티프·브랜드·컬렉션 섹션을 설계하고 구현했고, 타이포 토큰과 컬러 시스템으로 디자인 기준을 맞췄습니다. 개발을 맡은 팀원들이 충돌 없이 작업할 수 있도록 Git 작업 순서와 페이지별 작업 기록 규칙도 정리해 공지했습니다.',
     teamSize: 5,
     concept: [
       '해외 사용자에게 한복은 낯선 옷이고, 배자·철릭·거들 같은 이름은 더 낯섭니다. 상품 사진만으로는 입었을 때의 모습을 떠올리기 어려웠고, 기성복 차이킴과 맞춤 브랜드 차이킴영진이 어떻게 다른지도 한눈에 보이지 않았습니다.',
@@ -104,6 +104,7 @@ export const CASES = {
       { type: 'full', src: '/cases/tchaikim/mockups/d02-cheollik-anatomy.webp', alt: '메인 모티프 — 철릭을 옷깃, 소매, 몸판, 치마로 나눠 읽기' },
       { type: 'full', src: '/cases/tchaikim/mockups/c08-brands.webp', alt: '메인 브랜드 — 두 브랜드를 번갈아 보여 주는 카드 스택' },
       { type: 'full', src: '/cases/tchaikim/mockups/s01-design-system.webp', alt: '디자인 토큰 — 타이포 스케일, 색과 대비, 버튼과 태그' },
+      { type: 'full', src: '/cases/tchaikim/mockups/s02-dev-notes.webp', alt: '개발팀 공지 — 작업 전 pull, 작업 페이지 공유, AI 작업 기록 규칙, 1920×1080 화면 기준과 Git 작업 순서' },
       { type: 'full', src: '/cases/tchaikim/mockups/c11-main-phones.webp', alt: '모바일 메인 — 히어로, 모티프, 브랜드' },
     ],
   },
