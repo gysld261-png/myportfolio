@@ -209,31 +209,31 @@
     transform 860ms var(--ease);
 }
 
-/* 금이 가기 시작하면 얼음판 뒤에서 메인을 먼저 드러낸다. */
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__claim,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__eyebrow,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__role,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__lead,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__hint,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__cue,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .instrument {
+/* 얼음의 균열·낙하·퇴장을 먼저 보여 주고, 인트로가 끝난 뒤 메인 문구를 드러낸다. */
+.app-shell:not(.app-shell--intro-done) .main__claim,
+.app-shell:not(.app-shell--intro-done) .main__eyebrow,
+.app-shell:not(.app-shell--intro-done) .main__role,
+.app-shell:not(.app-shell--intro-done) .main__lead,
+.app-shell:not(.app-shell--intro-done) .main__hint,
+.app-shell:not(.app-shell--intro-done) .main__cue,
+.app-shell:not(.app-shell--intro-done) .instrument {
   opacity: 0;
 }
 
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__eyebrow,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__role,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__hint { transform: translateX(-16px); }
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__lead,
-.app-shell--intro-active:not(.app-shell--intro-cracking) .instrument { transform: translateX(16px); }
-.app-shell--intro-active:not(.app-shell--intro-cracking) .main__cue { transform: translate(-50%, 10px); }
+.app-shell:not(.app-shell--intro-done) .main__eyebrow,
+.app-shell:not(.app-shell--intro-done) .main__role,
+.app-shell:not(.app-shell--intro-done) .main__hint { transform: translateX(-16px); }
+.app-shell:not(.app-shell--intro-done) .main__lead,
+.app-shell:not(.app-shell--intro-done) .instrument { transform: translateX(16px); }
+.app-shell:not(.app-shell--intro-done) .main__cue { transform: translate(-50%, 10px); }
 
-.app-shell--intro-leaving .main__claim { transition-delay: 60ms; }
-.app-shell--intro-leaving .main__eyebrow { transition-delay: 150ms; }
-.app-shell--intro-leaving .main__role,
-.app-shell--intro-leaving .main__lead { transition-delay: 240ms; }
-.app-shell--intro-leaving .main__hint,
-.app-shell--intro-leaving .main__cue,
-.app-shell--intro-leaving .instrument { transition-delay: 340ms; }
+.app-shell--intro-done .main:not(.is-claim-settled) .main__claim { transition-delay: 0ms; }
+.app-shell--intro-done .main:not(.is-claim-settled) .main__eyebrow { transition-delay: 150ms; }
+.app-shell--intro-done .main:not(.is-claim-settled) .main__role,
+.app-shell--intro-done .main:not(.is-claim-settled) .main__lead { transition-delay: 240ms; }
+.app-shell--intro-done .main:not(.is-claim-settled) .main__hint,
+.app-shell--intro-done .main:not(.is-claim-settled) .main__cue,
+.app-shell--intro-done .main:not(.is-claim-settled) .instrument { transition-delay: 340ms; }
 
 /* 문장 위 머리표 — 문장이 길어져서 아래에 두면 겹친다 */
 .main__eyebrow {
@@ -262,6 +262,7 @@
   color: var(--text);
   word-break: keep-all;
   text-shadow: 0 2px 40px rgba(6, 9, 10, 0.85);
+  transition: opacity 420ms var(--ease), transform 860ms var(--ease);
 }
 .claimline {
   display: block;
@@ -285,14 +286,14 @@
   filter: blur(9px);
   animation: claim-char 1150ms cubic-bezier(0.22, 0.8, 0.2, 1) forwards;
   /* 두 번째 줄은 첫 줄이 반쯤 올라왔을 때 뒤따른다 */
-  animation-delay: calc(320ms + var(--i) * 380ms + var(--c) * 62ms);
+  animation-delay: calc(var(--i) * 380ms + var(--c) * 62ms);
 }
 @keyframes claim-char {
   55% { opacity: 1; }
   to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
-/* 금이 가는 동안 시작해 조각이 떨어질 때 제목이 이어서 보이도록 한다. */
-.app-shell--intro-active:not(.app-shell--intro-cracking) .claimchar { animation-play-state: paused; }
+/* 인트로가 완전히 사라진 뒤에만 제목의 글자별 등장 시간을 흐르게 한다. */
+.app-shell:not(.app-shell--intro-done) .claimchar { animation-play-state: paused; }
 
 /* ABOUT 에서 되돌아온 경우엔 마스크 리빌을 다시 재생하지 않는다.
    안개가 걷히면서 글자가 제자리로 내려오는 것만으로 충분하고,

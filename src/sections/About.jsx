@@ -57,12 +57,16 @@ const CHAMBERS = [
       {
         /* parent — 그 시기 안에서 한 일. 번호가 02-1 처럼 붙고, 레이어 패널에서 한 칸 들어간다 */
         id: 'team', parent: 'bootcamp', at: '2026.05', period: '2026.05 — 09', name: '팀 프로젝트',
-        kept: '제 생각을 정답으로 두지 않고, 사용자의 행동을 근거로 문제를 정의하고 고칩니다. 왈가왈봇과 TCHAIKIM은 그 기준으로 기획부터 구현까지 맡은 프로젝트입니다.',
+        kept: '왈가왈봇과 TCHAIKIM에서 팀원들과 기획부터 구현까지 함께했습니다. 왈가왈봇에서는 각자 만든 화면을 하나의 흐름으로 맞췄고, TCHAIKIM에서는 작업이 겹치지 않도록 개발팀 공지와 페이지별 기록 방식을 정리했습니다.',
         images: [
           { src: '/cases/walga/boards/main.webp', label: '왈가왈봇' },
-          { src: '/cases/tchaikim-home.jpg', label: 'TCHAIKIM' },
+          { src: '/cases/tchaikim-home.jpg', preview: '/cases/tchaikim-home.png', previewTransform: 'translateX(-3%) scale(1.15)', label: 'TCHAIKIM' },
         ],
         projects: ['walga', 'tchaikim'],
+        evidence: [
+          { project: 'walga', section: 'team-work', label: '팀 작업 조율' },
+          { project: 'tchaikim', section: 'development-notes', label: '개발팀 공지' },
+        ],
       },
       {
         id: 'bootcamp', at: '2026.04', period: '2026.04 — 10', name: 'AI활용 UI/UX 부트캠프',
@@ -78,7 +82,7 @@ const CHAMBERS = [
         kept: '캐릭터 · 포스터 · 편집 · 브랜딩처럼 하나의 결과물을 완성하는 과목들 사이에서 UX/UI를 처음 만났습니다. 사용자의 시선과 행동을 기준으로 정보를 구조화하고 계속 고쳐 나간다는 점에 끌렸고, 편집 · 브랜딩 · UX/UI 작업으로 졸업전시 우수상을 받았습니다.',
         images: [
           { src: '/about/background/editorial.webp', thumb: '/about/background/editorial-row.webp', label: '편집 디자인' },
-          { src: '/about/background/branding.webp', focus: '50% 8%', label: '브랜딩 디자인' },
+          { src: '/about/background/branding.webp', focus: '50% 85%', label: '브랜딩 디자인' },
         ],
       },
     ],
@@ -536,7 +540,7 @@ const chamberFromHash = () => {
 const ROOM_ORDER = [...CHAMBERS].sort((a, b) => a.no.localeCompare(b.no));
 const ROOM_COUNT = String(ROOM_ORDER.length).padStart(2, '0');
 
-function ProjectEvidence({ ids, onOpenProject }) {
+function ProjectEvidence({ ids, evidence, onOpenProject }) {
   if (!ids?.length) return null;
   return (
     <div className="about-room__evidence">
@@ -544,11 +548,12 @@ function ProjectEvidence({ ids, onOpenProject }) {
       <ul>
         {ids.map((id) => {
           const project = byId(id);
+          const detail = evidence?.find((item) => item.project === id);
           return (
             <li key={id}>
-              <button type="button" onClick={() => onOpenProject?.(id)}>
+              <button type="button" onClick={() => onOpenProject?.(id, detail)}>
                 <span className="sys">{project.no}</span>
-                <b>{project.ko}</b>
+                <b>{project.ko}{detail ? ` · ${detail.label}` : ''}</b>
                 <i aria-hidden="true">↗</i>
               </button>
             </li>
@@ -575,9 +580,9 @@ function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProjec
   const pendingRoute = useRef(undefined);
   const projectReturnRef = useRef(null);
 
-  const openEvidence = useCallback((project, item) => {
+  const openEvidence = useCallback((project, item, evidence) => {
     projectReturnRef.current = { chamber: item.id, strip, version };
-    onOpenProject?.(project, { chamber: item.id, label: item.label });
+    onOpenProject?.(project, { chamber: item.id, label: item.label, evidence });
   }, [onOpenProject, strip, version]);
 
   // 캐시된 방은 재진입 주소에 맞춘다. 사용자 문구/방 구성은 바꾸지 않는다.
@@ -799,7 +804,8 @@ function About({ active = true, entry = 0, onGoMain, onGoPortfolio, onOpenProjec
                   <StripReadout strips={STRIPS} current={strip} onZoom={setZoom}>
                     <ProjectEvidence
                       ids={STRIPS.find((entry) => entry.id === strip)?.projects}
-                      onOpenProject={(project) => openEvidence(project, item)}
+                      evidence={STRIPS.find((entry) => entry.id === strip)?.evidence}
+                      onOpenProject={(project, evidence) => openEvidence(project, item, evidence)}
                     />
                   </StripReadout>
                 ) : !item.versions ? (

@@ -7,7 +7,7 @@
   perspective: 1600px;
   cursor: pointer;
   opacity: 1;
-  transition: opacity 520ms var(--ease), visibility 520ms;
+  transition: opacity 140ms var(--ease), visibility 140ms;
 }
 .intro--leaving { opacity: 0; visibility: hidden; pointer-events: none; }
 

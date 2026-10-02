@@ -415,7 +415,7 @@ export default function App() {
     if (intro === 'active' && !reduced) return undefined;
     const timer = intro === 'active'
       ? window.setTimeout(() => setIntro('leaving'), 80)
-      : window.setTimeout(() => setIntro('done'), reduced ? 160 : 560);
+      : window.setTimeout(() => setIntro('done'), reduced ? 350 : 160);
     return () => window.clearTimeout(timer);
   }, [intro]);
 
@@ -690,6 +690,7 @@ export default function App() {
             onReady={markPortfolioReady}
             returnTo={origin ? {
               label: origin.label,
+              evidence: origin.evidence,
               onBack: () => go('about', { chamber: origin.chamber }),
             } : null}
             onEndProgress={onEndProgress}

@@ -33,7 +33,9 @@ export default function SmokeVeil({ progress = 0, active = true, clearing = fals
         if (finished) return;
         if (started === null) started = now;
         const duration = smoke ? CLEAR_DURATION : reduced ? 160 : 480;
-        const release = Math.min(1, (now - started) / duration);
+        // paint 전 동기 draw의 performance.now()보다 같은 프레임의 RAF 시각이 앞설 수 있다.
+        // 음수 진행도는 셰이더의 sqrt(e)를 NaN으로 만들어 연기가 한 프레임 통째로 사라진다.
+        const release = Math.max(0, Math.min(1, (now - started) / duration));
         smoke?.draw({ gather: 1, progress: release });
         drawn = Boolean(smoke);
         if (release >= 1) {

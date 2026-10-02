@@ -401,11 +401,11 @@ export function StripReadout({ strips, current, onZoom, children }) {
       <b className="core-readout__name">{strip.name}</b>
       <p className="core-readout__kept"><span className="sys">IN THIS PERIOD</span>{strip.kept}</p>
       {strip.images?.length > 0 && (
-        <ul className="core-readout__works">
+        <ul className="core-readout__works" data-strip={strip.id}>
           {strip.images.map((image, i) => (
             <li key={image.src} style={{ '--i': i }}>
               <button type="button" onClick={() => onZoom?.(image)} aria-label={`${image.label} 크게 보기`}>
-                <img src={image.src} alt={image.label} loading="lazy" draggable="false" />
+                <img src={image.preview ?? image.src} alt={image.label} loading="lazy" draggable="false" style={image.preview ? { objectFit: 'cover', transform: image.previewTransform } : undefined} />
               </button>
               <span className="sys">{image.label}</span>
             </li>

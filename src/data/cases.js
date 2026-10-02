@@ -84,28 +84,35 @@ export const CASES = {
        split 은 왼쪽 4:5 + 오른쪽 16:10(1fr:2fr 에서 높이가 맞는다), duo 는 두 장 비율이 같다.
        이전 케이스 스터디 보드(boards/)는 쓰지 않지만 파일은 남겨 둔다. */
     blocks: [
-      { type: 'full', src: '/cases/tchaikim/mockups/c01-shop-hero.webp', alt: 'Shop 히어로 — Three.js 원통 갤러리를 담은 노트북과 모바일 화면' },
+      { type: 'full', src: '/cases/tchaikim/mockups/c01-shop-hero.webp', width: 2880, height: 1760, alt: 'Shop 히어로 — Three.js 원통 갤러리를 담은 노트북과 모바일 화면' },
       {
         type: 'split',
         items: [
-          { src: '/cases/tchaikim/mockups/d01-cylinder-structure.webp', alt: '원통 갤러리 구조 — 반지름 900, 곡면 카드 8장, 한 바퀴 40초, 호버 1.12배' },
-          { video: '/cases/tchaikim/motion/v01-cylinder.webm', poster: '/cases/tchaikim/motion/v01-cylinder-poster.jpg', alt: '원통 갤러리가 돌고 가운데 카드에 커서가 닿으면 커지는 화면 녹화' },
+          { src: '/cases/tchaikim/mockups/d01-cylinder-structure.webp', width: 1440, height: 1800, alt: '원통 갤러리 구조 — 반지름 900, 곡면 카드 8장, 한 바퀴 40초, 호버 1.12배' },
+          { video: '/cases/tchaikim/motion/v01-cylinder.webm', poster: '/cases/tchaikim/motion/v01-cylinder-poster.jpg', width: 1920, height: 1200, alt: '원통 갤러리가 돌고 가운데 카드에 커서가 닿으면 커지는 화면 녹화' },
         ],
       },
       { type: 'concept' },
       {
         type: 'full',
         src: '/cases/tchaikim/mockups/e01-editorial-bg.webp',
+        width: 2880, height: 1760,
         alt: '착용컷 에디토리얼',
         // Figma VIDEO SLOT 자리: x 260 · y 440 · w 780 (프레임 2880 × 1760)
         overlay: { video: '/cases/tchaikim/motion/v03-card-hover.webm', poster: '/cases/tchaikim/motion/v03-card-hover-poster.jpg', x: 9.028, y: 25, w: 27.083, alt: '상품 카드에 커서를 올리면 착용컷이 원단 디테일로 바뀌는 화면 녹화' },
       },
-      { type: 'full', video: '/cases/tchaikim/motion/v02-orbit-slow-intro-1p5s.mp4', poster: '/cases/tchaikim/motion/v02-orbit-slow-intro-1p5s-poster.jpg', alt: 'Garment Story — 스크롤하면 원형 궤도를 따라 배자·철릭·거들로 넘어가는 화면 녹화' },
-      { type: 'full', src: '/cases/tchaikim/mockups/d02-cheollik-anatomy.webp', alt: '메인 모티프 — 철릭을 옷깃, 소매, 몸판, 치마로 나눠 읽기' },
-      { type: 'full', src: '/cases/tchaikim/mockups/c08-brands.webp', alt: '메인 브랜드 — 두 브랜드를 번갈아 보여 주는 카드 스택' },
-      { type: 'full', src: '/cases/tchaikim/mockups/s01-design-system.webp', alt: '디자인 토큰 — 타이포 스케일, 색과 대비, 버튼과 태그' },
-      { type: 'full', src: '/cases/tchaikim/mockups/s02-dev-notes.webp', alt: '개발팀 공지 — 작업 전 pull, 작업 페이지 공유, AI 작업 기록 규칙, 1920×1080 화면 기준과 Git 작업 순서' },
-      { type: 'full', src: '/cases/tchaikim/mockups/c11-main-phones.webp', alt: '모바일 메인 — 히어로, 모티프, 브랜드' },
+      { type: 'full', video: '/cases/tchaikim/motion/v02-orbit-slow-intro-1p5s.mp4', poster: '/cases/tchaikim/motion/v02-orbit-slow-intro-1p5s-poster.jpg', width: 1904, height: 874, alt: 'Garment Story — 스크롤하면 원형 궤도를 따라 배자·철릭·거들로 넘어가는 화면 녹화' },
+      { type: 'full', src: '/cases/tchaikim/mockups/d02-cheollik-anatomy.webp', width: 2880, height: 1760, alt: '메인 모티프 — 철릭을 옷깃, 소매, 몸판, 치마로 나눠 읽기' },
+      { type: 'full', src: '/cases/tchaikim/mockups/c08-brands.webp', width: 2880, height: 1760, alt: '메인 브랜드 — 두 브랜드를 번갈아 보여 주는 카드 스택' },
+      { type: 'full', src: '/cases/tchaikim/mockups/s01-design-system.webp', width: 2880, height: 1800, alt: '디자인 토큰 — 타이포 스케일, 색과 대비, 버튼과 태그' },
+      {
+        type: 'full', evidence: 'development-notes',
+        heading: '작업이 겹치지 않도록, 개발팀에 공유한 공지',
+        description: '여러 명이 동시에 개발하는 상황에서 작업 중인 페이지를 서로 알리고, 변경 내용을 페이지별 MD 파일에 남기도록 정리했습니다. Git 작업 순서와 화면 확인 환경도 함께 안내했습니다.',
+        src: '/cases/tchaikim/mockups/s02-dev-notes.webp', width: 2880, height: 1800,
+        alt: '개발팀 공지 — 작업 전 pull, 작업 페이지 공유, AI 작업 기록 규칙, 1920×1080 화면 기준과 Git 작업 순서',
+      },
+      { type: 'full', src: '/cases/tchaikim/mockups/c11-main-phones.webp', width: 2880, height: 1760, alt: '모바일 메인 — 히어로, 모티프, 브랜드' },
     ],
   },
 
@@ -165,7 +172,7 @@ export const CASES = {
       { type: 'full', src: '/cases/walga/boards/01.webp', width: 3840, height: 2160, alt: '왈가왈BOT — 내 고민, AI와 배심원이 함께 판단해드려요. 역할 PM·IA·UI Design·Frontend, 팀 5명, 5주 동안 진행' },
       { type: 'full', src: '/cases/walga/boards/02.webp', width: 3840, height: 2160, alt: '문제 — 다른 판단이 궁금하지만 이유를 비교하기 어려웠다. 사용자 설문 결과와 핵심 인사이트' },
       { type: 'full', src: '/cases/walga/boards/03.webp', width: 3840, height: 2160, alt: '판단 근거 제공, 다양한 관점 비교, 참여 범위 선택이라는 세 가지 설계 원칙과 사용자 흐름' },
-      { type: 'full', src: '/cases/walga/boards/04-2.webp', width: 3840, height: 2160, alt: '리서치에서 매일의 실행까지 흐름을 설계한 PM 역할과 5주간의 작업 과정' },
+      { type: 'full', evidence: 'team-work', src: '/cases/walga/boards/04-2.webp', width: 3840, height: 2160, alt: '리서치에서 매일의 실행까지 흐름을 설계한 PM 역할과 5주간의 작업 과정' },
       { type: 'full', src: '/cases/walga/boards/05.webp', width: 3840, height: 2160, alt: '왈랑이와 왈가닥이 캐릭터 시스템과 투표 선택지, 판결 결과, 명판관 트로피 적용 사례' },
       { type: 'full', src: '/cases/walga/boards/06.webp', width: 3840, height: 2160, alt: '이달의 명판관 랭킹, 사건 정렬 필터와 투표 상태 배지를 갖춘 배심원 광장' },
       { type: 'full', src: '/cases/walga/boards/07-2.webp', width: 3840, height: 2160, alt: '사건 작성, 추가 질문, AI 요약, 공개 범위 선택과 접수 완료까지의 사건 접수 흐름' },

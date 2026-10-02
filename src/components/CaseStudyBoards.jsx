@@ -62,6 +62,7 @@ export default function CaseStudyBoards({ blocks, active }) {
           <button
             type="button"
             className="case-boards__page"
+            data-evidence={item.evidence}
             key={item.src}
             onClick={() => open(index)}
             data-cursor="ZOOM"

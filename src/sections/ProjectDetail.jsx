@@ -19,14 +19,14 @@ const GHOST = {
  * 이미지 한 장. src 가 비면 자리만 잡는다.
  * alt 는 화면에 그리지 않는다 — 이 페이지엔 캡션이 없다.
  */
-function Shot({ src, alt, ratio, video, poster, overlay }) {
+function Shot({ src, alt, ratio, video, poster, overlay, width, height }) {
   /* overlay — 사진 위 한 자리에 영상을 겹친다(예: 착용컷 위 상품 카드의 호버 영상).
      x·y·w 는 사진 대비 % 이고 Figma 의 'VIDEO SLOT' 레이어 자리와 같다. 사진과 영상은 한 겹으로 같이 흐른다 */
   if (overlay) {
     return (
       <figure className="shot">
         <div className="shot__stack">
-          <img src={src} alt={alt || ''} loading="lazy" />
+          <img src={src} alt={alt || ''} width={width} height={height} loading="lazy" />
           <div className="shot__overlay" style={{ left: `${overlay.x}%`, top: `${overlay.y}%`, width: `${overlay.w}%` }}>
             <ShotVideo video={overlay.video} poster={overlay.poster} alt={overlay.alt} />
           </div>
@@ -37,9 +37,9 @@ function Shot({ src, alt, ratio, video, poster, overlay }) {
   return (
     <figure className="shot" style={ratio ? { '--ratio': ratio } : undefined}>
       {video
-        ? <ShotVideo video={video} poster={poster} alt={alt} />
+        ? <ShotVideo video={video} poster={poster} alt={alt} width={width} height={height} />
         : src
-          ? <img src={src} alt={alt || ''} loading="lazy" />
+          ? <img src={src} alt={alt || ''} width={width} height={height} loading="lazy" />
           : <span className="shot__slot" role="img" aria-label={alt || '준비 중인 이미지'} />}
     </figure>
   );
@@ -49,7 +49,7 @@ function Shot({ src, alt, ratio, video, poster, overlay }) {
  * 리듬 안의 짧은 인터랙션 영상 — 사진 자리에 그대로 들어간다(기기 틀 없이).
  * 화면에 들어오면 소리 없이 반복하고, 나가면 멈춘다. 모션 축소 설정이면 대표 이미지만 보인다.
  */
-function ShotVideo({ video, poster, alt }) {
+function ShotVideo({ video, poster, alt, width, height }) {
   const ref = useRef(null);
   useEffect(() => {
     const el = ref.current;
@@ -61,7 +61,9 @@ function ShotVideo({ video, poster, alt }) {
     io.observe(el);
     return () => io.disconnect();
   }, []);
-  return <video ref={ref} src={video} poster={poster} muted loop playsInline preload="metadata" aria-label={alt} />;
+  return <video ref={ref} src={video} poster={poster} width={width} height={height}
+    style={width && height ? { aspectRatio: `${width} / ${height}` } : undefined}
+    muted loop playsInline preload="metadata" aria-label={alt} />;
 }
 
 /**
@@ -106,7 +108,16 @@ function Device({ video, poster, alt }) {
 /* 이미지 리듬. 한 줄에 최대 셋까지만 간다. */
 function Row({ block }) {
   if (block.type === 'device') return <div className="row row--device" data-reveal><Device {...block} /></div>;
-  if (block.type === 'full') return <div className="row row--full" data-reveal><Shot {...block} /></div>;
+  if (block.type === 'full') return (
+    <div className="row row--full" data-reveal data-evidence={block.evidence}
+      tabIndex={block.evidence ? -1 : undefined} aria-label={block.heading}>
+      {block.heading && <header className="devidence-context">
+        <h3>{block.heading}</h3>
+        <p>{block.description}</p>
+      </header>}
+      <Shot {...block} />
+    </div>
+  );
   if (block.type === 'duo') {
     return (
       <div className="row row--duo" data-reveal>
@@ -232,6 +243,7 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   const articleRef = useRef(null);
   const railRef = useRef(null);
   const metaRef = useRef(null);
+  const jumpedEvidenceRef = useRef(null);
   const [renderSpec, setRenderSpec] = useState(spec);
   const [revealed, setRevealed] = useState(false);
   const [metaRevealed, setMetaRevealed] = useState(false);
@@ -397,6 +409,25 @@ export default function ProjectDetail({ spec, onClose, onSwitch, portal = false,
   useEffect(() => {
     if (spec && scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [spec?.id]);
+
+  // ABOUT에서 고른 협업 자료를 바로 보여 준다. 이미지 크기를 미리 확보해
+  // lazy 이미지가 로드된 뒤에도 도착 위치가 밀리지 않게 한다.
+  const evidence = returnTo?.evidence;
+  useEffect(() => {
+    if (portal || !spec || renderSpec?.id !== spec.id || evidence?.project !== spec.id
+      || jumpedEvidenceRef.current === evidence) return undefined;
+    const root = scrollRef.current;
+    const target = [...(root?.querySelectorAll('[data-evidence]') || [])]
+      .find((node) => node.dataset.evidence === evidence.section);
+    if (!root || !target) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const top = root.scrollTop + target.getBoundingClientRect().top - root.getBoundingClientRect().top;
+      root.scrollTop = Math.max(0, top - 88);
+      target.focus({ preventScroll: true });
+      jumpedEvidenceRef.current = evidence;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [portal, spec?.id, renderSpec?.id, evidence]);
 
   /* 레퍼런스처럼 첫 보드를 한 화면 가득 붙잡은 뒤, 스크롤 진행에 맞춰
      안쪽으로 축소하고 모서리를 만든다. DOM을 다시 그리지 않고 CSS 변수만 갱신한다. */

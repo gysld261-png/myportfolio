@@ -718,6 +718,20 @@
 .row--split { grid-template-columns: 1fr 2fr; }
 .row--trio { grid-template-columns: 1fr 1fr 1fr; }
 
+.devidence-context { padding: 20px 0 8px; max-width: 720px; }
+.devidence-context h3 {
+  margin: 0 0 12px;
+  color: var(--text);
+  font: 400 clamp(19px, 2vw, 28px)/1.45 var(--kr);
+  word-break: keep-all;
+}
+.devidence-context p {
+  margin: 0;
+  color: var(--muted);
+  font: 400 14px/1.8 var(--kr);
+  word-break: keep-all;
+}
+
 /* ── PC 목업 ──
    정면에 가까운 얇은 베젤 모니터. 화면 비율은 녹화한 뷰포트(1440×900 = 16:10)와 같아야
    영상이 잘리거나 늘어나지 않는다. 목과 받침은 모니터라는 걸 알려줄 만큼만. */
